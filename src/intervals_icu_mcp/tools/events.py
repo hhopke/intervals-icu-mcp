@@ -80,6 +80,7 @@ async def get_calendar_events(
                     relative_timing = f"in_{days_until}_days"
 
                 event_item: dict[str, Any] = {
+                    "id": event.id,
                     "date": date,
                     "relative_timing": relative_timing,
                     "name": event.name or event.category or "Event",
@@ -201,6 +202,7 @@ async def get_upcoming_workouts(
                     relative_timing = f"in_{days_until}_days"
 
                 workout_item: dict[str, Any] = {
+                    "id": workout.id,
                     "date": workout.start_date_local,
                     "relative_timing": relative_timing,
                     "name": workout.name or "Workout",
