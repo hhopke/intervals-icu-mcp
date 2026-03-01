@@ -50,12 +50,12 @@ async def create_event(
             error_type="validation_error",
         )
 
-    # Validate date format
+    # Validate and normalize date format (accept YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
     try:
-        datetime.strptime(start_date, "%Y-%m-%d")
+        start_date = datetime.fromisoformat(start_date).strftime("%Y-%m-%dT%H:%M:%S")
     except ValueError:
         return ResponseBuilder.build_error_response(
-            "Invalid date format. Please use YYYY-MM-DD format.",
+            "Invalid date format. Please use YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS format.",
             error_type="validation_error",
         )
 
@@ -145,13 +145,13 @@ async def update_event(
     assert ctx is not None
     config: ICUConfig = ctx.get_state("config")
 
-    # Validate date format if provided
+    # Validate and normalize date format if provided (accept YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
     if start_date:
         try:
-            datetime.strptime(start_date, "%Y-%m-%d")
+            start_date = datetime.fromisoformat(start_date).strftime("%Y-%m-%dT%H:%M:%S")
         except ValueError:
             return ResponseBuilder.build_error_response(
-                "Invalid date format. Please use YYYY-MM-DD format.",
+                "Invalid date format. Please use YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS format.",
                 error_type="validation_error",
             )
 
@@ -322,12 +322,14 @@ async def bulk_create_events(
             # Normalize category to uppercase
             event_data["category"] = event_data["category"].upper()
 
-            # Validate date format
+            # Validate and normalize date format (accept YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
             try:
-                datetime.strptime(event_data["start_date_local"], "%Y-%m-%d")
+                event_data["start_date_local"] = datetime.fromisoformat(
+                    event_data["start_date_local"]
+                ).strftime("%Y-%m-%dT%H:%M:%S")
             except ValueError:
                 return ResponseBuilder.build_error_response(
-                    f"Event {i}: Invalid date format. Please use YYYY-MM-DD format.",
+                    f"Event {i}: Invalid date format. Please use YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS format.",
                     error_type="validation_error",
                 )
 
@@ -452,12 +454,12 @@ async def duplicate_event(
     assert ctx is not None
     config: ICUConfig = ctx.get_state("config")
 
-    # Validate date format
+    # Validate and normalize date format (accept YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
     try:
-        datetime.strptime(new_date, "%Y-%m-%d")
+        new_date = datetime.fromisoformat(new_date).strftime("%Y-%m-%dT%H:%M:%S")
     except ValueError:
         return ResponseBuilder.build_error_response(
-            "Invalid date format. Please use YYYY-MM-DD format.",
+            "Invalid date format. Please use YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS format.",
             error_type="validation_error",
         )
 
