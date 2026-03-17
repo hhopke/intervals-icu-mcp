@@ -13,6 +13,7 @@ from ..response_builder import ResponseBuilder
 async def get_recent_activities(
     limit: Annotated[int, "Number of activities to fetch"] = 30,
     days_back: Annotated[int, "Number of days to look back"] = 30,
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Get recent activities for the authenticated athlete.
@@ -37,6 +38,7 @@ async def get_recent_activities(
 
         async with ICUClient(config) as client:
             activities = await client.get_activities(
+                athlete_id=athlete_id,
                 oldest=oldest,
                 limit=min(limit, 100),  # Cap at 100
             )
@@ -232,6 +234,7 @@ async def get_activity_details(
 async def search_activities(
     query: Annotated[str, "Search query (activity name or tag)"],
     limit: Annotated[int, "Maximum number of results to return"] = 30,
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Search for activities by name or tag.
@@ -258,6 +261,7 @@ async def search_activities(
     try:
         async with ICUClient(config) as client:
             results = await client.search_activities(
+                athlete_id=athlete_id,
                 query=query,
                 limit=min(limit, 100),  # Cap at 100
             )

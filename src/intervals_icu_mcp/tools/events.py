@@ -13,6 +13,7 @@ from ..response_builder import ResponseBuilder
 async def get_calendar_events(
     days_ahead: Annotated[int, "Number of days to look ahead"] = 7,
     days_back: Annotated[int, "Number of days to look back"] = 0,
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Get planned events and workouts from the calendar.
@@ -40,6 +41,7 @@ async def get_calendar_events(
 
         async with ICUClient(config) as client:
             events = await client.get_events(
+                athlete_id=athlete_id,
                 oldest=oldest,
                 newest=newest,
             )
@@ -147,6 +149,7 @@ async def get_calendar_events(
 
 async def get_upcoming_workouts(
     limit: Annotated[int, "Maximum number of workouts to return"] = 7,
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Get upcoming planned workouts from the calendar.
@@ -171,6 +174,7 @@ async def get_upcoming_workouts(
 
         async with ICUClient(config) as client:
             events = await client.get_events(
+                athlete_id=athlete_id,
                 oldest=oldest,
                 newest=newest,
             )
@@ -254,6 +258,7 @@ async def get_upcoming_workouts(
 
 async def get_event(
     event_id: Annotated[int, "Event ID to retrieve"],
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Get detailed information for a specific calendar event.
@@ -272,7 +277,7 @@ async def get_event(
 
     try:
         async with ICUClient(config) as client:
-            event = await client.get_event(event_id)
+            event = await client.get_event(event_id, athlete_id=athlete_id)
 
             event_data: dict[str, Any] = {
                 "id": event.id,

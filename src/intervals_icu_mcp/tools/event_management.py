@@ -19,6 +19,7 @@ async def create_event(
     duration_seconds: Annotated[int | None, "Planned duration in seconds"] = None,
     distance_meters: Annotated[float | None, "Planned distance in meters"] = None,
     training_load: Annotated[int | None, "Planned training load"] = None,
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Create a new calendar event (planned workout, note, race, or goal).
@@ -79,7 +80,7 @@ async def create_event(
             event_data["icu_training_load"] = training_load
 
         async with ICUClient(config) as client:
-            event = await client.create_event(event_data)
+            event = await client.create_event(event_data, athlete_id=athlete_id)
 
             event_result: dict[str, Any] = {
                 "id": event.id,
@@ -122,6 +123,7 @@ async def update_event(
     duration_seconds: Annotated[int | None, "Updated duration in seconds"] = None,
     distance_meters: Annotated[float | None, "Updated distance in meters"] = None,
     training_load: Annotated[int | None, "Updated training load"] = None,
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Update an existing calendar event.
@@ -181,7 +183,7 @@ async def update_event(
             )
 
         async with ICUClient(config) as client:
-            event = await client.update_event(event_id, event_data)
+            event = await client.update_event(event_id, event_data, athlete_id=athlete_id)
 
             event_result: dict[str, Any] = {
                 "id": event.id,
@@ -217,6 +219,7 @@ async def update_event(
 
 async def delete_event(
     event_id: Annotated[int, "Event ID to delete"],
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Delete a calendar event.
@@ -234,7 +237,7 @@ async def delete_event(
 
     try:
         async with ICUClient(config) as client:
-            success = await client.delete_event(event_id)
+            success = await client.delete_event(event_id, athlete_id=athlete_id)
 
             if success:
                 return ResponseBuilder.build_response(
@@ -261,6 +264,7 @@ async def bulk_create_events(
         str,
         "JSON string containing array of events. Each event should have: start_date_local, name, category, and optional fields like description, type, moving_time, distance, icu_training_load",
     ],
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Create multiple calendar events in a single operation.
@@ -334,7 +338,7 @@ async def bulk_create_events(
                 )
 
         async with ICUClient(config) as client:
-            created_events = await client.bulk_create_events(events_data)
+            created_events = await client.bulk_create_events(events_data, athlete_id=athlete_id)
 
             events_result: list[dict[str, Any]] = []
             for event in created_events:
@@ -377,6 +381,7 @@ async def bulk_create_events(
 
 async def bulk_delete_events(
     event_ids: Annotated[str, "JSON array of event IDs to delete (e.g., '[123, 456, 789]')"],
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Delete multiple calendar events in a single operation.
@@ -418,7 +423,7 @@ async def bulk_delete_events(
         ids_list: list[int] = parsed_data  # type: ignore[assignment]
 
         async with ICUClient(config) as client:
-            result = await client.bulk_delete_events(ids_list)
+            result = await client.bulk_delete_events(ids_list, athlete_id=athlete_id)
 
             return ResponseBuilder.build_response(
                 data={"deleted_count": len(ids_list), "event_ids": ids_list, "result": result},
@@ -437,6 +442,7 @@ async def bulk_delete_events(
 async def duplicate_event(
     event_id: Annotated[int, "Event ID to duplicate"],
     new_date: Annotated[str, "New date for the duplicated event (YYYY-MM-DD format)"],
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Duplicate an existing event to a new date.
@@ -465,7 +471,7 @@ async def duplicate_event(
 
     try:
         async with ICUClient(config) as client:
-            duplicated_event = await client.duplicate_event(event_id, new_date)
+            duplicated_event = await client.duplicate_event(event_id, new_date, athlete_id=athlete_id)
 
             event_result: dict[str, Any] = {
                 "id": duplicated_event.id,
