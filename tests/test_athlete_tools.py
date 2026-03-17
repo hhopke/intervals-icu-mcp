@@ -1,6 +1,6 @@
 """Tests for athlete tools."""
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 from httpx import Response
 
@@ -19,7 +19,7 @@ class TestGetAthleteProfile:
         """Test successful athlete profile retrieval."""
         # Create mock context with config
         mock_ctx = MagicMock()
-        mock_ctx.get_state.return_value = mock_config
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
 
         # Mock the API endpoint
         respx_mock.get("/athlete/i123456").mock(return_value=Response(200, json=mock_athlete_data))
@@ -50,7 +50,7 @@ class TestGetFitnessSummary:
         """Test successful fitness summary retrieval."""
         # Create mock context with config
         mock_ctx = MagicMock()
-        mock_ctx.get_state.return_value = mock_config
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
 
         # Mock the API endpoint
         respx_mock.get("/athlete/i123456").mock(return_value=Response(200, json=mock_athlete_data))
@@ -74,7 +74,7 @@ class TestGetFitnessSummary:
         """Test fitness summary with high ramp rate warning."""
         # Create mock context with config
         mock_ctx = MagicMock()
-        mock_ctx.get_state.return_value = mock_config
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
 
         # Modify athlete data to have high ramp rate
         athlete_data = mock_athlete_data.copy()

@@ -40,7 +40,7 @@ async def create_event(
         JSON string with created event data
     """
     assert ctx is not None
-    config: ICUConfig = ctx.get_state("config")
+    config: ICUConfig = await ctx.get_state("config")
 
     # Validate category
     valid_categories = ["WORKOUT", "NOTE", "RACE", "GOAL"]
@@ -143,7 +143,7 @@ async def update_event(
         JSON string with updated event data
     """
     assert ctx is not None
-    config: ICUConfig = ctx.get_state("config")
+    config: ICUConfig = await ctx.get_state("config")
 
     # Validate and normalize date format if provided (accept YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
     if start_date:
@@ -230,7 +230,7 @@ async def delete_event(
         JSON string with deletion confirmation
     """
     assert ctx is not None
-    config: ICUConfig = ctx.get_state("config")
+    config: ICUConfig = await ctx.get_state("config")
 
     try:
         async with ICUClient(config) as client:
@@ -275,7 +275,7 @@ async def bulk_create_events(
         JSON string with created events
     """
     assert ctx is not None
-    config: ICUConfig = ctx.get_state("config")
+    config: ICUConfig = await ctx.get_state("config")
 
     try:
         import json
@@ -391,7 +391,7 @@ async def bulk_delete_events(
         JSON string with deletion confirmation
     """
     assert ctx is not None
-    config: ICUConfig = ctx.get_state("config")
+    config: ICUConfig = await ctx.get_state("config")
 
     try:
         import json
@@ -452,7 +452,7 @@ async def duplicate_event(
         JSON string with the duplicated event
     """
     assert ctx is not None
-    config: ICUConfig = ctx.get_state("config")
+    config: ICUConfig = await ctx.get_state("config")
 
     # Validate and normalize date format (accept YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
     try:

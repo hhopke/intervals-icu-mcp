@@ -1131,9 +1131,11 @@ class ICUClient:
             Created Event object
         """
         athlete_id = athlete_id or self.config.intervals_icu_athlete_id
+        # Ensure date has T00:00:00 suffix for Intervals.icu API
+        date_with_time = new_date if "T" in new_date else f"{new_date}T00:00:00"
         response = await self._request(
             "POST",
             f"/athlete/{athlete_id}/events/{event_id}/duplicate",
-            json={"start_date_local": new_date},
+            json={"start_date_local": date_with_time},
         )
         return Event(**response.json())

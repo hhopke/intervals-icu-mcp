@@ -59,6 +59,8 @@ class AthleteProfile(BaseModel):
 class ActivitySummary(BaseModel):
     """Summary representation of an activity (for lists)."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     id: str
     start_date_local: datetime
     name: str | None = None
@@ -69,7 +71,7 @@ class ActivitySummary(BaseModel):
     total_elevation_gain: float | None = None
     average_speed: float | None = None
     average_heartrate: int | None = None
-    average_watts: int | None = None
+    average_watts: int | None = Field(default=None, alias="icu_average_watts")
     normalized_power: int | None = None
     average_cadence: float | None = None
     icu_training_load: int | None = None
@@ -88,7 +90,7 @@ class Activity(ActivitySummary):
     max_speed: float | None = None
     max_watts: int | None = None
     max_cadence: float | None = None
-    weighted_average_watts: int | None = None
+    weighted_average_watts: int | None = Field(default=None, alias="icu_weighted_avg_watts")
     variability_index: float | None = None
     efficiency_factor: float | None = None
     tss: float | None = None

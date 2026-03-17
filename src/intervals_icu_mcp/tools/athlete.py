@@ -21,7 +21,7 @@ async def get_athlete_profile(
         JSON string with athlete profile data
     """
     assert ctx is not None
-    config: ICUConfig = ctx.get_state("config")
+    config: ICUConfig = await ctx.get_state("config")
 
     try:
         async with ICUClient(config) as client:
@@ -158,7 +158,7 @@ async def get_fitness_summary(
         JSON string with fitness summary and recommendations
     """
     assert ctx is not None
-    config: ICUConfig = ctx.get_state("config")
+    config: ICUConfig = await ctx.get_state("config")
 
     try:
         async with ICUClient(config) as client:

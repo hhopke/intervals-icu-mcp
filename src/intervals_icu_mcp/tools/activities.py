@@ -28,7 +28,7 @@ async def get_recent_activities(
         JSON string with activity summaries
     """
     assert ctx is not None
-    config: ICUConfig = ctx.get_state("config")
+    config: ICUConfig = await ctx.get_state("config")
 
     try:
         # Calculate date range
@@ -112,7 +112,7 @@ async def get_activity_details(
         JSON string with detailed activity information
     """
     assert ctx is not None
-    config: ICUConfig = ctx.get_state("config")
+    config: ICUConfig = await ctx.get_state("config")
 
     try:
         async with ICUClient(config) as client:
@@ -247,7 +247,7 @@ async def search_activities(
         JSON string with matching activities
     """
     assert ctx is not None
-    config: ICUConfig = ctx.get_state("config")
+    config: ICUConfig = await ctx.get_state("config")
 
     if not query.strip():
         return ResponseBuilder.build_error_response(
@@ -328,7 +328,7 @@ async def update_activity(
         JSON string with updated activity information
     """
     assert ctx is not None
-    config: ICUConfig = ctx.get_state("config")
+    config: ICUConfig = await ctx.get_state("config")
 
     try:
         # Build update data (only include provided fields)
@@ -406,7 +406,7 @@ async def delete_activity(
         JSON string with deletion confirmation
     """
     assert ctx is not None
-    config: ICUConfig = ctx.get_state("config")
+    config: ICUConfig = await ctx.get_state("config")
 
     try:
         async with ICUClient(config) as client:
@@ -450,7 +450,7 @@ async def download_activity_file(
         JSON string with file info and base64-encoded content (if no output_path)
     """
     assert ctx is not None
-    config: ICUConfig = ctx.get_state("config")
+    config: ICUConfig = await ctx.get_state("config")
 
     try:
         async with ICUClient(config) as client:
@@ -518,7 +518,7 @@ async def download_fit_file(
         JSON string with file info and base64-encoded content (if no output_path)
     """
     assert ctx is not None
-    config: ICUConfig = ctx.get_state("config")
+    config: ICUConfig = await ctx.get_state("config")
 
     try:
         async with ICUClient(config) as client:
@@ -588,7 +588,7 @@ async def download_gpx_file(
         JSON string with file info and base64-encoded content (if no output_path)
     """
     assert ctx is not None
-    config: ICUConfig = ctx.get_state("config")
+    config: ICUConfig = await ctx.get_state("config")
 
     try:
         async with ICUClient(config) as client:
@@ -659,7 +659,7 @@ async def search_activities_full(
         JSON string with complete activity details for matches
     """
     assert ctx is not None
-    config: ICUConfig = ctx.get_state("config")
+    config: ICUConfig = await ctx.get_state("config")
 
     if not query.strip():
         return ResponseBuilder.build_error_response(
@@ -754,7 +754,7 @@ async def get_activities_around(
         JSON string with activities around the reference activity
     """
     assert ctx is not None
-    config: ICUConfig = ctx.get_state("config")
+    config: ICUConfig = await ctx.get_state("config")
 
     try:
         async with ICUClient(config) as client:

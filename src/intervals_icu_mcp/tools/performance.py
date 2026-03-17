@@ -35,7 +35,7 @@ async def get_power_curves(
         JSON string with power curve data
     """
     assert ctx is not None
-    config: ICUConfig = ctx.get_state("config")
+    config: ICUConfig = await ctx.get_state("config")
 
     try:
         # Determine date range

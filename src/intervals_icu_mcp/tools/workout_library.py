@@ -23,7 +23,7 @@ async def get_workout_library(
         JSON string with workout folders/plans
     """
     assert ctx is not None
-    config: ICUConfig = ctx.get_state("config")
+    config: ICUConfig = await ctx.get_state("config")
 
     try:
         async with ICUClient(config) as client:
@@ -107,7 +107,7 @@ async def get_workouts_in_folder(
         JSON string with workout details
     """
     assert ctx is not None
-    config: ICUConfig = ctx.get_state("config")
+    config: ICUConfig = await ctx.get_state("config")
 
     try:
         async with ICUClient(config) as client:
