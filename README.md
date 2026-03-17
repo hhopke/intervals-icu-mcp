@@ -2,6 +2,11 @@
 
 ![Intervals.icu MCP Server](docs/heading.png)
 
+> **Maintained fork** of [eddmann/intervals-icu-mcp](https://github.com/eddmann/intervals-icu-mcp) with bug fixes.
+> Upstream appears inactive — PRs were submitted but not merged. This fork includes:
+> - **Fix: date parsing** — event tools now handle ISO-8601 datetime formats correctly
+> - **Fix: missing event IDs** — calendar and workout responses now include event IDs, enabling update/delete operations
+
 A Model Context Protocol (MCP) server for Intervals.icu integration. Access your training data, wellness metrics, and performance analysis through Claude and other LLMs.
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
