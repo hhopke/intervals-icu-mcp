@@ -13,15 +13,13 @@ from .models import (
     ActivitySummary,
     Athlete,
     BestEffort,
+    CurveSet,
     Event,
     Folder,
     Gear,
     GearReminder,
     Histogram,
-    HRCurve,
     Interval,
-    PaceCurve,
-    PowerCurve,
     SportSettings,
     Wellness,
     Workout,
@@ -567,87 +565,94 @@ class ICUClient:
     async def get_power_curves(
         self,
         athlete_id: str | None = None,
-        oldest: str | None = None,
+        type: str = "Ride",
+        curves: str | None = None,
         newest: str | None = None,
-    ) -> PowerCurve:
+    ) -> CurveSet:
         """Get power curve data (best efforts for various durations).
 
         Args:
             athlete_id: Athlete ID (uses config default if not provided)
-            oldest: Oldest date to include (ISO-8601 format)
+            type: Sport type (e.g., Ride, Run, Swim). Required by the API.
+            curves: Comma-separated curve specs (e.g., "42d", "1y", "s0", "all").
+                    Defaults to last year if not specified.
             newest: Newest date to include (ISO-8601 format)
 
         Returns:
-            PowerCurve with best efforts data
+            CurveSet with best efforts data
         """
         athlete_id = athlete_id or self.config.intervals_icu_athlete_id
-        params = {}
+        params: dict[str, str] = {"type": type}
 
-        if oldest:
-            params["oldest"] = oldest
+        if curves:
+            params["curves"] = curves
         if newest:
             params["newest"] = newest
 
         response = await self._request("GET", f"/athlete/{athlete_id}/power-curves", params=params)
-        return PowerCurve(**response.json())
+        return CurveSet(**response.json())
 
     async def get_hr_curves(
         self,
         athlete_id: str | None = None,
-        oldest: str | None = None,
+        type: str = "Ride",
+        curves: str | None = None,
         newest: str | None = None,
-    ) -> HRCurve:
+    ) -> CurveSet:
         """Get heart rate curve data (best efforts for various durations).
 
         Args:
             athlete_id: Athlete ID (uses config default if not provided)
-            oldest: Oldest date to include (ISO-8601 format)
+            type: Sport type (e.g., Ride, Run, Swim). Required by the API.
+            curves: Comma-separated curve specs (e.g., "42d", "1y", "s0", "all").
             newest: Newest date to include (ISO-8601 format)
 
         Returns:
-            HRCurve with best efforts data
+            CurveSet with best efforts data
         """
         athlete_id = athlete_id or self.config.intervals_icu_athlete_id
-        params = {}
+        params: dict[str, str] = {"type": type}
 
-        if oldest:
-            params["oldest"] = oldest
+        if curves:
+            params["curves"] = curves
         if newest:
             params["newest"] = newest
 
         response = await self._request("GET", f"/athlete/{athlete_id}/hr-curves", params=params)
-        return HRCurve(**response.json())
+        return CurveSet(**response.json())
 
     async def get_pace_curves(
         self,
         athlete_id: str | None = None,
-        oldest: str | None = None,
+        type: str = "Run",
+        curves: str | None = None,
         newest: str | None = None,
         use_gap: bool = False,
-    ) -> PaceCurve:
+    ) -> CurveSet:
         """Get pace curve data (best efforts for various durations).
 
         Args:
             athlete_id: Athlete ID (uses config default if not provided)
-            oldest: Oldest date to include (ISO-8601 format)
+            type: Sport type (e.g., Run, Swim). Required by the API.
+            curves: Comma-separated curve specs (e.g., "42d", "1y", "s0", "all").
             newest: Newest date to include (ISO-8601 format)
             use_gap: Use Grade Adjusted Pace for running (default False)
 
         Returns:
-            PaceCurve with best efforts data
+            CurveSet with best efforts data
         """
         athlete_id = athlete_id or self.config.intervals_icu_athlete_id
-        params = {}
+        params: dict[str, str] = {"type": type}
 
-        if oldest:
-            params["oldest"] = oldest
+        if curves:
+            params["curves"] = curves
         if newest:
             params["newest"] = newest
         if use_gap:
             params["gap"] = "true"
 
         response = await self._request("GET", f"/athlete/{athlete_id}/pace-curves", params=params)
-        return PaceCurve(**response.json())
+        return CurveSet(**response.json())
 
     # ==================== Workout Library Endpoints ====================
 
@@ -1110,32 +1115,39 @@ class ICUClient:
         """
         athlete_id = athlete_id or self.config.intervals_icu_athlete_id
         response = await self._request(
-            "DELETE", f"/athlete/{athlete_id}/events/bulk", json={"ids": event_ids}
+            "PUT",
+            f"/athlete/{athlete_id}/events/bulk-delete",
+            json=[{"id": eid} for eid in event_ids],
         )
         return response.json()
 
-    async def duplicate_event(
+    async def duplicate_events(
         self,
-        event_id: int,
-        new_date: str,
+        event_ids: list[int],
+        num_copies: int = 1,
+        weeks_between: int = 1,
         athlete_id: str | None = None,
-    ) -> Event:
-        """Duplicate an existing event to a new date.
+    ) -> list[Event]:
+        """Duplicate one or more events on the calendar.
 
         Args:
-            event_id: Event ID to duplicate
-            new_date: New date for the duplicated event (ISO-8601 format)
+            event_ids: List of event IDs to duplicate
+            num_copies: Number of copies to create (default 1)
+            weeks_between: Weeks between each copy (default 1)
             athlete_id: Athlete ID (uses config default if not provided)
 
         Returns:
-            Created Event object
+            List of created Event objects
         """
         athlete_id = athlete_id or self.config.intervals_icu_athlete_id
-        # Ensure date has T00:00:00 suffix for Intervals.icu API
-        date_with_time = new_date if "T" in new_date else f"{new_date}T00:00:00"
         response = await self._request(
             "POST",
-            f"/athlete/{athlete_id}/events/{event_id}/duplicate",
-            json={"start_date_local": date_with_time},
+            f"/athlete/{athlete_id}/duplicate-events",
+            json={
+                "eventIds": event_ids,
+                "numCopies": num_copies,
+                "weeksBetween": weeks_between,
+            },
         )
-        return Event(**response.json())
+        adapter = TypeAdapter(list[Event])
+        return adapter.validate_python(response.json())

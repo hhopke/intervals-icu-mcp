@@ -237,42 +237,27 @@ class Folder(BaseModel):
 # ==================== Power Curve Models ====================
 
 
-class DataCurvePt(BaseModel):
-    """Single point on a power/HR/pace curve."""
+class CurveData(BaseModel):
+    """A single curve from the API (one time range)."""
 
-    secs: int  # Duration in seconds
-    watts: int | None = None  # For power curves
-    bpm: int | None = None  # For HR curves
-    pace: float | None = None  # For pace curves (min/km)
-    src_activity_id: str | None = None  # Activity where this effort occurred
-    date: str | None = None  # Date of the effort
+    model_config = ConfigDict(populate_by_name=True)
 
-
-class PowerCurve(BaseModel):
-    """Power curve data for an athlete."""
-
-    name: str | None = None
-    type: str | None = None
-    athlete_id: str | None = None
-    data: list[DataCurvePt] = Field(default_factory=list[DataCurvePt])
+    secs: list[int] = Field(default_factory=lambda: list[int]())
+    values: list[int] = Field(default_factory=lambda: list[int]())
+    activity_id: list[str] = Field(default_factory=lambda: list[str]())
+    watts_per_kg: list[float] = Field(default_factory=lambda: list[float]())
+    start_date_local: str | None = None
+    end_date_local: str | None = None
+    days: int | None = None
+    weight: float | None = None
 
 
-class HRCurve(BaseModel):
-    """Heart rate curve data for an athlete."""
+class CurveSet(BaseModel):
+    """Wrapper returned by all curve API endpoints (power, HR, pace)."""
 
-    name: str | None = None
-    type: str | None = None
-    athlete_id: str | None = None
-    data: list[DataCurvePt] = Field(default_factory=list[DataCurvePt])
+    model_config = ConfigDict(populate_by_name=True)
 
-
-class PaceCurve(BaseModel):
-    """Pace curve data for an athlete."""
-
-    name: str | None = None
-    type: str | None = None
-    athlete_id: str | None = None
-    data: list[DataCurvePt] = Field(default_factory=list[DataCurvePt])
+    curves: list[CurveData] = Field(default_factory=lambda: list[CurveData](), alias="list")
 
 
 # ==================== Training Plan Models ====================

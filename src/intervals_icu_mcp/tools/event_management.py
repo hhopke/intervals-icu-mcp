@@ -1,7 +1,7 @@
 """Event/calendar management tools for Intervals.icu MCP server."""
 
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from fastmcp import Context
 
@@ -439,70 +439,94 @@ async def bulk_delete_events(
         )
 
 
-async def duplicate_event(
-    event_id: Annotated[int, "Event ID to duplicate"],
-    new_date: Annotated[str, "New date for the duplicated event (YYYY-MM-DD format)"],
+async def duplicate_events(
+    event_ids: Annotated[str, "JSON array of event IDs to duplicate (e.g., '[123, 456]')"],
+    num_copies: Annotated[int, "Number of copies to create"] = 1,
+    weeks_between: Annotated[int, "Weeks between each copy"] = 1,
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
-    """Duplicate an existing event to a new date.
+    """Duplicate one or more calendar events.
 
-    Creates a copy of an event with all its properties (name, type, duration, etc.)
-    but with a new date. Useful for repeating workouts or events.
+    Creates copies of the specified events, placed at weekly intervals from
+    the original dates. Useful for repeating workouts across multiple weeks.
 
     Args:
-        event_id: ID of the event to duplicate
-        new_date: New date in YYYY-MM-DD format
+        event_ids: JSON array of event IDs to duplicate
+        num_copies: Number of copies to create (default 1)
+        weeks_between: Weeks between each copy (default 1)
 
     Returns:
-        JSON string with the duplicated event
+        JSON string with the duplicated events
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
 
-    # Validate and normalize date format (accept YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
-    try:
-        new_date = datetime.fromisoformat(new_date).strftime("%Y-%m-%dT%H:%M:%S")
-    except ValueError:
-        return ResponseBuilder.build_error_response(
-            "Invalid date format. Please use YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS format.",
-            error_type="validation_error",
-        )
+    import json
 
     try:
+        parsed = json.loads(event_ids)
+        if not isinstance(parsed, list) or not all(isinstance(v, int) for v in cast(list[Any], parsed)):
+            return ResponseBuilder.build_error_response(
+                "event_ids must be a JSON array of integers (e.g., '[123, 456]')",
+                error_type="validation_error",
+            )
+        ids_list = cast(list[int], parsed)
+
+        if num_copies < 1:
+            return ResponseBuilder.build_error_response(
+                "num_copies must be at least 1",
+                error_type="validation_error",
+            )
+
+        if weeks_between < 1:
+            return ResponseBuilder.build_error_response(
+                "weeks_between must be at least 1",
+                error_type="validation_error",
+            )
+
         async with ICUClient(config) as client:
-            duplicated_event = await client.duplicate_event(event_id, new_date, athlete_id=athlete_id)
+            duplicated = await client.duplicate_events(
+                event_ids=ids_list,
+                num_copies=num_copies,
+                weeks_between=weeks_between,
+                athlete_id=athlete_id,
+            )
 
-            event_result: dict[str, Any] = {
-                "id": duplicated_event.id,
-                "start_date": duplicated_event.start_date_local,
-                "name": duplicated_event.name,
-                "category": duplicated_event.category,
-                "original_event_id": event_id,
-            }
-
-            if duplicated_event.description:
-                event_result["description"] = duplicated_event.description
-            if duplicated_event.type:
-                event_result["type"] = duplicated_event.type
-            if duplicated_event.moving_time:
-                event_result["duration_seconds"] = duplicated_event.moving_time
-            if duplicated_event.distance:
-                event_result["distance_meters"] = duplicated_event.distance
-            if duplicated_event.icu_training_load:
-                event_result["training_load"] = duplicated_event.icu_training_load
+            events_result: list[dict[str, Any]] = []
+            for event in duplicated:
+                event_item: dict[str, Any] = {
+                    "id": event.id,
+                    "start_date": event.start_date_local,
+                    "name": event.name,
+                    "category": event.category,
+                }
+                if event.type:
+                    event_item["type"] = event.type
+                if event.moving_time:
+                    event_item["duration_seconds"] = event.moving_time
+                if event.icu_training_load:
+                    event_item["training_load"] = event.icu_training_load
+                events_result.append(event_item)
 
             return ResponseBuilder.build_response(
-                data=event_result,
-                query_type="duplicate_event",
+                data={"events": events_result, "duplicated_count": len(events_result)},
+                query_type="duplicate_events",
                 metadata={
-                    "message": f"Successfully duplicated event {event_id} to {new_date}",
-                    "original_event_id": event_id,
+                    "message": f"Duplicated {len(ids_list)} event(s), {num_copies} copies each",
+                    "original_event_ids": ids_list,
+                    "num_copies": num_copies,
+                    "weeks_between": weeks_between,
                 },
             )
 
     except ICUAPIError as e:
         return ResponseBuilder.build_error_response(e.message, error_type="api_error")
+    except json.JSONDecodeError:
+        return ResponseBuilder.build_error_response(
+            "Invalid JSON format for event_ids. Use format: '[123, 456]'",
+            error_type="validation_error",
+        )
     except Exception as e:
         return ResponseBuilder.build_error_response(
             f"Unexpected error: {str(e)}", error_type="internal_error"

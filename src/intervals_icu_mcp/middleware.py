@@ -36,7 +36,7 @@ class ConfigMiddleware(Middleware):
 
         # Inject config into context state for tools to access
         if context.fastmcp_context:
-            await context.fastmcp_context.set_state("config", config)  # type: ignore[misc]
+            await context.fastmcp_context.set_state("config", config, serializable=False)
 
         # Continue to the tool execution
         return await call_next(context)

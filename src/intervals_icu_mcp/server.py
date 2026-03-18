@@ -46,7 +46,7 @@ from .tools.event_management import (
     bulk_delete_events,
     create_event,
     delete_event,
-    duplicate_event,
+    duplicate_events,
     update_event,
 )
 from .tools.events import get_calendar_events, get_event, get_upcoming_workouts
@@ -109,7 +109,7 @@ mcp.tool()(update_event)
 mcp.tool()(delete_event)
 mcp.tool()(bulk_create_events)
 mcp.tool()(bulk_delete_events)
-mcp.tool()(duplicate_event)
+mcp.tool()(duplicate_events)
 
 # Register performance/curve tools
 mcp.tool()(get_power_curves)
@@ -328,6 +328,103 @@ Provide a structured weekly plan with:
 - Reasoning for the schedule based on current form
 
 Then offer to create the events in my calendar if I approve the plan."""
+
+
+@mcp.prompt()
+async def verify_setup() -> str:
+    """Verify the MCP server is working by exercising core tools against your account."""
+    return """Verify my Intervals.icu MCP server setup by running through each tool category.
+Run each step, report the result, and flag any errors.
+
+Step 1 - Athlete Profile:
+  Call get_athlete_profile. Confirm name, athlete ID, and that sport settings are returned.
+
+Step 2 - Fitness Metrics:
+  Call get_fitness_summary. Confirm CTL, ATL, TSB, and ramp rate are present.
+
+Step 3 - Recent Activities:
+  Call get_recent_activities with limit=3 and days_back=14.
+  Confirm activities are returned with id, name, type, and distance.
+  Check that average_watts is populated for cycling activities (verifies Pydantic alias mapping).
+
+Step 4 - Activity Search:
+  Pick the name of one activity from Step 3 and call search_activities with that name.
+  Confirm it returns matching results.
+
+Step 5 - Calendar Events:
+  Call get_calendar_events with days_ahead=14 and days_back=7.
+  Confirm each event includes an id field (needed for update/delete operations).
+  Note whether dates are returned as full ISO-8601 datetimes.
+
+Step 6 - Upcoming Workouts:
+  Call get_upcoming_workouts with limit=5.
+  Confirm each workout includes an id field.
+
+Step 7 - Wellness Data:
+  Call get_wellness_data with days=7. Confirm HRV, sleep, and subjective metrics are present.
+
+Step 8 - Power Curves:
+  Call get_power_curves with period="42days". Confirm data points are returned.
+
+Step 9 - Event Lifecycle (create, read, update, duplicate, delete):
+  a) Call create_event with start_date tomorrow, name="MCP Verification Test",
+     category="NOTE". Confirm the event is created and an id is returned.
+  b) Call get_event with that id. Confirm the event details match.
+  c) Call update_event with that id, changing the name to "MCP Verification Test - Updated".
+  d) Call duplicate_events with that id (as JSON array) to create a copy 1 week later.
+     Confirm the duplicate has a new id and correct date.
+  e) Call delete_event on both the original and duplicated event ids.
+     Confirm both are deleted.
+
+Step 10 - Workout Library:
+  Call get_workout_library. Confirm folders are returned.
+
+Present a summary table at the end:
+| Step | Tool(s) | Status | Notes |
+Report any failures with the error message so they can be investigated."""
+
+
+@mcp.prompt()
+async def verify_multi_athlete(athlete_id: str) -> str:
+    """Verify multi-athlete support by querying a specific athlete's data.
+
+    Args:
+        athlete_id: The Intervals.icu athlete ID to test against (e.g., "i987654")
+    """
+    return f"""Verify multi-athlete support by querying athlete {athlete_id}.
+This tests that the athlete_id parameter correctly routes API requests to a different
+athlete than the default configured one. You must have coach access to this athlete.
+
+Run each step with athlete_id="{athlete_id}" and report the result.
+
+Step 1 - Activities:
+  Call get_recent_activities with athlete_id="{athlete_id}", limit=3, days_back=14.
+  Confirm activities are returned for the correct athlete.
+
+Step 2 - Activity Search:
+  Call search_activities with athlete_id="{athlete_id}" and a generic query like "ride".
+
+Step 3 - Calendar Events:
+  Call get_calendar_events with athlete_id="{athlete_id}", days_ahead=14.
+  Confirm events include id fields.
+
+Step 4 - Upcoming Workouts:
+  Call get_upcoming_workouts with athlete_id="{athlete_id}", limit=5.
+
+Step 5 - Get Event:
+  If any events were returned in Step 3, call get_event with one of those ids
+  and athlete_id="{athlete_id}".
+
+Step 6 - Event Lifecycle:
+  a) Call create_event with athlete_id="{athlete_id}", start_date tomorrow,
+     name="Coach Test Event", category="NOTE".
+  b) Call update_event with athlete_id="{athlete_id}", changing the name.
+  c) Call duplicate_events with athlete_id="{athlete_id}" to create a copy 1 week later.
+  d) Call delete_event on both events with athlete_id="{athlete_id}".
+
+Present a summary table:
+| Step | Tool | athlete_id Used | Status | Notes |
+Flag any 401/403 errors as permission issues (coach access required)."""
 
 
 def main():

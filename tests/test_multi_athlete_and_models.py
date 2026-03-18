@@ -11,7 +11,7 @@ from intervals_icu_mcp.tools.event_management import (
     bulk_delete_events,
     create_event,
     delete_event,
-    duplicate_event,
+    duplicate_events,
     update_event,
 )
 from intervals_icu_mcp.tools.events import get_calendar_events, get_event, get_upcoming_workouts
@@ -165,20 +165,21 @@ class TestMultiAthleteEventManagement:
         assert response["data"]["deleted"] is True
         assert COACH_ATHLETE in respx_mock.calls.last.request.url.path
 
-    async def test_duplicate_event_with_athlete_id(self, mock_config, respx_mock, mock_event_data):
-        dup_data = {**mock_event_data, "id": 1002, "start_date_local": "2026-03-25"}
-        respx_mock.post(f"/athlete/{COACH_ATHLETE}/events/1001/duplicate").mock(
+    async def test_duplicate_events_with_athlete_id(self, mock_config, respx_mock, mock_event_data):
+        dup_data = [{**mock_event_data, "id": 1002, "start_date_local": "2026-03-25"}]
+        respx_mock.post(f"/athlete/{COACH_ATHLETE}/duplicate-events").mock(
             return_value=Response(200, json=dup_data)
         )
 
-        result = await duplicate_event(
-            event_id=1001,
-            new_date="2026-03-25",
+        result = await duplicate_events(
+            event_ids="[1001]",
+            num_copies=1,
+            weeks_between=1,
             athlete_id=COACH_ATHLETE,
             ctx=make_ctx(mock_config),
         )
         response = json.loads(result)
-        assert response["data"]["id"] == 1002
+        assert response["data"]["duplicated_count"] == 1
         assert COACH_ATHLETE in respx_mock.calls.last.request.url.path
 
     async def test_bulk_create_events_with_athlete_id(self, mock_config, respx_mock):
@@ -203,7 +204,7 @@ class TestMultiAthleteEventManagement:
         assert COACH_ATHLETE in respx_mock.calls.last.request.url.path
 
     async def test_bulk_delete_events_with_athlete_id(self, mock_config, respx_mock):
-        respx_mock.delete(f"/athlete/{COACH_ATHLETE}/events/bulk").mock(
+        respx_mock.put(f"/athlete/{COACH_ATHLETE}/events/bulk-delete").mock(
             return_value=Response(200, json={"deleted": 2})
         )
 
@@ -289,14 +290,18 @@ class TestDateHandling:
         request_body = json.loads(respx_mock.calls.last.request.content)
         assert request_body["start_date_local"] == "2026-03-20T00:00:00"
 
-    async def test_duplicate_event_adds_time_suffix(self, mock_config, respx_mock, mock_event_data):
-        """duplicate_event adds T00:00:00 suffix via the client."""
-        dup_data = {**mock_event_data, "id": 1002, "start_date_local": "2026-03-25T00:00:00"}
-        respx_mock.post("/athlete/i123456/events/1001/duplicate").mock(
+    async def test_duplicate_events_sends_correct_body(self, mock_config, respx_mock, mock_event_data):
+        """duplicate_events sends eventIds, numCopies, weeksBetween to the correct endpoint."""
+        dup_data = [{**mock_event_data, "id": 1002}]
+        respx_mock.post("/athlete/i123456/duplicate-events").mock(
             return_value=Response(200, json=dup_data)
         )
 
-        await duplicate_event(event_id=1001, new_date="2026-03-25", ctx=make_ctx(mock_config))
+        await duplicate_events(
+            event_ids="[1001]", num_copies=2, weeks_between=3, ctx=make_ctx(mock_config)
+        )
 
         request_body = json.loads(respx_mock.calls.last.request.content)
-        assert request_body["start_date_local"] == "2026-03-25T00:00:00"
+        assert request_body["eventIds"] == [1001]
+        assert request_body["numCopies"] == 2
+        assert request_body["weeksBetween"] == 3

@@ -1,6 +1,5 @@
 """Performance analysis tools for Intervals.icu MCP server."""
 
-from datetime import datetime, timedelta
 from typing import Annotated, Any
 
 from fastmcp import Context
@@ -10,7 +9,20 @@ from ..client import ICUAPIError, ICUClient
 from ..response_builder import ResponseBuilder
 
 
+def _find_value_at_duration(
+    secs: list[int], values: list[int], target: int
+) -> tuple[int, int] | None:
+    """Find the value closest to target duration. Returns (secs, value) or None."""
+    if not secs:
+        return None
+    best_idx = min(range(len(secs)), key=lambda i: abs(secs[i] - target))
+    if abs(secs[best_idx] - target) <= target * 0.1:
+        return secs[best_idx], values[best_idx]
+    return None
+
+
 async def get_power_curves(
+    sport_type: Annotated[str, "Sport type (e.g., Ride, Run, Swim, VirtualRide)"] = "Ride",
     days_back: Annotated[int | None, "Number of days to analyze (optional)"] = None,
     time_period: Annotated[
         str | None,
@@ -38,27 +50,19 @@ async def get_power_curves(
     config: ICUConfig = await ctx.get_state("config")
 
     try:
-        # Determine date range
-        oldest = None
-
+        # Convert days_back/time_period to curves format
         if days_back is not None:
-            oldest_date = datetime.now() - timedelta(days=days_back)
-            oldest = oldest_date.strftime("%Y-%m-%d")
+            curves = f"{days_back}d"
             period_label = f"{days_back}_days"
         elif time_period:
             period_map = {
-                "week": 7,
-                "month": 30,
-                "year": 365,
+                "week": ("7d", "week"),
+                "month": ("30d", "month"),
+                "year": ("1y", "year"),
+                "all": ("all", "all_time"),
             }
             if time_period.lower() in period_map:
-                days = period_map[time_period.lower()]
-                oldest_date = datetime.now() - timedelta(days=days)
-                oldest = oldest_date.strftime("%Y-%m-%d")
-                period_label = time_period.lower()
-            elif time_period.lower() == "all":
-                oldest = None
-                period_label = "all_time"
+                curves, period_label = period_map[time_period.lower()]
             else:
                 return ResponseBuilder.build_error_response(
                     "Invalid time_period. Use 'week', 'month', 'year', or 'all'",
@@ -66,14 +70,13 @@ async def get_power_curves(
                 )
         else:
             # Default to 90 days
-            oldest_date = datetime.now() - timedelta(days=90)
-            oldest = oldest_date.strftime("%Y-%m-%d")
+            curves = "90d"
             period_label = "90_days"
 
         async with ICUClient(config) as client:
-            power_curve = await client.get_power_curves(oldest=oldest)
+            curve_set = await client.get_power_curves(curves=curves, type=sport_type)
 
-            if not power_curve.data or len(power_curve.data) == 0:
+            if not curve_set.curves or not curve_set.curves[0].values:
                 return ResponseBuilder.build_response(
                     data={"power_curve": [], "period": period_label},
                     metadata={
@@ -81,6 +84,11 @@ async def get_power_curves(
                         "Complete some rides with power to build your power curve."
                     },
                 )
+
+            curve = curve_set.curves[0]
+            secs = curve.secs
+            vals = curve.values
+            activity_ids = curve.activity_id
 
             # Key durations to highlight (in seconds)
             key_durations = {
@@ -97,61 +105,48 @@ async def get_power_curves(
 
             # Find data points for key durations
             peak_efforts: dict[str, dict[str, Any]] = {}
-            for seconds, label in key_durations.items():
-                # Find closest data point
-                closest_point = min(
-                    power_curve.data,
-                    key=lambda p: abs(p.secs - seconds),
-                    default=None,
-                )
-
-                if closest_point and abs(closest_point.secs - seconds) <= seconds * 0.1:
-                    # Only include if within 10% of target duration
+            for target_secs, label in key_durations.items():
+                result = _find_value_at_duration(secs, vals, target_secs)
+                if result:
+                    actual_secs, watts = result
                     effort: dict[str, Any] = {
-                        "watts": closest_point.watts,
-                        "duration_seconds": closest_point.secs,
+                        "watts": watts,
+                        "duration_seconds": actual_secs,
                     }
-                    if closest_point.date:
-                        effort["date"] = closest_point.date
-                    if closest_point.src_activity_id:
-                        effort["activity_id"] = closest_point.src_activity_id
-
+                    # Find activity_id for this data point
+                    idx = secs.index(actual_secs)
+                    if idx < len(activity_ids) and activity_ids[idx]:
+                        effort["activity_id"] = activity_ids[idx]
                     peak_efforts[label] = effort
 
             # Calculate summary statistics
-            max_power_point = max(power_curve.data, key=lambda p: p.watts or 0)
-            min_duration = min(power_curve.data, key=lambda p: p.secs)
-            max_duration = max(power_curve.data, key=lambda p: p.secs)
+            max_watts = max(vals) if vals else 0
+            max_watts_idx = vals.index(max_watts) if vals else 0
 
             summary: dict[str, Any] = {
-                "total_data_points": len(power_curve.data),
-                "max_power_watts": max_power_point.watts,
-                "max_power_duration_seconds": max_power_point.secs,
+                "total_data_points": len(secs),
+                "max_power_watts": max_watts,
+                "max_power_duration_seconds": secs[max_watts_idx] if secs else 0,
                 "duration_range": {
-                    "min_seconds": min_duration.secs,
-                    "max_seconds": max_duration.secs,
+                    "min_seconds": min(secs) if secs else 0,
+                    "max_seconds": max(secs) if secs else 0,
                 },
             }
 
-            # If we have dates, show range
-            dates = [p.date for p in power_curve.data if p.date]
-            if dates:
-                summary["effort_date_range"] = {"oldest": min(dates), "newest": max(dates)}
+            if curve.start_date_local and curve.end_date_local:
+                summary["effort_date_range"] = {
+                    "oldest": curve.start_date_local,
+                    "newest": curve.end_date_local,
+                }
 
             # Calculate FTP and power zones (based on 20-min power)
-            twenty_min_point = min(
-                power_curve.data,
-                key=lambda p: abs(p.secs - 1200),
-                default=None,
-            )
-
             ftp_analysis = None
-            if twenty_min_point and abs(twenty_min_point.secs - 1200) <= 120:
-                # Estimate FTP as 95% of 20-min power
-                estimated_ftp = int((twenty_min_point.watts or 0) * 0.95)
+            twenty_min = _find_value_at_duration(secs, vals, 1200)
+            if twenty_min:
+                _, twenty_min_watts = twenty_min
+                estimated_ftp = int(twenty_min_watts * 0.95)
 
                 if estimated_ftp > 0:
-                    # Power zones
                     zones = {
                         "recovery": (0, 0.55),
                         "endurance": (0.56, 0.75),
@@ -171,7 +166,7 @@ async def get_power_curves(
                         }
 
                     ftp_analysis = {
-                        "twenty_min_power": twenty_min_point.watts,
+                        "twenty_min_power": twenty_min_watts,
                         "estimated_ftp": estimated_ftp,
                         "power_zones": power_zones,
                     }

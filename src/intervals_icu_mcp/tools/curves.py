@@ -1,6 +1,5 @@
 """Additional performance curve tools for Intervals.icu MCP server."""
 
-from datetime import datetime, timedelta
 from typing import Annotated, Any
 
 from fastmcp import Context
@@ -10,7 +9,42 @@ from ..client import ICUAPIError, ICUClient
 from ..response_builder import ResponseBuilder
 
 
+def _find_value_at_duration(
+    secs: list[int], values: list[int], target: int
+) -> tuple[int, int] | None:
+    """Find the value closest to target duration. Returns (secs, value) or None."""
+    if not secs:
+        return None
+    best_idx = min(range(len(secs)), key=lambda i: abs(secs[i] - target))
+    if abs(secs[best_idx] - target) <= target * 0.1:
+        return secs[best_idx], values[best_idx]
+    return None
+
+
+def _resolve_period(
+    days_back: int | None, time_period: str | None
+) -> tuple[str, str] | str:
+    """Resolve days_back/time_period to (curves, period_label) or error string."""
+    if days_back is not None:
+        return f"{days_back}d", f"{days_back}_days"
+    if time_period:
+        period_map = {
+            "week": ("7d", "week"),
+            "month": ("30d", "month"),
+            "year": ("1y", "year"),
+            "all": ("all", "all_time"),
+        }
+        if time_period.lower() in period_map:
+            return period_map[time_period.lower()]
+        return ResponseBuilder.build_error_response(
+            "Invalid time_period. Use 'week', 'month', 'year', or 'all'",
+            error_type="validation_error",
+        )
+    return "90d", "90_days"
+
+
 async def get_hr_curves(
+    sport_type: Annotated[str, "Sport type (e.g., Ride, Run, Swim, VirtualRide)"] = "Ride",
     days_back: Annotated[int | None, "Number of days to analyze (optional)"] = None,
     time_period: Annotated[
         str | None,
@@ -38,42 +72,15 @@ async def get_hr_curves(
     config: ICUConfig = await ctx.get_state("config")
 
     try:
-        # Determine date range
-        oldest = None
-
-        if days_back is not None:
-            oldest_date = datetime.now() - timedelta(days=days_back)
-            oldest = oldest_date.strftime("%Y-%m-%d")
-            period_label = f"{days_back}_days"
-        elif time_period:
-            period_map = {
-                "week": 7,
-                "month": 30,
-                "year": 365,
-            }
-            if time_period.lower() in period_map:
-                days = period_map[time_period.lower()]
-                oldest_date = datetime.now() - timedelta(days=days)
-                oldest = oldest_date.strftime("%Y-%m-%d")
-                period_label = time_period.lower()
-            elif time_period.lower() == "all":
-                oldest = None
-                period_label = "all_time"
-            else:
-                return ResponseBuilder.build_error_response(
-                    "Invalid time_period. Use 'week', 'month', 'year', or 'all'",
-                    error_type="validation_error",
-                )
-        else:
-            # Default to 90 days
-            oldest_date = datetime.now() - timedelta(days=90)
-            oldest = oldest_date.strftime("%Y-%m-%d")
-            period_label = "90_days"
+        period = _resolve_period(days_back, time_period)
+        if isinstance(period, str):
+            return period
+        curves, period_label = period
 
         async with ICUClient(config) as client:
-            hr_curve = await client.get_hr_curves(oldest=oldest)
+            curve_set = await client.get_hr_curves(curves=curves, type=sport_type)
 
-            if not hr_curve.data or len(hr_curve.data) == 0:
+            if not curve_set.curves or not curve_set.curves[0].values:
                 return ResponseBuilder.build_response(
                     data={"hr_curve": [], "period": period_label},
                     metadata={
@@ -81,6 +88,10 @@ async def get_hr_curves(
                         "Complete some activities with heart rate to build your HR curve."
                     },
                 )
+
+            curve = curve_set.curves[0]
+            secs = curve.secs
+            vals = curve.values
 
             # Key durations to highlight (in seconds)
             key_durations = {
@@ -97,51 +108,42 @@ async def get_hr_curves(
 
             # Find data points for key durations
             peak_efforts: dict[str, dict[str, Any]] = {}
-            for seconds, label in key_durations.items():
-                # Find closest data point
-                closest_point = min(
-                    hr_curve.data,
-                    key=lambda p: abs(p.secs - seconds),
-                    default=None,
-                )
-
-                if closest_point and abs(closest_point.secs - seconds) <= seconds * 0.1:
-                    # Only include if within 10% of target duration
+            for target_secs, label in key_durations.items():
+                result = _find_value_at_duration(secs, vals, target_secs)
+                if result:
+                    actual_secs, bpm = result
                     effort: dict[str, Any] = {
-                        "bpm": closest_point.bpm,
-                        "duration_seconds": closest_point.secs,
+                        "bpm": bpm,
+                        "duration_seconds": actual_secs,
                     }
-                    if closest_point.date:
-                        effort["date"] = closest_point.date
-                    if closest_point.src_activity_id:
-                        effort["activity_id"] = closest_point.src_activity_id
-
+                    idx = secs.index(actual_secs)
+                    if idx < len(curve.activity_id) and curve.activity_id[idx]:
+                        effort["activity_id"] = curve.activity_id[idx]
                     peak_efforts[label] = effort
 
             # Calculate summary statistics
-            max_hr_point = max(hr_curve.data, key=lambda p: p.bpm or 0)
-            min_duration = min(hr_curve.data, key=lambda p: p.secs)
-            max_duration = max(hr_curve.data, key=lambda p: p.secs)
+            max_hr = max(vals) if vals else 0
+            max_hr_idx = vals.index(max_hr) if vals else 0
 
             summary: dict[str, Any] = {
-                "total_data_points": len(hr_curve.data),
-                "max_hr_bpm": max_hr_point.bpm,
-                "max_hr_duration_seconds": max_hr_point.secs,
+                "total_data_points": len(secs),
+                "max_hr_bpm": max_hr,
+                "max_hr_duration_seconds": secs[max_hr_idx] if secs else 0,
                 "duration_range": {
-                    "min_seconds": min_duration.secs,
-                    "max_seconds": max_duration.secs,
+                    "min_seconds": min(secs) if secs else 0,
+                    "max_seconds": max(secs) if secs else 0,
                 },
             }
 
-            # If we have dates, show range
-            dates = [p.date for p in hr_curve.data if p.date]
-            if dates:
-                summary["effort_date_range"] = {"oldest": min(dates), "newest": max(dates)}
+            if curve.start_date_local and curve.end_date_local:
+                summary["effort_date_range"] = {
+                    "oldest": curve.start_date_local,
+                    "newest": curve.end_date_local,
+                }
 
             # Calculate HR zones (based on max HR if available)
             hr_zones: dict[str, dict[str, int]] | None = None
-            if max_hr_point.bpm:
-                max_hr = max_hr_point.bpm
+            if max_hr > 0:
                 zones = {
                     "zone_1_recovery": (0.50, 0.60),
                     "zone_2_endurance": (0.60, 0.70),
@@ -182,6 +184,7 @@ async def get_hr_curves(
 
 
 async def get_pace_curves(
+    sport_type: Annotated[str, "Sport type (e.g., Run, Swim)"] = "Run",
     days_back: Annotated[int | None, "Number of days to analyze (optional)"] = None,
     time_period: Annotated[
         str | None,
@@ -211,42 +214,17 @@ async def get_pace_curves(
     config: ICUConfig = await ctx.get_state("config")
 
     try:
-        # Determine date range
-        oldest = None
-
-        if days_back is not None:
-            oldest_date = datetime.now() - timedelta(days=days_back)
-            oldest = oldest_date.strftime("%Y-%m-%d")
-            period_label = f"{days_back}_days"
-        elif time_period:
-            period_map = {
-                "week": 7,
-                "month": 30,
-                "year": 365,
-            }
-            if time_period.lower() in period_map:
-                days = period_map[time_period.lower()]
-                oldest_date = datetime.now() - timedelta(days=days)
-                oldest = oldest_date.strftime("%Y-%m-%d")
-                period_label = time_period.lower()
-            elif time_period.lower() == "all":
-                oldest = None
-                period_label = "all_time"
-            else:
-                return ResponseBuilder.build_error_response(
-                    "Invalid time_period. Use 'week', 'month', 'year', or 'all'",
-                    error_type="validation_error",
-                )
-        else:
-            # Default to 90 days
-            oldest_date = datetime.now() - timedelta(days=90)
-            oldest = oldest_date.strftime("%Y-%m-%d")
-            period_label = "90_days"
+        period = _resolve_period(days_back, time_period)
+        if isinstance(period, str):
+            return period
+        curves, period_label = period
 
         async with ICUClient(config) as client:
-            pace_curve = await client.get_pace_curves(oldest=oldest, use_gap=use_gap)
+            curve_set = await client.get_pace_curves(
+                curves=curves, type=sport_type, use_gap=use_gap
+            )
 
-            if not pace_curve.data or len(pace_curve.data) == 0:
+            if not curve_set.curves or not curve_set.curves[0].values:
                 return ResponseBuilder.build_response(
                     data={"pace_curve": [], "period": period_label, "gap_enabled": use_gap},
                     metadata={
@@ -254,6 +232,10 @@ async def get_pace_curves(
                         "Complete some runs/swims to build your pace curve."
                     },
                 )
+
+            curve = curve_set.curves[0]
+            secs = curve.secs
+            vals = curve.values
 
             # Key durations to highlight (in seconds)
             key_durations = {
@@ -268,59 +250,50 @@ async def get_pace_curves(
             }
 
             # Find data points for key durations
+            # Pace values are in seconds per km (lower = faster)
             peak_efforts: dict[str, dict[str, Any]] = {}
-            for seconds, label in key_durations.items():
-                # Find closest data point
-                closest_point = min(
-                    pace_curve.data,
-                    key=lambda p: abs(p.secs - seconds),
-                    default=None,
-                )
-
-                if closest_point and abs(closest_point.secs - seconds) <= seconds * 0.1:
-                    # Only include if within 10% of target duration
+            for target_secs, label in key_durations.items():
+                result = _find_value_at_duration(secs, vals, target_secs)
+                if result:
+                    actual_secs, pace_val = result
+                    # Convert pace from seconds/km to min:sec/km
+                    pace_min = pace_val // 60
+                    pace_sec = pace_val % 60
                     effort: dict[str, Any] = {
-                        "pace_min_per_km": closest_point.pace,
-                        "duration_seconds": closest_point.secs,
+                        "pace_seconds_per_km": pace_val,
+                        "pace_formatted": f"{pace_min}:{pace_sec:02d} /km",
+                        "duration_seconds": actual_secs,
                     }
-                    # Convert pace to min:sec per km format
-                    if closest_point.pace:
-                        minutes = int(closest_point.pace)
-                        seconds_part = int((closest_point.pace - minutes) * 60)
-                        effort["pace_formatted"] = f"{minutes}:{seconds_part:02d} /km"
-
-                    if closest_point.date:
-                        effort["date"] = closest_point.date
-                    if closest_point.src_activity_id:
-                        effort["activity_id"] = closest_point.src_activity_id
-
+                    idx = secs.index(actual_secs)
+                    if idx < len(curve.activity_id) and curve.activity_id[idx]:
+                        effort["activity_id"] = curve.activity_id[idx]
                     peak_efforts[label] = effort
 
-            # Calculate summary statistics
-            best_pace_point = min(pace_curve.data, key=lambda p: p.pace or float("inf"))
-            min_duration = min(pace_curve.data, key=lambda p: p.secs)
-            max_duration = max(pace_curve.data, key=lambda p: p.secs)
+            # Calculate summary statistics (best pace = lowest value)
+            best_pace = min(vals) if vals else 0
+            best_pace_idx = vals.index(best_pace) if vals else 0
 
             summary: dict[str, Any] = {
-                "total_data_points": len(pace_curve.data),
-                "best_pace_min_per_km": best_pace_point.pace,
-                "best_pace_duration_seconds": best_pace_point.secs,
+                "total_data_points": len(secs),
+                "best_pace_seconds_per_km": best_pace,
+                "best_pace_duration_seconds": secs[best_pace_idx] if secs else 0,
                 "duration_range": {
-                    "min_seconds": min_duration.secs,
-                    "max_seconds": max_duration.secs,
+                    "min_seconds": min(secs) if secs else 0,
+                    "max_seconds": max(secs) if secs else 0,
                 },
                 "gap_enabled": use_gap,
             }
 
-            if best_pace_point.pace:
-                minutes = int(best_pace_point.pace)
-                seconds_part = int((best_pace_point.pace - minutes) * 60)
-                summary["best_pace_formatted"] = f"{minutes}:{seconds_part:02d} /km"
+            if best_pace > 0:
+                pace_min = best_pace // 60
+                pace_sec = best_pace % 60
+                summary["best_pace_formatted"] = f"{pace_min}:{pace_sec:02d} /km"
 
-            # If we have dates, show range
-            dates = [p.date for p in pace_curve.data if p.date]
-            if dates:
-                summary["effort_date_range"] = {"oldest": min(dates), "newest": max(dates)}
+            if curve.start_date_local and curve.end_date_local:
+                summary["effort_date_range"] = {
+                    "oldest": curve.start_date_local,
+                    "newest": curve.end_date_local,
+                }
 
             result_data: dict[str, Any] = {
                 "period": period_label,
