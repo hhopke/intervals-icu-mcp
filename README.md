@@ -2,10 +2,28 @@
 
 ![Intervals.icu MCP Server](docs/heading.png)
 
-> **Maintained fork** of [eddmann/intervals-icu-mcp](https://github.com/eddmann/intervals-icu-mcp) with bug fixes.
-> Upstream appears inactive — PRs were submitted but not merged. This fork includes:
-> - **Fix: date parsing** — event tools now handle ISO-8601 datetime formats correctly
-> - **Fix: missing event IDs** — calendar and workout responses now include event IDs, enabling update/delete operations
+> **Maintained fork** of [eddmann/intervals-icu-mcp](https://github.com/eddmann/intervals-icu-mcp) with bug fixes and new features.
+> Upstream appears inactive — PRs were submitted but not merged.
+>
+> ### Changes from upstream
+>
+> **Bug fixes (all pre-existing in upstream)**
+> - **Power/HR/pace curves** — rewrote curve models to match actual API response format (`CurveSet` with parallel `secs`/`values` arrays), added required `type` parameter, replaced broken `oldest` date param with correct `curves` format (`42d`, `1y`, `all`)
+> - **Fitness summary** — CTL/ATL/TSB now fetched from wellness endpoint (was returning empty from athlete endpoint)
+> - **Duplicate events** — fixed endpoint to `POST /duplicate-events` with correct batch body format
+> - **Bulk delete** — fixed endpoint to `PUT /events/bulk-delete` with correct `[{id: N}]` body
+> - **Date parsing** — event tools now handle ISO-8601 datetime formats correctly
+> - **Missing event IDs** — calendar and workout responses include event IDs, enabling update/delete operations
+>
+> **New features**
+> - **Multi-athlete support** — optional `athlete_id` parameter on activity, event, and calendar tools to query other athletes
+> - **Pydantic field aliases** — `icu_average_watts` → `average_watts` with `populate_by_name=True`
+> - **MCP prompts for testing** — `verify-setup` and `verify-multi-athlete` prompts for live validation
+>
+> **Infrastructure**
+> - Upgraded to FastMCP 3.x (`fastmcp>=3.0.0`) with proper middleware serialization handling
+> - Added middleware integration tests using FastMCP in-process Client
+> - Added tests for multi-athlete routing, model aliases, and date handling
 
 A Model Context Protocol (MCP) server for Intervals.icu integration. Access your training data, wellness metrics, and performance analysis through Claude and other LLMs.
 
@@ -310,7 +328,7 @@ _Note: The athlete profile resource (`intervals-icu://athlete/profile`) automati
 | `delete-event`          | Remove events from calendar                                |
 | `bulk-create-events`    | Create multiple events in a single operation               |
 | `bulk-delete-events`    | Delete multiple events in a single operation               |
-| `duplicate-event`       | Duplicate an event to a new date                           |
+| `duplicate-events`      | Duplicate one or more events with configurable copies and spacing |
 
 ### Performance/Curves (3 tools)
 
