@@ -47,13 +47,13 @@ class TestMultiAthleteActivities:
         assert response["data"]["count"] == 0
 
         # Verify the request went to the coach's athlete, not the default
-        assert respx_mock.calls.last.request.url.path == f"/api/v1/athlete/{COACH_ATHLETE}/activities"
+        assert (
+            respx_mock.calls.last.request.url.path == f"/api/v1/athlete/{COACH_ATHLETE}/activities"
+        )
 
     async def test_get_recent_activities_default_athlete(self, mock_config, respx_mock):
         """Without athlete_id, uses the configured default."""
-        respx_mock.get("/athlete/i123456/activities").mock(
-            return_value=Response(200, json=[])
-        )
+        respx_mock.get("/athlete/i123456/activities").mock(return_value=Response(200, json=[]))
 
         result = await get_recent_activities(limit=5, days_back=7, ctx=make_ctx(mock_config))
         response = json.loads(result)
@@ -71,7 +71,10 @@ class TestMultiAthleteActivities:
         )
         response = json.loads(result)
         assert "data" in response
-        assert respx_mock.calls.last.request.url.path == f"/api/v1/athlete/{COACH_ATHLETE}/activities/search"
+        assert (
+            respx_mock.calls.last.request.url.path
+            == f"/api/v1/athlete/{COACH_ATHLETE}/activities/search"
+        )
 
 
 # ==================== Multi-athlete: Events ====================
@@ -81,9 +84,7 @@ class TestMultiAthleteEvents:
     """Test athlete_id passthrough on event tools."""
 
     async def test_get_calendar_events_with_athlete_id(self, mock_config, respx_mock):
-        respx_mock.get(f"/athlete/{COACH_ATHLETE}/events").mock(
-            return_value=Response(200, json=[])
-        )
+        respx_mock.get(f"/athlete/{COACH_ATHLETE}/events").mock(return_value=Response(200, json=[]))
 
         result = await get_calendar_events(
             days_ahead=7, athlete_id=COACH_ATHLETE, ctx=make_ctx(mock_config)
@@ -93,9 +94,7 @@ class TestMultiAthleteEvents:
         assert COACH_ATHLETE in respx_mock.calls.last.request.url.path
 
     async def test_get_upcoming_workouts_with_athlete_id(self, mock_config, respx_mock):
-        respx_mock.get(f"/athlete/{COACH_ATHLETE}/events").mock(
-            return_value=Response(200, json=[])
-        )
+        respx_mock.get(f"/athlete/{COACH_ATHLETE}/events").mock(return_value=Response(200, json=[]))
 
         result = await get_upcoming_workouts(
             limit=5, athlete_id=COACH_ATHLETE, ctx=make_ctx(mock_config)
@@ -108,9 +107,7 @@ class TestMultiAthleteEvents:
             return_value=Response(200, json=mock_event_data)
         )
 
-        result = await get_event(
-            event_id=1001, athlete_id=COACH_ATHLETE, ctx=make_ctx(mock_config)
-        )
+        result = await get_event(event_id=1001, athlete_id=COACH_ATHLETE, ctx=make_ctx(mock_config))
         response = json.loads(result)
         assert response["data"]["id"] == 1001
         assert COACH_ATHLETE in respx_mock.calls.last.request.url.path
@@ -191,10 +188,12 @@ class TestMultiAthleteEventManagement:
             return_value=Response(200, json=created)
         )
 
-        events_json = json.dumps([
-            {"start_date_local": "2026-03-20", "name": "W1", "category": "WORKOUT"},
-            {"start_date_local": "2026-03-21", "name": "W2", "category": "WORKOUT"},
-        ])
+        events_json = json.dumps(
+            [
+                {"start_date_local": "2026-03-20", "name": "W1", "category": "WORKOUT"},
+                {"start_date_local": "2026-03-21", "name": "W2", "category": "WORKOUT"},
+            ]
+        )
 
         result = await bulk_create_events(
             events=events_json, athlete_id=COACH_ATHLETE, ctx=make_ctx(mock_config)
@@ -266,9 +265,7 @@ class TestDateHandling:
                 "type": "Run",
             }
         ]
-        respx_mock.get("/athlete/i123456/events").mock(
-            return_value=Response(200, json=events)
-        )
+        respx_mock.get("/athlete/i123456/events").mock(return_value=Response(200, json=events))
 
         result = await get_calendar_events(days_ahead=7, ctx=make_ctx(mock_config))
         response = json.loads(result)
@@ -290,7 +287,9 @@ class TestDateHandling:
         request_body = json.loads(respx_mock.calls.last.request.content)
         assert request_body["start_date_local"] == "2026-03-20T00:00:00"
 
-    async def test_duplicate_events_sends_correct_body(self, mock_config, respx_mock, mock_event_data):
+    async def test_duplicate_events_sends_correct_body(
+        self, mock_config, respx_mock, mock_event_data
+    ):
         """duplicate_events sends eventIds, numCopies, weeksBetween to the correct endpoint."""
         dup_data = [{**mock_event_data, "id": 1002}]
         respx_mock.post("/athlete/i123456/duplicate-events").mock(

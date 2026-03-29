@@ -466,7 +466,9 @@ async def duplicate_events(
 
     try:
         parsed = json.loads(event_ids)
-        if not isinstance(parsed, list) or not all(isinstance(v, int) for v in cast(list[Any], parsed)):
+        if not isinstance(parsed, list) or not all(
+            isinstance(v, int) for v in cast(list[Any], parsed)
+        ):
             return ResponseBuilder.build_error_response(
                 "event_ids must be a JSON array of integers (e.g., '[123, 456]')",
                 error_type="validation_error",
@@ -527,6 +529,78 @@ async def duplicate_events(
             "Invalid JSON format for event_ids. Use format: '[123, 456]'",
             error_type="validation_error",
         )
+    except Exception as e:
+        return ResponseBuilder.build_error_response(
+            f"Unexpected error: {str(e)}", error_type="internal_error"
+        )
+
+
+async def apply_training_plan(
+    folder_id: Annotated[int, "Folder ID of the training plan to apply"],
+    start_date_local: Annotated[str, "Start date in ISO-8601 format (YYYY-MM-DD)"],
+    extra_workouts_json: Annotated[str | None, "Optional JSON array of additional workouts"] = None,
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
+    ctx: Context | None = None,
+) -> str:
+    """Apply a training plan.
+
+    Programmatically applies an entire training plan (workout folders/schedules) 
+    directly onto an athlete's calendar.
+
+    Args:
+        folder_id: Folder ID of the training plan
+        start_date_local: Start date in YYYY-MM-DD format
+        extra_workouts_json: Optional JSON string of extra workout objects
+
+    Returns:
+        JSON string with application confirmation
+    """
+    assert ctx is not None
+    config: ICUConfig = await ctx.get_state("config")
+
+    # Validate and normalize date format
+    try:
+        start_date_local = datetime.fromisoformat(start_date_local).strftime("%Y-%m-%dT00:00:00")
+    except ValueError:
+        return ResponseBuilder.build_error_response(
+            "Invalid date format. Please use YYYY-MM-DD format.",
+            error_type="validation_error",
+        )
+
+    # Parse extra workouts if provided
+    extra_workouts: list[dict[str, Any]] | None = None
+    if extra_workouts_json:
+        import json
+        try:
+            extra_workouts = json.loads(extra_workouts_json)
+            if not isinstance(extra_workouts, list):
+                return ResponseBuilder.build_error_response(
+                    "extra_workouts_json must be a JSON array",
+                    error_type="validation_error",
+                )
+        except json.JSONDecodeError as e:
+            return ResponseBuilder.build_error_response(
+                f"Invalid JSON format for extra_workouts_json: {str(e)}",
+                error_type="validation_error",
+            )
+
+    try:
+        async with ICUClient(config) as client:
+            response = await client.apply_training_plan(
+                folder_id=folder_id,
+                start_date_local=start_date_local,
+                extra_workouts=extra_workouts,
+                athlete_id=athlete_id,
+            )
+
+            return ResponseBuilder.build_response(
+                data=response,
+                query_type="apply_training_plan",
+                metadata={"message": f"Successfully applied training plan folder {folder_id}"},
+            )
+
+    except ICUAPIError as e:
+        return ResponseBuilder.build_error_response(e.message, error_type="api_error")
     except Exception as e:
         return ResponseBuilder.build_error_response(
             f"Unexpected error: {str(e)}", error_type="internal_error"

@@ -21,9 +21,7 @@ def _find_value_at_duration(
     return None
 
 
-def _resolve_period(
-    days_back: int | None, time_period: str | None
-) -> tuple[str, str] | str:
+def _resolve_period(days_back: int | None, time_period: str | None) -> tuple[str, str] | str:
     """Resolve days_back/time_period to (curves, period_label) or error string."""
     if days_back is not None:
         return f"{days_back}d", f"{days_back}_days"

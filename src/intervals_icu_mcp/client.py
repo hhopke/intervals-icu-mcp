@@ -284,6 +284,27 @@ class ICUClient:
         response = await self._request("PUT", f"/activity/{activity_id}", json=activity_data)
         return Activity(**response.json())
 
+    async def bulk_create_manual_activities(
+        self,
+        activities: list[dict[str, Any]],
+        athlete_id: str | None = None,
+    ) -> list[Activity]:
+        """Create or update multiple manual activities in bulk.
+
+        Args:
+            activities: List of activity data dictionaries
+            athlete_id: Athlete ID (uses config default if not provided)
+
+        Returns:
+            List of created or updated Activity objects
+        """
+        athlete_id = athlete_id or self.config.intervals_icu_athlete_id
+        response = await self._request(
+            "POST", f"/athlete/{athlete_id}/activities/manual/bulk", json=activities
+        )
+        adapter = TypeAdapter(list[Activity])
+        return adapter.validate_python(response.json())
+
     async def delete_activity(
         self,
         activity_id: str,
@@ -561,6 +582,38 @@ class ICUClient:
         response = await self._request("GET", f"/athlete/{athlete_id}/events/{event_id}")
         return Event(**response.json())
 
+    async def apply_training_plan(
+        self,
+        folder_id: int,
+        start_date_local: str,
+        extra_workouts: list[dict[str, Any]] | None = None,
+        athlete_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Programmatically apply an entire training plan onto an athlete's calendar.
+
+        Args:
+            folder_id: Folder ID of the training plan
+            start_date_local: Start date in ISO-8601 format (YYYY-MM-DD)
+            extra_workouts: Optional list of additional workouts
+            athlete_id: Athlete ID (uses config default if not provided)
+
+        Returns:
+            Response dictionary confirmation
+        """
+        athlete_id = athlete_id or self.config.intervals_icu_athlete_id
+        
+        payload: dict[str, Any] = {
+            "folder_id": folder_id,
+            "start_date_local": start_date_local,
+        }
+        if extra_workouts is not None:
+            payload["extra_workouts"] = extra_workouts
+
+        response = await self._request(
+            "POST", f"/athlete/{athlete_id}/events/apply-plan", json=payload
+        )
+        return response.json()
+
     # ==================== Performance Curve Endpoints ====================
 
     async def get_power_curves(
@@ -716,6 +769,49 @@ class ICUClient:
         )
         adapter = TypeAdapter(list[ActivityStream])
         return adapter.validate_python(response.json())
+
+    async def update_activity_streams(
+        self,
+        activity_id: str,
+        streams: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Update streams for the activity from JSON.
+
+        Args:
+            activity_id: Activity ID
+            streams: List of stream data dictionaries
+
+        Returns:
+            Response dictionary confirmation
+        """
+        response = await self._request("PUT", f"/activity/{activity_id}/streams", json=streams)
+        return response.json()
+
+    async def update_activity_streams_csv(
+        self,
+        activity_id: str,
+        csv_data: str,
+    ) -> dict[str, Any]:
+        """Update streams for the activity from CSV.
+
+        Args:
+            activity_id: Activity ID
+            csv_data: Stream data in CSV format
+
+        Returns:
+            Response dictionary confirmation
+        """
+        response = await self._request(
+            "PUT",
+            f"/activity/{activity_id}/streams.csv",
+            content=csv_data.encode("utf-8"),
+            headers={"Content-Type": "text/csv"}
+        )
+        try:
+            return response.json()
+        except Exception:
+            # Fallback if the API returns non-JSON or empty for CSV upload
+            return {"status": "success", "text": response.text}
 
     async def get_best_efforts(
         self,

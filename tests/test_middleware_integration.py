@@ -32,13 +32,19 @@ def integration_server(_env_credentials):
     async def inspect_config(ctx: Context) -> str:
         """Test tool that inspects the config object from middleware."""
         config = await ctx.get_state("config")
-        return json.dumps({
-            "type": type(config).__name__,
-            "has_api_key_attr": hasattr(config, "intervals_icu_api_key"),
-            "has_athlete_id_attr": hasattr(config, "intervals_icu_athlete_id"),
-            "api_key": config.intervals_icu_api_key if hasattr(config, "intervals_icu_api_key") else None,
-            "athlete_id": config.intervals_icu_athlete_id if hasattr(config, "intervals_icu_athlete_id") else None,
-        })
+        return json.dumps(
+            {
+                "type": type(config).__name__,
+                "has_api_key_attr": hasattr(config, "intervals_icu_api_key"),
+                "has_athlete_id_attr": hasattr(config, "intervals_icu_athlete_id"),
+                "api_key": config.intervals_icu_api_key
+                if hasattr(config, "intervals_icu_api_key")
+                else None,
+                "athlete_id": config.intervals_icu_athlete_id
+                if hasattr(config, "intervals_icu_athlete_id")
+                else None,
+            }
+        )
 
     return server
 

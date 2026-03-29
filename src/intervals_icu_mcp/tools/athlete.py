@@ -214,14 +214,10 @@ async def get_fitness_summary(
                     analysis["form_interpretation"] = "You're very fresh - good for racing!"
                 elif tsb > 5:
                     analysis["form_status"] = "recovered"
-                    analysis["form_interpretation"] = (
-                        "You're recovered and ready for hard training"
-                    )
+                    analysis["form_interpretation"] = "You're recovered and ready for hard training"
                 elif tsb > -10:
                     analysis["form_status"] = "optimal"
-                    analysis["form_interpretation"] = (
-                        "Optimal zone - productive training possible"
-                    )
+                    analysis["form_interpretation"] = "Optimal zone - productive training possible"
                 elif tsb > -30:
                     analysis["form_status"] = "fatigued"
                     analysis["form_interpretation"] = (

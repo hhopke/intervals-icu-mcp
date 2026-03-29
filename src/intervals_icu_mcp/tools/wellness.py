@@ -10,6 +10,105 @@ from ..client import ICUAPIError, ICUClient
 from ..response_builder import ResponseBuilder
 
 
+def _format_wellness_record(record: Any, date_id: str) -> dict[str, Any]:
+    """Format a wellness record object into a structured dictionary."""
+    day_data: dict[str, Any] = {"date": date_id}
+
+    # Sleep
+    sleep: dict[str, Any] = {}
+    if getattr(record, "sleep_secs", None):
+        sleep["duration_seconds"] = record.sleep_secs
+    if getattr(record, "sleep_quality", None):
+        sleep["quality"] = record.sleep_quality
+    if getattr(record, "sleep_score", None):
+        sleep["score"] = round(record.sleep_score, 0)
+    if getattr(record, "avg_sleeping_hr", None):
+        sleep["avg_sleeping_hr"] = round(record.avg_sleeping_hr, 0)
+    if sleep:
+        day_data["sleep"] = sleep
+
+    # Heart metrics
+    heart: dict[str, Any] = {}
+    if getattr(record, "hrv", None):
+        heart["hrv_rmssd"] = round(record.hrv, 1)
+    if getattr(record, "hrv_sdnn", None):
+        heart["hrv_sdnn"] = round(record.hrv_sdnn, 1)
+    if getattr(record, "resting_hr", None):
+        heart["resting_hr"] = record.resting_hr
+    if getattr(record, "baevsky_si", None):
+        heart["baevsky_si"] = round(record.baevsky_si, 1)
+    if heart:
+        day_data["heart"] = heart
+
+    # Subjective feelings
+    subjective: dict[str, Any] = {}
+    for field in ["fatigue", "soreness", "stress", "mood", "motivation", "injury"]:
+        if getattr(record, field, None):
+            subjective[field] = getattr(record, field)
+    if getattr(record, "readiness", None):
+        subjective["readiness"] = round(record.readiness, 0)
+    if subjective:
+        day_data["subjective"] = subjective
+
+    # Body metrics
+    body: dict[str, Any] = {}
+    if getattr(record, "weight", None):
+        body["weight_kg"] = record.weight
+    if getattr(record, "body_fat", None):
+        body["body_fat_percent"] = round(record.body_fat, 1)
+    if body:
+        day_data["body"] = body
+
+    # Vital signs
+    vitals: dict[str, Any] = {}
+    if getattr(record, "systolic", None):
+        vitals["systolic_mmhg"] = record.systolic
+    if getattr(record, "diastolic", None):
+        vitals["diastolic_mmhg"] = record.diastolic
+    if getattr(record, "spo2", None):
+        vitals["spo2_percent"] = round(record.spo2, 1)
+    if getattr(record, "respiration", None):
+        vitals["respiration_rate"] = round(record.respiration, 1)
+    if vitals:
+        day_data["vitals"] = vitals
+
+    # Activity & Nutrition
+    activity: dict[str, Any] = {}
+    if getattr(record, "steps", None):
+        activity["steps"] = record.steps
+    if getattr(record, "kcal_consumed", None):
+        activity["calories_consumed"] = record.kcal_consumed
+    if getattr(record, "hydration_volume", None):
+        activity["hydration_liters"] = round(record.hydration_volume, 1)
+    if activity:
+        day_data["activity_nutrition"] = activity
+
+    # Training load
+    training: dict[str, Any] = {}
+    for field in ["ctl", "atl", "tsb", "ramp_rate"]:
+        if getattr(record, field, None):
+            training[field] = round(getattr(record, field), 1)
+    if training:
+        day_data["training"] = training
+
+    # Other metrics
+    other: dict[str, Any] = {}
+    if getattr(record, "blood_glucose", None):
+        other["blood_glucose_mmol_per_l"] = round(record.blood_glucose, 1)
+    if getattr(record, "lactate", None):
+        other["lactate_mmol_per_l"] = round(record.lactate, 1)
+    if getattr(record, "menstrual_phase", None):
+        other["menstrual_phase"] = record.menstrual_phase
+    if other:
+        day_data["other"] = other
+
+    # Comments
+    if getattr(record, "comments", None):
+        day_data["comments"] = record.comments
+
+    return day_data
+
+
 async def get_wellness_data(
     days_back: Annotated[int, "Number of days to look back"] = 7,
     ctx: Context | None = None,
@@ -51,85 +150,7 @@ async def get_wellness_data(
 
             wellness_data: list[dict[str, Any]] = []
             for record in wellness_records:
-                day_data: dict[str, Any] = {"date": record.id}
-
-                # Sleep metrics
-                sleep: dict[str, Any] = {}
-                if record.sleep_secs:
-                    sleep["duration_seconds"] = record.sleep_secs
-                if record.sleep_quality:
-                    sleep["quality"] = record.sleep_quality
-                if record.sleep_score:
-                    sleep["score"] = round(record.sleep_score, 0)
-                if record.avg_sleeping_hr:
-                    sleep["avg_sleeping_hr"] = round(record.avg_sleeping_hr, 0)
-                if sleep:
-                    day_data["sleep"] = sleep
-
-                # HRV and resting HR
-                heart: dict[str, Any] = {}
-                if record.hrv:
-                    heart["hrv_rmssd"] = round(record.hrv, 1)
-                if record.hrv_sdnn:
-                    heart["hrv_sdnn"] = round(record.hrv_sdnn, 1)
-                if record.resting_hr:
-                    heart["resting_hr"] = record.resting_hr
-                if heart:
-                    day_data["heart"] = heart
-
-                # Subjective metrics
-                subjective: dict[str, Any] = {}
-                if record.fatigue:
-                    subjective["fatigue"] = record.fatigue
-                if record.soreness:
-                    subjective["soreness"] = record.soreness
-                if record.stress:
-                    subjective["stress"] = record.stress
-                if record.mood:
-                    subjective["mood"] = record.mood
-                if record.motivation:
-                    subjective["motivation"] = record.motivation
-                if subjective:
-                    day_data["subjective"] = subjective
-
-                # Body metrics
-                body: dict[str, Any] = {}
-                if record.weight:
-                    body["weight_kg"] = record.weight
-                if record.body_fat:
-                    body["body_fat_percent"] = round(record.body_fat, 1)
-                if body:
-                    day_data["body"] = body
-
-                # Training load
-                training: dict[str, Any] = {}
-                if record.ctl:
-                    training["ctl"] = round(record.ctl, 1)
-                if record.atl:
-                    training["atl"] = round(record.atl, 1)
-                if record.tsb:
-                    training["tsb"] = round(record.tsb, 1)
-                if training:
-                    day_data["training"] = training
-
-                # Other metrics
-                other: dict[str, Any] = {}
-                if record.steps:
-                    other["steps"] = record.steps
-                if record.kcal_consumed:
-                    other["calories_consumed"] = record.kcal_consumed
-                if record.hydration_volume:
-                    other["hydration_liters"] = round(record.hydration_volume, 1)
-                if record.readiness:
-                    other["readiness"] = round(record.readiness, 0)
-                if other:
-                    day_data["other"] = other
-
-                # Comments
-                if record.comments:
-                    day_data["comments"] = record.comments
-
-                wellness_data.append(day_data)
+                wellness_data.append(_format_wellness_record(record, record.id))
 
             # Calculate trends if we have multiple days
             trends: dict[str, Any] = {}
@@ -216,113 +237,7 @@ async def get_wellness_for_date(
         async with ICUClient(config) as client:
             wellness = await client.get_wellness_for_date(date=date)
 
-            wellness_data: dict[str, Any] = {"date": date}
-
-            # Sleep
-            sleep: dict[str, Any] = {}
-            if wellness.sleep_secs:
-                sleep["duration_seconds"] = wellness.sleep_secs
-            if wellness.sleep_quality:
-                sleep["quality"] = wellness.sleep_quality
-            if wellness.sleep_score:
-                sleep["score"] = round(wellness.sleep_score, 0)
-            if wellness.avg_sleeping_hr:
-                sleep["avg_sleeping_hr"] = round(wellness.avg_sleeping_hr, 0)
-            if sleep:
-                wellness_data["sleep"] = sleep
-
-            # Heart metrics
-            heart: dict[str, Any] = {}
-            if wellness.hrv:
-                heart["hrv_rmssd"] = round(wellness.hrv, 1)
-            if wellness.hrv_sdnn:
-                heart["hrv_sdnn"] = round(wellness.hrv_sdnn, 1)
-            if wellness.resting_hr:
-                heart["resting_hr"] = wellness.resting_hr
-            if wellness.baevsky_si:
-                heart["baevsky_si"] = round(wellness.baevsky_si, 1)
-            if heart:
-                wellness_data["heart"] = heart
-
-            # Subjective feelings
-            subjective: dict[str, Any] = {}
-            if wellness.fatigue:
-                subjective["fatigue"] = wellness.fatigue
-            if wellness.soreness:
-                subjective["soreness"] = wellness.soreness
-            if wellness.stress:
-                subjective["stress"] = wellness.stress
-            if wellness.mood:
-                subjective["mood"] = wellness.mood
-            if wellness.motivation:
-                subjective["motivation"] = wellness.motivation
-            if wellness.readiness:
-                subjective["readiness"] = round(wellness.readiness, 0)
-            if wellness.injury:
-                subjective["injury"] = wellness.injury
-            if subjective:
-                wellness_data["subjective"] = subjective
-
-            # Body metrics
-            body: dict[str, Any] = {}
-            if wellness.weight:
-                body["weight_kg"] = wellness.weight
-            if wellness.body_fat:
-                body["body_fat_percent"] = round(wellness.body_fat, 1)
-            if body:
-                wellness_data["body"] = body
-
-            # Vital signs
-            vitals: dict[str, Any] = {}
-            if wellness.systolic:
-                vitals["systolic_mmhg"] = wellness.systolic
-            if wellness.diastolic:
-                vitals["diastolic_mmhg"] = wellness.diastolic
-            if wellness.spo2:
-                vitals["spo2_percent"] = round(wellness.spo2, 1)
-            if wellness.respiration:
-                vitals["respiration_rate"] = round(wellness.respiration, 1)
-            if vitals:
-                wellness_data["vitals"] = vitals
-
-            # Activity & Nutrition
-            activity_nutrition: dict[str, Any] = {}
-            if wellness.steps:
-                activity_nutrition["steps"] = wellness.steps
-            if wellness.kcal_consumed:
-                activity_nutrition["calories_consumed"] = wellness.kcal_consumed
-            if wellness.hydration_volume:
-                activity_nutrition["hydration_liters"] = round(wellness.hydration_volume, 1)
-            if activity_nutrition:
-                wellness_data["activity_nutrition"] = activity_nutrition
-
-            # Training load
-            training: dict[str, Any] = {}
-            if wellness.ctl:
-                training["ctl"] = round(wellness.ctl, 1)
-            if wellness.atl:
-                training["atl"] = round(wellness.atl, 1)
-            if wellness.tsb:
-                training["tsb"] = round(wellness.tsb, 1)
-            if wellness.ramp_rate:
-                training["ramp_rate"] = round(wellness.ramp_rate, 1)
-            if training:
-                wellness_data["training"] = training
-
-            # Other metrics
-            other: dict[str, Any] = {}
-            if wellness.blood_glucose:
-                other["blood_glucose_mmol_per_l"] = round(wellness.blood_glucose, 1)
-            if wellness.lactate:
-                other["lactate_mmol_per_l"] = round(wellness.lactate, 1)
-            if wellness.menstrual_phase:
-                other["menstrual_phase"] = wellness.menstrual_phase
-            if other:
-                wellness_data["other"] = other
-
-            # Comments
-            if wellness.comments:
-                wellness_data["comments"] = wellness.comments
+            wellness_data = _format_wellness_record(wellness, date)
 
             return ResponseBuilder.build_response(
                 data=wellness_data,
@@ -429,32 +344,7 @@ async def update_wellness(
         async with ICUClient(config) as client:
             wellness = await client.update_wellness(wellness_data)
 
-            result_data: dict[str, Any] = {"date": date}
-
-            if wellness.weight:
-                result_data["weight_kg"] = wellness.weight
-            if wellness.resting_hr:
-                result_data["resting_hr"] = wellness.resting_hr
-            if wellness.hrv:
-                result_data["hrv_rmssd"] = round(wellness.hrv, 1)
-            if wellness.sleep_secs:
-                result_data["sleep_duration_seconds"] = wellness.sleep_secs
-            if wellness.sleep_quality:
-                result_data["sleep_quality"] = wellness.sleep_quality
-            if wellness.fatigue:
-                result_data["fatigue"] = wellness.fatigue
-            if wellness.soreness:
-                result_data["soreness"] = wellness.soreness
-            if wellness.stress:
-                result_data["stress"] = wellness.stress
-            if wellness.mood:
-                result_data["mood"] = wellness.mood
-            if wellness.motivation:
-                result_data["motivation"] = wellness.motivation
-            if wellness.readiness:
-                result_data["readiness"] = round(wellness.readiness, 0)
-            if wellness.comments:
-                result_data["comments"] = wellness.comments
+            result_data = _format_wellness_record(wellness, date)
 
             return ResponseBuilder.build_response(
                 data=result_data,

@@ -436,6 +436,64 @@ async def delete_activity(
         )
 
 
+def _download_and_respond(
+    activity_id: str,
+    file_content: bytes,
+    output_path: str | None,
+    query_type: str,
+    format_name: str | None = None,
+) -> str:
+    """Helper to process and respond to file downloads."""
+    try:
+        if output_path:
+            # Save to file
+            import os
+
+            os.makedirs(
+                os.path.dirname(output_path) if os.path.dirname(output_path) else ".",
+                exist_ok=True,
+            )
+            with open(output_path, "wb") as f:
+                f.write(file_content)
+
+            data: dict[str, Any] = {
+                "activity_id": activity_id,
+                "saved_to": output_path,
+                "size_bytes": len(file_content),
+            }
+            if format_name:
+                data["format"] = format_name
+
+            return ResponseBuilder.build_response(
+                data=data,
+                query_type=query_type,
+                metadata={"message": f"{format_name or 'Activity'} file saved to {output_path}"},
+            )
+        else:
+            # Return base64 encoded
+            import base64
+
+            encoded = base64.b64encode(file_content).decode("utf-8")
+
+            data = {
+                "activity_id": activity_id,
+                "size_bytes": len(file_content),
+                "content_base64": encoded,
+                "note": f"File content is base64 encoded. Decode to get {'original' if not format_name else format_name} file.",
+            }
+            if format_name:
+                data["format"] = format_name
+
+            return ResponseBuilder.build_response(
+                data=data,
+                query_type=query_type,
+            )
+    except Exception as e:
+        return ResponseBuilder.build_error_response(
+            f"Unexpected error saving file: {str(e)}", error_type="internal_error"
+        )
+
+
 async def download_activity_file(
     activity_id: Annotated[str, "Activity ID to download"],
     output_path: Annotated[str | None, "Path to save the file (optional)"] = None,
@@ -459,42 +517,9 @@ async def download_activity_file(
     try:
         async with ICUClient(config) as client:
             file_content = await client.download_activity_file(activity_id)
-
-            if output_path:
-                # Save to file
-                import os
-
-                os.makedirs(
-                    os.path.dirname(output_path) if os.path.dirname(output_path) else ".",
-                    exist_ok=True,
-                )
-                with open(output_path, "wb") as f:
-                    f.write(file_content)
-
-                return ResponseBuilder.build_response(
-                    data={
-                        "activity_id": activity_id,
-                        "saved_to": output_path,
-                        "size_bytes": len(file_content),
-                    },
-                    query_type="download_activity_file",
-                    metadata={"message": f"Activity file saved to {output_path}"},
-                )
-            else:
-                # Return base64 encoded
-                import base64
-
-                encoded = base64.b64encode(file_content).decode("utf-8")
-
-                return ResponseBuilder.build_response(
-                    data={
-                        "activity_id": activity_id,
-                        "size_bytes": len(file_content),
-                        "content_base64": encoded,
-                        "note": "File content is base64 encoded. Decode to get original file.",
-                    },
-                    query_type="download_activity_file",
-                )
+            return _download_and_respond(
+                activity_id, file_content, output_path, "download_activity_file"
+            )
 
     except ICUAPIError as e:
         return ResponseBuilder.build_error_response(e.message, error_type="api_error")
@@ -527,44 +552,9 @@ async def download_fit_file(
     try:
         async with ICUClient(config) as client:
             file_content = await client.download_fit_file(activity_id)
-
-            if output_path:
-                # Save to file
-                import os
-
-                os.makedirs(
-                    os.path.dirname(output_path) if os.path.dirname(output_path) else ".",
-                    exist_ok=True,
-                )
-                with open(output_path, "wb") as f:
-                    f.write(file_content)
-
-                return ResponseBuilder.build_response(
-                    data={
-                        "activity_id": activity_id,
-                        "format": "FIT",
-                        "saved_to": output_path,
-                        "size_bytes": len(file_content),
-                    },
-                    query_type="download_fit_file",
-                    metadata={"message": f"FIT file saved to {output_path}"},
-                )
-            else:
-                # Return base64 encoded
-                import base64
-
-                encoded = base64.b64encode(file_content).decode("utf-8")
-
-                return ResponseBuilder.build_response(
-                    data={
-                        "activity_id": activity_id,
-                        "format": "FIT",
-                        "size_bytes": len(file_content),
-                        "content_base64": encoded,
-                        "note": "File content is base64 encoded. Decode to get FIT file.",
-                    },
-                    query_type="download_fit_file",
-                )
+            return _download_and_respond(
+                activity_id, file_content, output_path, "download_fit_file", "FIT"
+            )
 
     except ICUAPIError as e:
         return ResponseBuilder.build_error_response(e.message, error_type="api_error")
@@ -597,44 +587,9 @@ async def download_gpx_file(
     try:
         async with ICUClient(config) as client:
             file_content = await client.download_gpx_file(activity_id)
-
-            if output_path:
-                # Save to file
-                import os
-
-                os.makedirs(
-                    os.path.dirname(output_path) if os.path.dirname(output_path) else ".",
-                    exist_ok=True,
-                )
-                with open(output_path, "wb") as f:
-                    f.write(file_content)
-
-                return ResponseBuilder.build_response(
-                    data={
-                        "activity_id": activity_id,
-                        "format": "GPX",
-                        "saved_to": output_path,
-                        "size_bytes": len(file_content),
-                    },
-                    query_type="download_gpx_file",
-                    metadata={"message": f"GPX file saved to {output_path}"},
-                )
-            else:
-                # Return base64 encoded
-                import base64
-
-                encoded = base64.b64encode(file_content).decode("utf-8")
-
-                return ResponseBuilder.build_response(
-                    data={
-                        "activity_id": activity_id,
-                        "format": "GPX",
-                        "size_bytes": len(file_content),
-                        "content_base64": encoded,
-                        "note": "File content is base64 encoded. Decode to get GPX file.",
-                    },
-                    query_type="download_gpx_file",
-                )
+            return _download_and_respond(
+                activity_id, file_content, output_path, "download_gpx_file", "GPX"
+            )
 
     except ICUAPIError as e:
         return ResponseBuilder.build_error_response(e.message, error_type="api_error")
@@ -836,6 +791,133 @@ async def get_activities_around(
             return ResponseBuilder.build_response(
                 data=result_data,
                 query_type="activities_around",
+            )
+
+    except ICUAPIError as e:
+        return ResponseBuilder.build_error_response(e.message, error_type="api_error")
+    except Exception as e:
+        return ResponseBuilder.build_error_response(
+            f"Unexpected error: {str(e)}", error_type="internal_error"
+        )
+
+
+async def update_activity_streams(
+    activity_id: Annotated[str, "Activity ID to update"],
+    payload_string: Annotated[str, "JSON array of stream dictionaries or raw CSV data"],
+    format: Annotated[str, "Format of the payload: 'json' or 'csv'"] = "json",
+    ctx: Context | None = None,
+) -> str:
+    """Update streams for the activity.
+
+    Allows uploading raw time-series metrics (power, heart rate, cadence) directly
+    into an existing activity using a JSON or CSV payload.
+
+    Args:
+        activity_id: The unique ID of the activity
+        payload_string: JSON array of stream data or CSV string
+        format: Format of the payload ('json' or 'csv')
+
+    Returns:
+        JSON string with update confirmation
+    """
+    assert ctx is not None
+    config: ICUConfig = await ctx.get_state("config")
+
+    try:
+        async with ICUClient(config) as client:
+            if format.lower() == "csv":
+                response = await client.update_activity_streams_csv(
+                    activity_id=activity_id,
+                    csv_data=payload_string,
+                )
+            else:
+                import json
+                try:
+                    streams = json.loads(payload_string)
+                except json.JSONDecodeError as e:
+                    return ResponseBuilder.build_error_response(
+                        f"Invalid JSON payload: {str(e)}",
+                        error_type="validation_error",
+                    )
+                response = await client.update_activity_streams(
+                    activity_id=activity_id,
+                    streams=streams,
+                )
+
+            return ResponseBuilder.build_response(
+                data=response,
+                query_type="update_activity_streams",
+                metadata={"message": f"Successfully updated streams for activity {activity_id}"},
+            )
+
+    except ICUAPIError as e:
+        return ResponseBuilder.build_error_response(e.message, error_type="api_error")
+    except Exception as e:
+        return ResponseBuilder.build_error_response(
+            f"Unexpected error: {str(e)}", error_type="internal_error"
+        )
+
+
+async def bulk_create_manual_activities(
+    activities_json: Annotated[str, "JSON string containing array of manual activities"],
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
+    ctx: Context | None = None,
+) -> str:
+    """Create multiple manual activities with upsert on external_id.
+
+    Existing activities with matching external_id, created by the same OAuth application 
+    are updated. Activities created/updated are returned. Activities with no external_id 
+    are always created.
+
+    Args:
+        activities_json: JSON string containing array of activity objects
+        athlete_id: Athlete ID (for coaches managing multiple athletes)
+
+    Returns:
+        JSON string with created/updated activities
+    """
+    assert ctx is not None
+    config: ICUConfig = await ctx.get_state("config")
+    
+    import json
+    try:
+        activities = json.loads(activities_json)
+    except json.JSONDecodeError as e:
+        return ResponseBuilder.build_error_response(
+            f"Invalid JSON format: {str(e)}",
+            error_type="validation_error",
+        )
+
+    if not isinstance(activities, list):
+        return ResponseBuilder.build_error_response(
+            "Input must be a JSON array of activities",
+            error_type="validation_error",
+        )
+
+    from typing import Any
+    activities_list: list[dict[str, Any]] = activities  # type: ignore[assignment]
+
+    try:
+        async with ICUClient(config) as client:
+            created_activities = await client.bulk_create_manual_activities(
+                athlete_id=athlete_id,
+                activities=activities_list,
+            )
+
+            activities_data: list[dict[str, Any]] = []
+            for result in created_activities:
+                activity_item: dict[str, Any] = {
+                    "id": result.id,
+                    "name": result.name or "Untitled",
+                    "start_date": result.start_date_local,
+                    "type": result.type,
+                }
+                activities_data.append(activity_item)
+
+            return ResponseBuilder.build_response(
+                data={"activities": activities_data, "count": len(activities_data)},
+                query_type="bulk_create_manual_activities",
+                metadata={"message": f"Successfully processed {len(activities_data)} manual activities"},
             )
 
     except ICUAPIError as e:

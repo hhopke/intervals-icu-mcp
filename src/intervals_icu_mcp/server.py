@@ -9,7 +9,7 @@ from fastmcp import FastMCP
 load_dotenv()
 
 # Initialize FastMCP server
-mcp = FastMCP("Intervals.icu")
+mcp = FastMCP("intervals_icu_mcp")
 
 # Register middleware
 from .middleware import ConfigMiddleware
@@ -18,6 +18,7 @@ mcp.add_middleware(ConfigMiddleware())
 
 # Import and register tools
 from .tools.activities import (
+    bulk_create_manual_activities,
     delete_activity,
     download_activity_file,
     download_fit_file,
@@ -28,6 +29,7 @@ from .tools.activities import (
     search_activities,
     search_activities_full,
     update_activity,
+    update_activity_streams,
 )
 from .tools.activity_analysis import (
     get_activity_intervals,
@@ -42,6 +44,7 @@ from .tools.activity_analysis import (
 from .tools.athlete import get_athlete_profile, get_fitness_summary
 from .tools.curves import get_hr_curves, get_pace_curves
 from .tools.event_management import (
+    apply_training_plan,
     bulk_create_events,
     bulk_delete_events,
     create_event,
@@ -70,70 +73,226 @@ from .tools.wellness import get_wellness_data, get_wellness_for_date, update_wel
 from .tools.workout_library import get_workout_library, get_workouts_in_folder
 
 # Register activity tools
-mcp.tool()(get_recent_activities)
-mcp.tool()(get_activity_details)
-mcp.tool()(search_activities)
-mcp.tool()(search_activities_full)
-mcp.tool()(get_activities_around)
-mcp.tool()(update_activity)
-mcp.tool()(delete_activity)
-mcp.tool()(download_activity_file)
-mcp.tool()(download_fit_file)
-mcp.tool()(download_gpx_file)
+mcp.tool(
+    name="icu_get_recent_activities",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(get_recent_activities)
+mcp.tool(
+    name="icu_get_activity_details",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(get_activity_details)
+mcp.tool(
+    name="icu_search_activities",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(search_activities)
+mcp.tool(
+    name="icu_search_activities_full",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(search_activities_full)
+mcp.tool(
+    name="icu_get_activities_around",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(get_activities_around)
+mcp.tool(
+    name="icu_update_activity",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(update_activity)
+mcp.tool(
+    name="icu_update_activity_streams",
+    annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True},
+)(update_activity_streams)
+mcp.tool(
+    name="icu_bulk_create_manual_activities",
+    annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True},
+)(bulk_create_manual_activities)
+mcp.tool(
+    name="icu_delete_activity",
+    annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": True, "openWorldHint": True},
+)(delete_activity)
+mcp.tool(
+    name="icu_download_activity_file",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(download_activity_file)
+mcp.tool(
+    name="icu_download_fit_file",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(download_fit_file)
+mcp.tool(
+    name="icu_download_gpx_file",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(download_gpx_file)
 
 # Register activity analysis tools
-mcp.tool()(get_activity_streams)
-mcp.tool()(get_activity_intervals)
-mcp.tool()(get_best_efforts)
-mcp.tool()(search_intervals)
-mcp.tool()(get_power_histogram)
-mcp.tool()(get_hr_histogram)
-mcp.tool()(get_pace_histogram)
-mcp.tool()(get_gap_histogram)
+mcp.tool(
+    name="icu_get_activity_streams",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(get_activity_streams)
+mcp.tool(
+    name="icu_get_activity_intervals",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(get_activity_intervals)
+mcp.tool(
+    name="icu_get_best_efforts",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(get_best_efforts)
+mcp.tool(
+    name="icu_search_intervals",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(search_intervals)
+mcp.tool(
+    name="icu_get_power_histogram",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(get_power_histogram)
+mcp.tool(
+    name="icu_get_hr_histogram",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(get_hr_histogram)
+mcp.tool(
+    name="icu_get_pace_histogram",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(get_pace_histogram)
+mcp.tool(
+    name="icu_get_gap_histogram",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(get_gap_histogram)
 
 # Register athlete tools
-mcp.tool()(get_athlete_profile)
-mcp.tool()(get_fitness_summary)
+mcp.tool(
+    name="icu_get_athlete_profile",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(get_athlete_profile)
+mcp.tool(
+    name="icu_get_fitness_summary",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(get_fitness_summary)
 
 # Register wellness tools
-mcp.tool()(get_wellness_data)
-mcp.tool()(get_wellness_for_date)
-mcp.tool()(update_wellness)
+mcp.tool(
+    name="icu_get_wellness_data",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(get_wellness_data)
+mcp.tool(
+    name="icu_get_wellness_for_date",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(get_wellness_for_date)
+mcp.tool(
+    name="icu_update_wellness",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(update_wellness)
 
 # Register event/calendar tools
-mcp.tool()(get_calendar_events)
-mcp.tool()(get_upcoming_workouts)
-mcp.tool()(get_event)
-mcp.tool()(create_event)
-mcp.tool()(update_event)
-mcp.tool()(delete_event)
-mcp.tool()(bulk_create_events)
-mcp.tool()(bulk_delete_events)
-mcp.tool()(duplicate_events)
+mcp.tool(
+    name="icu_get_calendar_events",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(get_calendar_events)
+mcp.tool(
+    name="icu_get_upcoming_workouts",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(get_upcoming_workouts)
+mcp.tool(
+    name="icu_get_event",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(get_event)
+mcp.tool(
+    name="icu_create_event",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True},
+)(create_event)
+mcp.tool(
+    name="icu_update_event",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(update_event)
+mcp.tool(
+    name="icu_delete_event",
+    annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": True, "openWorldHint": True},
+)(delete_event)
+mcp.tool(
+    name="icu_bulk_create_events",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True},
+)(bulk_create_events)
+mcp.tool(
+    name="icu_bulk_delete_events",
+    annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": True, "openWorldHint": True},
+)(bulk_delete_events)
+mcp.tool(
+    name="icu_duplicate_events",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True},
+)(duplicate_events)
+mcp.tool(
+    name="icu_apply_training_plan",
+    annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True},
+)(apply_training_plan)
 
 # Register performance/curve tools
-mcp.tool()(get_power_curves)
-mcp.tool()(get_hr_curves)
-mcp.tool()(get_pace_curves)
+mcp.tool(
+    name="icu_get_power_curves",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(get_power_curves)
+mcp.tool(
+    name="icu_get_hr_curves",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(get_hr_curves)
+mcp.tool(
+    name="icu_get_pace_curves",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(get_pace_curves)
 
 # Register workout library tools
-mcp.tool()(get_workout_library)
-mcp.tool()(get_workouts_in_folder)
+mcp.tool(
+    name="icu_get_workout_library",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(get_workout_library)
+mcp.tool(
+    name="icu_get_workouts_in_folder",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(get_workouts_in_folder)
 
 # Register gear management tools
-mcp.tool()(get_gear_list)
-mcp.tool()(create_gear)
-mcp.tool()(update_gear)
-mcp.tool()(delete_gear)
-mcp.tool()(create_gear_reminder)
-mcp.tool()(update_gear_reminder)
+mcp.tool(
+    name="icu_get_gear_list",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(get_gear_list)
+mcp.tool(
+    name="icu_create_gear",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True},
+)(create_gear)
+mcp.tool(
+    name="icu_update_gear",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(update_gear)
+mcp.tool(
+    name="icu_delete_gear",
+    annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": True, "openWorldHint": True},
+)(delete_gear)
+mcp.tool(
+    name="icu_create_gear_reminder",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True},
+)(create_gear_reminder)
+mcp.tool(
+    name="icu_update_gear_reminder",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(update_gear_reminder)
 
 # Register sport settings tools
-mcp.tool()(get_sport_settings)
-mcp.tool()(update_sport_settings)
-mcp.tool()(apply_sport_settings)
-mcp.tool()(create_sport_settings)
-mcp.tool()(delete_sport_settings)
+mcp.tool(
+    name="icu_get_sport_settings",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(get_sport_settings)
+mcp.tool(
+    name="icu_update_sport_settings",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)(update_sport_settings)
+mcp.tool(
+    name="icu_apply_sport_settings",
+    annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True},
+)(apply_sport_settings)
+mcp.tool(
+    name="icu_create_sport_settings",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True},
+)(create_sport_settings)
+mcp.tool(
+    name="icu_delete_sport_settings",
+    annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": True, "openWorldHint": True},
+)(delete_sport_settings)
 
 
 # MCP Resources - Provide ongoing context
