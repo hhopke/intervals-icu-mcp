@@ -374,6 +374,9 @@ Prompt templates for common queries (accessible via prompt suggestions in Claude
 - **Fitness summary** — CTL/ATL/TSB now fetched from wellness endpoint (was returning empty from athlete endpoint)
 - **Duplicate events** — fixed to correct API endpoint and batch body format
 - **Bulk delete events** — fixed HTTP method and endpoint
+- **Activity intervals** — API returns wrapped `IntervalsDTO` object, not a flat list; fixed model to extract `icu_intervals`
+- **Best efforts** — added required `stream` parameter (watts, heartrate, pace); fixed response model to match API `BestEfforts` format
+- **Activity streams** — API returns array of stream objects, not a dict; fixed endpoint to use `.json` extension and correct model
 - **Date parsing** — event tools now handle ISO-8601 datetime formats correctly
 - **Missing event IDs** — calendar and workout responses include event IDs, enabling update/delete operations
 

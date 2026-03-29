@@ -1,6 +1,6 @@
 """Activity analysis tools for Intervals.icu MCP server."""
 
-from typing import Annotated, Any, cast
+from typing import Annotated, Any
 
 from fastmcp import Context
 
@@ -48,43 +48,27 @@ async def get_activity_streams(
 
     try:
         async with ICUClient(config) as client:
-            streams_data = await client.get_activity_streams(activity_id, streams)
+            stream_list = await client.get_activity_streams(activity_id, streams)
 
-            # Count available streams
-            available_streams: list[str] = []
-            stream_lengths: dict[str, int] = {}
-
-            for stream_name in [
-                "watts",
-                "heartrate",
-                "cadence",
-                "velocity_smooth",
-                "altitude",
-                "distance",
-                "time",
-                "latlng",
-                "temp",
-                "moving",
-                "grade_smooth",
-            ]:
-                stream_value: Any = getattr(streams_data, stream_name, None)
-                if stream_value is not None:
-                    available_streams.append(stream_name)
-                    if isinstance(stream_value, list):
-                        stream_lengths[stream_name] = len(cast(list[Any], stream_value))
-
-            if not available_streams:
+            if not stream_list:
                 return ResponseBuilder.build_response(
                     data={"streams": {}, "available_streams": []},
                     metadata={"message": "No stream data available for this activity"},
                 )
 
-            # Build response
+            # Build response from list of ActivityStream objects
+            available_streams: list[str] = []
             streams_dict: dict[str, Any] = {}
-            for stream_name in available_streams:
-                stream_value = getattr(streams_data, stream_name)
-                if stream_value is not None:
-                    streams_dict[stream_name] = stream_value
+            stream_lengths: dict[str, int] = {}
+
+            for s in stream_list:
+                name = s.type or s.name or "unknown"
+                available_streams.append(name)
+                if s.data is not None:
+                    streams_dict[name] = s.data
+                    data = s.data
+                    if isinstance(data, list):
+                        stream_lengths[name] = len(data)  # type: ignore[arg-type]
 
             result_data = {
                 "activity_id": activity_id,
@@ -217,16 +201,25 @@ async def get_activity_intervals(
 
 async def get_best_efforts(
     activity_id: Annotated[str, "Activity ID to analyze"],
+    stream: Annotated[
+        str, "Stream to search for best efforts (e.g., 'watts', 'heartrate', 'pace')"
+    ] = "watts",
+    duration: Annotated[int | None, "Duration of each effort in seconds"] = None,
+    distance: Annotated[float | None, "Distance of each effort in meters"] = None,
+    count: Annotated[int, "Number of efforts to return"] = 8,
     ctx: Context | None = None,
 ) -> str:
     """Get best efforts/peak performances from an activity.
 
-    Analyzes the activity to find the best performances across various durations
-    (e.g., best 5-second power, best 1-minute power, best 20-minute power).
-    Similar to Strava segments but for all durations.
+    Analyzes the activity to find the best performances for a given stream
+    and duration/distance. Requires at least one of duration or distance.
 
     Args:
         activity_id: The unique ID of the activity
+        stream: Stream to search (watts, heartrate, pace, etc.)
+        duration: Duration of each effort in seconds
+        distance: Distance of each effort in meters
+        count: Number of efforts to return (default 8)
 
     Returns:
         JSON string with best efforts data
@@ -234,54 +227,42 @@ async def get_best_efforts(
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
 
+    if duration is None and distance is None:
+        return ResponseBuilder.build_error_response(
+            "At least one of 'duration' or 'distance' is required",
+            error_type="validation_error",
+        )
+
     try:
         async with ICUClient(config) as client:
-            best_efforts = await client.get_best_efforts(activity_id)
+            best_efforts = await client.get_best_efforts(
+                activity_id, stream=stream, duration=duration, distance=distance, count=count
+            )
 
-            if not best_efforts:
+            if not best_efforts.efforts:
                 return ResponseBuilder.build_response(
                     data={"best_efforts": [], "count": 0, "activity_id": activity_id},
                     metadata={"message": "No best efforts found for this activity"},
                 )
 
             efforts_data: list[dict[str, Any]] = []
-            for effort in best_efforts:
-                effort_item: dict[str, Any] = {
-                    "name": effort.name,
-                    "elapsed_time_seconds": effort.elapsed_time,
-                }
-
-                if effort.moving_time:
-                    effort_item["moving_time_seconds"] = effort.moving_time
-                if effort.distance:
+            for effort in best_efforts.efforts:
+                effort_item: dict[str, Any] = {}
+                if effort.average is not None:
+                    effort_item["average"] = effort.average
+                if effort.duration is not None:
+                    effort_item["duration_seconds"] = effort.duration
+                if effort.distance is not None:
                     effort_item["distance_meters"] = effort.distance
-
-                # Performance metrics
-                performance: dict[str, Any] = {}
-                if effort.average_watts:
-                    performance["average_watts"] = effort.average_watts
-                if effort.normalized_power:
-                    performance["normalized_power"] = effort.normalized_power
-                if effort.average_heartrate:
-                    performance["average_heartrate"] = effort.average_heartrate
-                if effort.average_cadence:
-                    performance["average_cadence"] = effort.average_cadence
-                if effort.average_speed:
-                    performance["average_speed_meters_per_sec"] = effort.average_speed
-
-                if performance:
-                    effort_item["performance"] = performance
-
-                # Location in activity
                 if effort.start_index is not None:
                     effort_item["start_index"] = effort.start_index
                 if effort.end_index is not None:
                     effort_item["end_index"] = effort.end_index
-
                 efforts_data.append(effort_item)
 
             result_data = {
                 "activity_id": activity_id,
+                "stream": stream,
                 "best_efforts": efforts_data,
                 "count": len(efforts_data),
             }

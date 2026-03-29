@@ -306,6 +306,8 @@ class FitnessSummary(BaseModel):
 class Interval(BaseModel):
     """Activity interval data."""
 
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
     id: int | None = None
     type: str | None = None  # e.g., "WORK", "REST", "WARM_UP", "COOL_DOWN"
     start: int | None = None  # Start time in seconds
@@ -323,42 +325,45 @@ class Interval(BaseModel):
     target_max: float | None = None
 
 
+class IntervalsDTO(BaseModel):
+    """Response from the intervals endpoint — wraps the interval list."""
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+    id: str | None = None
+    icu_intervals: list[Interval] = Field(default_factory=lambda: list[Interval]())
+
+
 # ==================== Activity Streams Models ====================
 
 
-class ActivityStreams(BaseModel):
-    """Time-series data streams for an activity."""
+class ActivityStream(BaseModel):
+    """A single stream returned by the API."""
 
-    watts: list[int | None] | None = None
-    heartrate: list[int | None] | None = None
-    cadence: list[int | None] | None = None
-    velocity_smooth: list[float | None] | None = None
-    altitude: list[float | None] | None = None
-    distance: list[float | None] | None = None
-    time: list[int | None] | None = None
-    latlng: list[list[float] | None] | None = None
-    temp: list[int | None] | None = None
-    moving: list[bool | None] | None = None
-    grade_smooth: list[float | None] | None = None
+    model_config = ConfigDict(extra="allow")
+
+    type: str | None = None
+    name: str | None = None
+    data: Any = None
 
 
 # ==================== Best Efforts Models ====================
 
 
-class BestEffort(BaseModel):
-    """Best effort for a specific duration."""
+class Effort(BaseModel):
+    """Single best effort entry from the API."""
 
-    name: str | None = None
-    elapsed_time: int | None = None  # Duration in seconds
-    moving_time: int | None = None
     start_index: int | None = None
     end_index: int | None = None
+    average: float | None = None
+    duration: int | None = None
     distance: float | None = None
-    average_watts: int | None = None
-    normalized_power: int | None = None
-    average_heartrate: int | None = None
-    average_cadence: float | None = None
-    average_speed: float | None = None
+
+
+class BestEfforts(BaseModel):
+    """Response from the best-efforts endpoint."""
+
+    efforts: list[Effort] = Field(default_factory=lambda: list[Effort]())
 
 
 # ==================== Gear Models ====================

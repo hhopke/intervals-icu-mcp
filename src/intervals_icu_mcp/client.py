@@ -9,10 +9,10 @@ from .auth import ICUConfig
 from .models import (
     Activity,
     ActivitySearchResult,
-    ActivityStreams,
+    ActivityStream,
     ActivitySummary,
     Athlete,
-    BestEffort,
+    BestEfforts,
     CurveSet,
     Event,
     Folder,
@@ -20,6 +20,7 @@ from .models import (
     GearReminder,
     Histogram,
     Interval,
+    IntervalsDTO,
     SportSettings,
     Wellness,
     Workout,
@@ -688,14 +689,14 @@ class ICUClient:
             List of Interval objects
         """
         response = await self._request("GET", f"/activity/{activity_id}/intervals")
-        adapter = TypeAdapter(list[Interval])
-        return adapter.validate_python(response.json())
+        dto = IntervalsDTO(**response.json())
+        return dto.icu_intervals
 
     async def get_activity_streams(
         self,
         activity_id: str,
         streams: list[str] | None = None,
-    ) -> ActivityStreams:
+    ) -> list[ActivityStream]:
         """Get time-series data streams for an activity.
 
         Args:
@@ -704,30 +705,48 @@ class ICUClient:
                     If None, fetches all available streams
 
         Returns:
-            ActivityStreams object with time-series data
+            List of ActivityStream objects with time-series data
         """
         params = {}
         if streams:
             params["types"] = ",".join(streams)
 
-        response = await self._request("GET", f"/activity/{activity_id}/streams", params=params)
-        return ActivityStreams(**response.json())
+        response = await self._request(
+            "GET", f"/activity/{activity_id}/streams.json", params=params
+        )
+        adapter = TypeAdapter(list[ActivityStream])
+        return adapter.validate_python(response.json())
 
     async def get_best_efforts(
         self,
         activity_id: str,
-    ) -> list[BestEffort]:
+        stream: str = "watts",
+        duration: int | None = None,
+        distance: float | None = None,
+        count: int = 8,
+    ) -> BestEfforts:
         """Get best efforts for an activity.
 
         Args:
             activity_id: Activity ID
+            stream: Stream to search (e.g., "watts", "heartrate", "pace")
+            duration: Duration of each effort in seconds
+            distance: Distance of each effort in meters
+            count: Number of efforts to return (default 8)
 
         Returns:
-            List of BestEffort objects
+            BestEfforts object with list of efforts
         """
-        response = await self._request("GET", f"/activity/{activity_id}/best-efforts")
-        adapter = TypeAdapter(list[BestEffort])
-        return adapter.validate_python(response.json())
+        params: dict[str, str | int | float] = {"stream": stream, "count": count}
+        if duration is not None:
+            params["duration"] = duration
+        if distance is not None:
+            params["distance"] = distance
+
+        response = await self._request(
+            "GET", f"/activity/{activity_id}/best-efforts", params=params
+        )
+        return BestEfforts(**response.json())
 
     async def search_intervals(
         self,
