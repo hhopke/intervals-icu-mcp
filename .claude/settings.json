@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(make test:*)",
+      "Bash(make lint:*)",
+      "Bash(make format:*)",
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(uv run pyright:*)",
+      "Bash(uv run ruff:*)",
+      "Bash(make can-release)",
+      "Bash(make run:*)"
+    ]
+  }
+}

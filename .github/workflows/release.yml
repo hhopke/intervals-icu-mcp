@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: eddmann/intervals-icu-mcp
+  IMAGE_NAME: hhopke/intervals-icu-mcp
 
 jobs:
   test:

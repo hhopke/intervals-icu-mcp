@@ -1,218 +1,100 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-This is an MCP (Model Context Protocol) server for Intervals.icu that provides 40+ tools, 1 resource, and 6 prompts for accessing training data, wellness metrics, and performance analysis through Claude and other LLMs.
+MCP (Model Context Protocol) server for Intervals.icu — provides 40+ tools, 1 resource, and 6 prompts for accessing training data, wellness metrics, and performance analysis through Claude and other LLMs.
+
+- **Language**: Python 3.11+
+- **Framework**: FastMCP
+- **API Client**: httpx (async)
+- **Validation**: Pydantic v2
+- **Auth**: pydantic-settings + `.env`
 
 ## Development Commands
 
-### Setup & Dependencies
-
 ```bash
-# Install dependencies
-make install
-
-# Update dependencies
-make update
-
-# Setup authentication
-make auth
+make install          # Install dependencies
+make run              # Run the MCP server
+make test             # Run tests
+make test/athlete     # Run tests matching "athlete"
+make test/verbose     # Verbose test output
+make lint             # Lint (ruff + pyright)
+make format           # Auto-format code
+make can-release      # Full pre-release check (same as CI)
+make docker/build     # Build Docker image
+make docker/run       # Run Docker container
 ```
 
-### Testing & Linting
+## Architecture (Quick Reference)
 
-```bash
-# Run all pre-release checks (same as CI)
-make can-release
+| Component | File | Role |
+|---|---|---|
+| Server | `server.py` | Entry point, registers tools/resources/prompts |
+| Middleware | `middleware.py` | Validates config, injects `ICUConfig` into context |
+| Client | `client.py` | Async HTTP client (Basic Auth, 30s timeout) |
+| Auth | `auth.py` | Loads credentials from `.env` |
+| Response | `response_builder.py` | Consistent JSON structure (data/analysis/metadata) |
+| Models | `models.py` | Pydantic models for API responses |
+| Tools | `tools/` | 11 tool modules (see below) |
 
-# Run tests
-make test
+**For detailed architecture**: see `docs/architecture.md`
 
-# Run specific test filter
-make test/athlete         # runs tests matching "athlete"
+### Tool Categories
 
-# Run tests with verbose output
-make test/verbose
-
-# Lint with ruff and pyright
-make lint
-
-# Format code
-make format
-```
-
-### Running Locally
-
-```bash
-# Run the MCP server
-make run
-```
-
-### Docker
-
-```bash
-# Build Docker image
-make docker/build
-
-# Run Docker container
-make docker/run
-```
-
-## Architecture
-
-### Core Components
-
-**FastMCP Server** (`server.py`)
-
-- Entry point that initializes the FastMCP server
-- Registers all tools, resources, and prompts
-- Tools are imported from `tools/` modules but registered in server.py
-- Middleware is added before tools are registered
-
-**Middleware** (`middleware.py`)
-
-- `ConfigMiddleware` runs before every tool call
-- Loads and validates Intervals.icu configuration from environment
-- Injects `ICUConfig` into context state via `ctx.set_state("config", config)`
-- Tools access config via `ctx.get_state("config")`
-
-**API Client** (`client.py`)
-
-- `ICUClient` is an async HTTP client using httpx
-- Uses Basic Auth with username "API_KEY" and the API key as password
-- All API methods are async and must be used with async context manager
-- Handles error responses with `ICUAPIError` exceptions
-- Default timeout is 30 seconds
-
-**Authentication** (`auth.py`)
-
-- `ICUConfig` loads credentials from `.env` file using pydantic-settings
-- `load_config()` loads configuration from environment
-- `validate_credentials()` checks if credentials are properly set
-- Interactive setup script at `scripts/setup_auth.py`
-
-**Response Builder** (`response_builder.py`)
-
-- All tools return JSON with consistent structure:
-  ```json
-  {
-    "data": {...},           // Main data payload
-    "analysis": {...},       // Optional insights and computed metrics
-    "metadata": {...}        // Query metadata, timestamps
-  }
-  ```
-- `ResponseBuilder.build_response()` creates success responses
-- `ResponseBuilder.build_error_response()` creates error responses
-- Automatically converts datetime objects to ISO strings
-
-**Models** (`models.py`)
-
-- Pydantic models for all API responses
-- Models include: Activity, Athlete, Wellness, Event, PowerCurve, etc.
-
-### Tool Organization
-
-Tools are organized into 7 categories in `tools/`:
-
-1. **activities.py** - Query and manage activities
-2. **activity_analysis.py** - Streams, intervals, best efforts
-3. **athlete.py** - Profile and fitness metrics (CTL/ATL/TSB)
-4. **wellness.py** - HRV, sleep, recovery metrics
-5. **events.py** - Calendar queries
-6. **event_management.py** - Create/update/delete events
-7. **performance.py** - Power/HR/pace curves
-8. **curves.py** - HR and pace curve analysis
-9. **workout_library.py** - Browse workout folders and plans
-10. **gear.py** - Manage gear and reminders
-11. **sport_settings.py** - FTP, FTHR, pace thresholds
-
-### Tool Pattern
-
-All tools follow the same async pattern:
-
-```python
-async def tool_name(
-    param: str,
-    ctx: Context | None = None,
-) -> str:
-    """Tool description."""
-    assert ctx is not None
-    config: ICUConfig = ctx.get_state("config")
-
-    try:
-        async with ICUClient(config) as client:
-            # Make API calls
-            result = await client.method()
-
-            # Build response
-            return ResponseBuilder.build_response(
-                data={"key": "value"},
-                analysis={"insights": "..."},
-                query_type="tool_type"
-            )
-    except ICUAPIError as e:
-        return ResponseBuilder.build_error_response(e.message, error_type="api_error")
-```
-
-## Important Implementation Details
-
-### Authentication Flow
-
-1. User runs `uv run intervals-icu-mcp-auth` to set up credentials
-2. Credentials stored in `.env` file (API key + athlete ID)
-3. `ConfigMiddleware` loads and validates on every tool call
-4. `ICUClient` uses Basic Auth with username "API_KEY"
-
-### Error Handling
-
-- `ICUAPIError` for API errors (401, 404, 429, etc.)
-- Middleware raises `ToolError` if credentials not configured
-- All tools return error JSON instead of raising exceptions
-- Include helpful error messages and suggestions
-
-### Response Format
-
-- Never return raw API responses
-- Always use `ResponseBuilder.build_response()` for consistency
-- Include `analysis` section for insights when relevant
-- Use `metadata` for query context (date ranges, limits, etc.)
-
-### Date Handling
-
-- API uses ISO-8601 format (YYYY-MM-DD or full datetime)
-- `ResponseBuilder.format_date_with_day()` adds day-of-week info
-- All datetimes automatically converted to ISO strings in responses
-
-### Testing
-
-- Tests use `pytest` with `pytest-asyncio` for async tests
-- `respx` is used to mock HTTP requests
-- Test fixtures in `tests/fixtures/`
-- Test stubs in `tests/stubs/`
-
-## Type Checking
-
-- Pyright is configured with basic type checking mode
-- Strict mode only for `src/` directory
-- Allow imports without type stubs
-- Run `make lint/pyright` or `uv run pyright`
+1. `activities.py` — Query/manage activities
+2. `activity_analysis.py` — Streams, intervals, best efforts
+3. `athlete.py` — Profile, fitness metrics (CTL/ATL/TSB)
+4. `wellness.py` — HRV, sleep, recovery
+5. `events.py` — Calendar queries
+6. `event_management.py` — Create/update/delete events
+7. `performance.py` — Power/HR/pace curves
+8. `curves.py` — HR and pace curve analysis
+9. `workout_library.py` — Browse workout folders and plans
+10. `gear.py` — Manage gear and reminders
+11. `sport_settings.py` — FTP, FTHR, pace thresholds
 
 ## Code Style
 
-- Ruff for linting and formatting
+- **Ruff** for linting and formatting
 - Line length: 100 characters
-- Target Python 3.11+
-- Ignore E501 (line length enforced by formatter)
+- Target: Python 3.11+
 - Allow unused imports in `__init__.py` files
 - Run `make format` to auto-fix style issues
 
+## Type Checking
+
+- **Pyright** with basic type checking mode
+- Strict mode only for `src/` directory
+- Run `make lint` or `uv run pyright`
+
+## Testing
+
+Tests use pytest + pytest-asyncio with `respx` for HTTP mocking.
+
+**For testing conventions and examples**: see `docs/testing.md`
+
+## Skills
+
+The following skills are available in `.claude/skills/`:
+
+| Skill | Description |
+|---|---|
+| `/commit` | Analyze changes and create conventional commits |
+| `/add-tool` | Step-by-step workflow for adding new MCP tools |
+| `/release-check` | Run pre-release verification and summarize results |
+| `/mcp-builder` | Anthropic's official guide for building MCP servers |
+
+## Verification
+
+**Always run `make can-release` before finishing any feature work.** This runs the full test and lint suite, matching what CI checks on every push.
+
 ## Important Files
 
-- `.env` - Local credentials (not in git)
-- `.env.example` - Template for credentials
-- `openapi-spec.json` - Intervals.icu API specification
-- `uv.lock` - Locked dependencies (commit this)
-- `.github/workflows/test.yml` - CI tests
-- `.github/workflows/release.yml` - Docker release automation
+- `.env` — Local credentials (not in git)
+- `.env.example` — Template for credentials
+- `openapi-spec.json` — Intervals.icu API specification (210KB reference)
+- `uv.lock` — Locked dependencies (commit this)
+- `.github/workflows/test.yml` — CI tests
+- `.github/workflows/release.yml` — Docker release automation
