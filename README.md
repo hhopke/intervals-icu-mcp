@@ -10,13 +10,13 @@ A Model Context Protocol (MCP) server for Intervals.icu integration. Access your
 
 ## Overview
 
-This MCP server provides 48 tools to interact with your Intervals.icu account, organized into 9 categories:
+This MCP server provides 51 tools to interact with your Intervals.icu account, organized into 9 categories:
 
-- Activities (10 tools) - Query, search, update, delete, and download activities
+- Activities (12 tools) - Query, search, update, delete, and download activities
 - Activity Analysis (8 tools) - Deep dive into streams, intervals, best efforts, and histograms
 - Athlete (2 tools) - Access profile, fitness metrics, and training load
 - Wellness (3 tools) - Track and update recovery, HRV, sleep, and health metrics
-- Events/Calendar (9 tools) - Manage planned workouts, races, notes with bulk operations
+- Events/Calendar (10 tools) - Manage planned workouts, races, notes with bulk operations
 - Performance/Curves (3 tools) - Analyze power, heart rate, and pace curves
 - Workout Library (2 tools) - Browse and explore workout templates and plans
 - Gear Management (6 tools) - Track equipment and maintenance reminders
@@ -252,98 +252,101 @@ _Note: The athlete profile resource (`intervals-icu://athlete/profile`) automati
 
 ## Available Tools
 
-### Activities (10 tools)
+### Activities (12 tools)
 
 | Tool                     | Description                                       |
 | ------------------------ | ------------------------------------------------- |
-| `get-recent-activities`  | List recent activities with summary metrics       |
-| `get-activity-details`   | Get comprehensive details for a specific activity |
-| `search-activities`      | Search activities by name or tag                  |
-| `search-activities-full` | Search activities with full details               |
-| `get-activities-around`  | Get activities before and after a specific one    |
-| `update-activity`        | Update activity name, description, or metadata    |
-| `delete-activity`        | Delete an activity                                |
-| `download-activity-file` | Download original activity file                   |
-| `download-fit-file`      | Download activity as FIT file                     |
-| `download-gpx-file`      | Download activity as GPX file                     |
+| `icu_get_recent_activities`  | List recent activities with summary metrics       |
+| `icu_get_activity_details`   | Get comprehensive details for a specific activity |
+| `icu_search_activities`      | Search activities by name or tag                  |
+| `icu_search_activities_full` | Search activities with full details               |
+| `icu_get_activities_around`  | Get activities before and after a specific one    |
+| `icu_update_activity`        | Update activity name, description, or metadata    |
+| `icu_delete_activity`        | Delete an activity                                |
+| `icu_download_activity_file` | Download original activity file                   |
+| `icu_download_fit_file`      | Download activity as FIT file                     |
+| `icu_download_gpx_file`      | Download activity as GPX file                     |
+| `icu_bulk_create_manual_activities` | Create multiple manual activities with upsert on external_id |
+| `icu_update_activity_streams` | Update raw timeseries streams for an activity (JSON or CSV) |
 
 ### Activity Analysis (8 tools)
 
 | Tool                     | Description                                                   |
 | ------------------------ | ------------------------------------------------------------- |
-| `get-activity-streams`   | Get time-series data (power, HR, cadence, altitude, GPS)      |
-| `get-activity-intervals` | Get structured workout intervals with targets and performance |
-| `get-best-efforts`       | Find peak performances across all durations in an activity    |
-| `search-intervals`       | Find similar intervals across activity history                |
-| `get-power-histogram`    | Get power distribution histogram for an activity              |
-| `get-hr-histogram`       | Get heart rate distribution histogram for an activity         |
-| `get-pace-histogram`     | Get pace distribution histogram for an activity               |
-| `get-gap-histogram`      | Get grade-adjusted pace histogram for an activity             |
+| `icu_get_activity_streams`   | Get time-series data (power, HR, cadence, altitude, GPS)      |
+| `icu_get_activity_intervals` | Get structured workout intervals with targets and performance |
+| `icu_get_best_efforts`       | Find peak performances across all durations in an activity    |
+| `icu_search_intervals`       | Find similar intervals across activity history                |
+| `icu_get_power_histogram`    | Get power distribution histogram for an activity              |
+| `icu_get_hr_histogram`       | Get heart rate distribution histogram for an activity         |
+| `icu_get_pace_histogram`     | Get pace distribution histogram for an activity               |
+| `icu_get_gap_histogram`      | Get grade-adjusted pace histogram for an activity             |
 
 ### Athlete (2 tools)
 
 | Tool                  | Description                                                     |
 | --------------------- | --------------------------------------------------------------- |
-| `get-athlete-profile` | Get athlete profile with fitness metrics and sport settings     |
-| `get-fitness-summary` | Get detailed CTL/ATL/TSB analysis with training recommendations |
+| `icu_get_athlete_profile` | Get athlete profile with fitness metrics and sport settings     |
+| `icu_get_fitness_summary` | Get detailed CTL/ATL/TSB analysis with training recommendations |
 
 ### Wellness (3 tools)
 
 | Tool                    | Description                                                         |
 | ----------------------- | ------------------------------------------------------------------- |
-| `get-wellness-data`     | Get recent wellness metrics with trends (HRV, sleep, mood, fatigue) |
-| `get-wellness-for-date` | Get complete wellness data for a specific date                      |
-| `update-wellness`       | Update or create wellness data for a date                           |
+| `icu_get_wellness_data`     | Get recent wellness metrics with trends (HRV, sleep, mood, fatigue) |
+| `icu_get_wellness_for_date` | Get complete wellness data for a specific date                      |
+| `icu_update_wellness`       | Update or create wellness data for a date                           |
 
-### Events/Calendar (9 tools)
+### Events/Calendar (10 tools)
 
 | Tool                    | Description                                                |
 | ----------------------- | ---------------------------------------------------------- |
-| `get-calendar-events`   | Get planned events and workouts from calendar              |
-| `get-upcoming-workouts` | Get upcoming planned workouts only                         |
-| `get-event`             | Get details for a specific event                           |
-| `create-event`          | Create new calendar events (workouts, races, notes, goals) |
-| `update-event`          | Modify existing calendar events                            |
-| `delete-event`          | Remove events from calendar                                |
-| `bulk-create-events`    | Create multiple events in a single operation               |
-| `bulk-delete-events`    | Delete multiple events in a single operation               |
-| `duplicate-events`      | Duplicate one or more events with configurable copies and spacing |
+| `icu_get_calendar_events`   | Get planned events and workouts from calendar              |
+| `icu_get_upcoming_workouts` | Get upcoming planned workouts only                         |
+| `icu_get_event`             | Get details for a specific event                           |
+| `icu_create_event`          | Create new calendar events (workouts, races, notes, goals) |
+| `icu_update_event`          | Modify existing calendar events                            |
+| `icu_delete_event`          | Remove events from calendar                                |
+| `icu_bulk_create_events`    | Create multiple events in a single operation               |
+| `icu_bulk_delete_events`    | Delete multiple events in a single operation               |
+| `icu_duplicate_events`      | Duplicate one or more events with configurable copies and spacing |
+| `icu_apply_training_plan` | Apply an entire training plan (workout folder) onto the calendar |
 
 ### Performance/Curves (3 tools)
 
 | Tool               | Description                                              |
 | ------------------ | -------------------------------------------------------- |
-| `get-power-curves` | Analyze power curves with FTP estimation and power zones |
-| `get-hr-curves`    | Analyze heart rate curves with HR zones                  |
-| `get-pace-curves`  | Analyze running/swimming pace curves with optional GAP   |
+| `icu_get_power_curves` | Analyze power curves with FTP estimation and power zones |
+| `icu_get_hr_curves`    | Analyze heart rate curves with HR zones                  |
+| `icu_get_pace_curves`  | Analyze running/swimming pace curves with optional GAP   |
 
 ### Workout Library (2 tools)
 
 | Tool                     | Description                               |
 | ------------------------ | ----------------------------------------- |
-| `get-workout-library`    | Browse workout folders and training plans |
-| `get-workouts-in-folder` | View all workouts in a specific folder    |
+| `icu_get_workout_library`    | Browse workout folders and training plans |
+| `icu_get_workouts_in_folder` | View all workouts in a specific folder    |
 
 ### Gear Management (6 tools)
 
 | Tool                   | Description                                |
 | ---------------------- | ------------------------------------------ |
-| `get-gear-list`        | Get all gear items with usage and status   |
-| `create-gear`          | Add new gear to tracking                   |
-| `update-gear`          | Update gear details, mileage, or status    |
-| `delete-gear`          | Remove gear from tracking                  |
-| `create-gear-reminder` | Create maintenance reminders for gear      |
-| `update-gear-reminder` | Update existing gear maintenance reminders |
+| `icu_get_gear_list`        | Get all gear items with usage and status   |
+| `icu_create_gear`          | Add new gear to tracking                   |
+| `icu_update_gear`          | Update gear details, mileage, or status    |
+| `icu_delete_gear`          | Remove gear from tracking                  |
+| `icu_create_gear_reminder` | Create maintenance reminders for gear      |
+| `icu_update_gear_reminder` | Update existing gear maintenance reminders |
 
 ### Sport Settings (5 tools)
 
 | Tool                    | Description                                             |
 | ----------------------- | ------------------------------------------------------- |
-| `get-sport-settings`    | Get sport-specific settings and thresholds              |
-| `update-sport-settings` | Update FTP, FTHR, pace threshold, or zone configuration |
-| `apply-sport-settings`  | Apply updated settings to historical activities         |
-| `create-sport-settings` | Create new sport-specific settings                      |
-| `delete-sport-settings` | Delete sport-specific settings                          |
+| `icu_get_sport_settings`    | Get sport-specific settings and thresholds              |
+| `icu_update_sport_settings` | Update FTP, FTHR, pace threshold, or zone configuration |
+| `icu_apply_sport_settings`  | Apply updated settings to historical activities         |
+| `icu_create_sport_settings` | Create new sport-specific settings                      |
+| `icu_delete_sport_settings` | Delete sport-specific settings                          |
 
 ## MCP Resources
 
@@ -359,12 +362,12 @@ Prompt templates for common queries (accessible via prompt suggestions in Claude
 
 | Prompt                    | Description                                                              |
 | ------------------------- | ------------------------------------------------------------------------ |
-| `analyze-recent-training` | Comprehensive training analysis over a specified period                  |
-| `performance-analysis`    | Detailed power/HR/pace curve analysis with zones                         |
-| `activity-deep-dive`      | Deep dive into a specific activity with streams, intervals, best efforts |
-| `recovery-check`          | Recovery assessment with wellness trends and training load               |
-| `training-plan-review`    | Weekly training plan evaluation with workout library                     |
-| `plan-training-week`      | AI-assisted weekly training plan creation based on current fitness       |
+| `icu_analyze_recent_training` | Comprehensive training analysis over a specified period                  |
+| `icu_performance_analysis`    | Detailed power/HR/pace curve analysis with zones                         |
+| `icu_activity_deep_dive`      | Deep dive into a specific activity with streams, intervals, best efforts |
+| `icu_recovery_check`          | Recovery assessment with wellness trends and training load               |
+| `icu_training_plan_review`    | Weekly training plan evaluation with workout library                     |
+| `icu_plan_training_week`      | AI-assisted weekly training plan creation based on current fitness       |
 
 ## Changelog
 
