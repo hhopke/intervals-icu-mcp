@@ -385,6 +385,8 @@ Prompt templates for common queries (accessible via prompt suggestions in Claude
 
 ### New features
 
+- **New Bulk/Streams APIs** — full support for `icu_apply_training_plan`, `icu_bulk_create_manual_activities` and `icu_update_activity_streams`
+- **MCP Builder Standards** — implemented universal `icu_` naming prefix and `destructiveHint` safeguards for all modification tools
 - **Multi-athlete support** — optional `athlete_id` parameter on activity, event, and calendar tools
 - **MCP verification prompts** — `verify-setup` and `verify-multi-athlete` for live validation
 
