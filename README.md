@@ -24,8 +24,8 @@ This MCP server provides 51 tools to interact with your Intervals.icu account, o
 
 Additionally, the server provides:
 
-- 1 MCP Resource - Athlete profile with fitness metrics for ongoing context
-- 6 MCP Prompts - Templates for common queries (training analysis, performance analysis, activity deep dive, recovery check, training plan review, weekly planning)
+- 2 MCP Resources - Athlete profile with fitness metrics, and structured workout syntax reference for LLM-guided workout generation
+- 7 MCP Prompts - Templates for common queries (training analysis, performance analysis, activity deep dive, recovery check, training plan review, weekly planning, workout generation)
 
 ## Prerequisites
 
@@ -166,6 +166,7 @@ Use built-in prompt templates for common queries (available via prompt suggestio
 - `recovery-check` - Recovery assessment with wellness trends and training load
 - `training-plan-review` - Weekly training plan evaluation with workout library
 - `plan-training-week` - AI-assisted weekly training plan creation based on current fitness
+- `generate-workout` - Generate a structured workout for any sport (cycling, running, swimming) with proper Intervals.icu syntax
 
 ### Activities
 
@@ -210,12 +211,16 @@ _Note: The athlete profile resource (`intervals-icu://athlete/profile`) automati
 
 ```
 "What workouts do I have planned this week?"
-"Create a threshold workout for tomorrow"
+"Create a sweet spot cycling workout for tomorrow"
+"Create a tempo run with 800m repeats for Wednesday"
+"Generate a CSS swim training session for Friday"
 "Update my workout on Friday"
 "Delete the workout on Saturday"
 "Duplicate this week's plan for next week"
 "Create 5 workouts for my build phase"
 ```
+
+> **Structured Workouts**: The server includes a complete workout syntax reference (`intervals-icu://workout-syntax`) that enables LLMs to generate valid structured workouts with proper power/HR/pace targets, zones, ramps, repeats, and cadence for cycling, running, and swimming.
 
 ### Performance Analysis
 
@@ -355,6 +360,7 @@ Resources provide ongoing context to the LLM without requiring explicit tool cal
 | Resource                          | Description                                                              |
 | --------------------------------- | ------------------------------------------------------------------------ |
 | `intervals-icu://athlete/profile` | Complete athlete profile with current fitness metrics and sport settings |
+| `intervals-icu://workout-syntax`  | Structured workout syntax reference for generating valid Intervals.icu workouts (cycling, running, swimming) |
 
 ## MCP Prompts
 
@@ -368,6 +374,7 @@ Prompt templates for common queries (accessible via prompt suggestions in Claude
 | `icu_recovery_check`          | Recovery assessment with wellness trends and training load               |
 | `icu_training_plan_review`    | Weekly training plan evaluation with workout library                     |
 | `icu_plan_training_week`      | AI-assisted weekly training plan creation based on current fitness       |
+| `generate_workout`            | Generate a structured workout with sport, type, and duration parameters  |
 
 ## Changelog
 
@@ -385,6 +392,7 @@ Prompt templates for common queries (accessible via prompt suggestions in Claude
 
 ### New features
 
+- **Structured Workout Generation** — LLM-ready workout syntax resource (`intervals-icu://workout-syntax`) and `generate_workout` prompt for creating valid structured workouts across cycling, running, and swimming. Syntax spec attributed to [MarvinNazari/intervals-icu-workout-parser](https://github.com/MarvinNazari/intervals-icu-workout-parser) (MIT)
 - **New Bulk/Streams APIs** — full support for `icu_apply_training_plan`, `icu_bulk_create_manual_activities` and `icu_update_activity_streams`
 - **MCP Builder Standards** — implemented universal `icu_` naming prefix and `destructiveHint` safeguards for all modification tools
 - **Multi-athlete support** — optional `athlete_id` parameter on activity, event, and calendar tools

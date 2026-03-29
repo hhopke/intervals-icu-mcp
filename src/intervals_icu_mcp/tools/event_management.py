@@ -14,7 +14,14 @@ async def create_event(
     start_date: Annotated[str, "Start date in YYYY-MM-DD format"],
     name: Annotated[str, "Event name"],
     category: Annotated[str, "Event category: WORKOUT, NOTE, RACE, or GOAL"],
-    description: Annotated[str | None, "Event description (optional)"] = None,
+    description: Annotated[
+        str | None,
+        "Event description. For WORKOUT events, use Intervals.icu structured workout "
+        "syntax to define intervals, targets, and structure. The server automatically "
+        "parses this into a structured workout. Read the intervals-icu://workout-syntax "
+        "resource for the complete syntax reference. Example: "
+        "'Warmup\n- 10m ramp 50%-75%\n\nMain Set 3x\n- 5m 95%\n- 3m 55%\n\nCooldown\n- 10m 50%'",
+    ] = None,
     event_type: Annotated[str | None, "Activity type (e.g., Ride, Run, Swim)"] = None,
     duration_seconds: Annotated[int | None, "Planned duration in seconds"] = None,
     distance_meters: Annotated[float | None, "Planned distance in meters"] = None,
@@ -27,11 +34,16 @@ async def create_event(
     Adds an event to your Intervals.icu calendar. Events can be workouts with
     planned metrics, notes for tracking information, races, or training goals.
 
+    For WORKOUT events, the 'description' field accepts Intervals.icu structured
+    workout syntax. The server automatically parses this text into a structured
+    workout with calculated training load, zone distribution, and device sync.
+    Read the intervals-icu://workout-syntax resource for the complete syntax.
+
     Args:
         start_date: Date in ISO-8601 format (YYYY-MM-DD)
         name: Name of the event
         category: Type of event - WORKOUT, NOTE, RACE, or GOAL
-        description: Optional detailed description
+        description: For workouts, structured workout text (see workout-syntax resource)
         event_type: Activity type (e.g., "Ride", "Run", "Swim") for workouts
         duration_seconds: Planned duration for workouts
         distance_meters: Planned distance for workouts
@@ -262,7 +274,11 @@ async def delete_event(
 async def bulk_create_events(
     events: Annotated[
         str,
-        "JSON string containing array of events. Each event should have: start_date_local, name, category, and optional fields like description, type, moving_time, distance, icu_training_load",
+        "JSON string containing array of events. Each event should have: "
+        "start_date_local, name, category, and optional fields like description, "
+        "type, moving_time, distance, icu_training_load. For WORKOUT events, "
+        "include structured workout syntax in the 'description' field "
+        "(see intervals-icu://workout-syntax resource for syntax reference).",
     ],
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
@@ -271,6 +287,10 @@ async def bulk_create_events(
 
     This is more efficient than creating events one at a time. Provide a JSON array
     of event objects, each with the same structure as create_event.
+
+    For WORKOUT events, include Intervals.icu structured workout syntax in the
+    'description' field. The server automatically parses workout text into structured
+    workouts. Read the intervals-icu://workout-syntax resource for the complete syntax.
 
     Args:
         events: JSON array of event objects to create

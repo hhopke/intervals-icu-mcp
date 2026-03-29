@@ -23,6 +23,11 @@ Gather the following before composing the commit message:
    - Format: `type(scope): description`
    - Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `ci`
    - Scope is optional but encouraged (e.g., `tools`, `client`, `middleware`)
-3. Stage all relevant changes with `git add`.
-4. Commit with `git commit -m "<generated message>"`.
-5. If there are unrelated changes, suggest splitting into separate commits.
+3. **README**: For `feat` or `fix` commits, check if `README.md` needs updates:
+   - `## Changelog` — add a bullet for the new feature or fix
+   - Tool/resource/prompt tables and counts — update if tools, resources, or prompts were added/removed
+   - Usage examples — add examples for new capabilities
+   - Also update counts in `CLAUDE.md` if they changed
+4. Stage all relevant changes with `git add`.
+5. Commit with `git commit -m "<generated message>"`.
+6. If there are unrelated changes, suggest splitting into separate commits.

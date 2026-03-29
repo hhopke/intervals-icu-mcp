@@ -347,7 +347,60 @@ async def athlete_profile_resource() -> str:
         return ResponseBuilder.build_error_response(e.message, error_type="api_error")
 
 
+@mcp.resource("intervals-icu://workout-syntax")
+async def workout_syntax_resource() -> str:
+    """Intervals.icu structured workout syntax reference.
+
+    Complete specification for writing structured workouts using Intervals.icu
+    plain-text format. Use this when creating WORKOUT events via create_event
+    or bulk_create_events - place the workout text in the 'description' field.
+
+    Covers: durations, distances, power/HR/pace targets, zones, ramps, repeats,
+    cadence, rest intervals, and text prompts for cycling, running, and swimming.
+    """
+    from .workout_syntax import WORKOUT_SYNTAX_SPEC
+
+    return WORKOUT_SYNTAX_SPEC
+
+
 # MCP Prompts - Templates for common queries
+@mcp.prompt()
+async def generate_workout(
+    sport: str = "Ride",
+    workout_type: str = "endurance",
+    duration_minutes: str = "60",
+) -> str:
+    """Generate a structured workout for Intervals.icu.
+
+    Args:
+        sport: Sport type ("Ride", "Run", or "Swim")
+        workout_type: Type of workout (e.g., "endurance", "threshold", "vo2max", "sweet spot", "tempo", "intervals")
+        duration_minutes: Approximate total duration in minutes
+    """
+    return f"""Create a structured {workout_type} workout for {sport}, approximately {duration_minutes} minutes long.
+
+IMPORTANT: Before creating the workout, read the intervals-icu://workout-syntax resource
+to understand the exact syntax format that Intervals.icu expects.
+
+Steps:
+1. Read the workout syntax resource (intervals-icu://workout-syntax)
+2. Check the athlete's current fitness using get_fitness_summary and get_sport_settings
+3. Design an appropriate {workout_type} workout for {sport} based on their fitness level
+4. Create the workout using create_event with:
+   - category: "WORKOUT"
+   - event_type: "{sport}"
+   - description: The structured workout text using the syntax from the resource
+   - A descriptive name
+
+Guidelines:
+- Always include Warmup, Main Set, and Cooldown sections
+- Use appropriate intensity targets based on the athlete's thresholds
+- Include cadence targets for cycling workouts
+- Use blank lines between sections
+- For {workout_type} workouts, follow standard training methodology
+- Present the workout plan for approval before creating the event"""
+
+
 @mcp.prompt()
 async def analyze_recent_training(days: str = "30") -> str:
     """Analyze my Intervals.icu training over a time period.
