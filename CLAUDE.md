@@ -94,7 +94,7 @@ The following skills are available in `.claude/skills/`:
 
 - `.env` — Local credentials (not in git)
 - `.env.example` — Template for credentials
-- `openapi-spec.json` — Intervals.icu API specification (210KB reference)
+- `openapi-spec.json` — Intervals.icu API specification. Kept up to date automatically via `.github/workflows/update-openapi.yml` (or run `curl -s https://intervals.icu/api/v1/docs > openapi-spec.json` to update locally).
 - `uv.lock` — Locked dependencies (commit this)
 - `.github/workflows/test.yml` — CI tests
 - `.github/workflows/release.yml` — Docker release automation
