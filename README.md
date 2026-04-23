@@ -1,3 +1,5 @@
+<!-- mcp-name: io.github.hhopke/intervals-icu-mcp -->
+
 # Intervals.icu MCP Server
 
 ![intervals-icu-mcp demo](/docs/demo.gif)
