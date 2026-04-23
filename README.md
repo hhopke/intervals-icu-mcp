@@ -6,7 +6,10 @@ A Model Context Protocol (MCP) server for Intervals.icu integration. Access your
 
 > Originally based on [eddmann/intervals-icu-mcp](https://github.com/eddmann/intervals-icu-mcp) (MIT licensed). This project is an independent continuation with significant bug fixes and new features — see [Changelog](#changelog) for details.
 
+[![Tests](https://github.com/hhopke/intervals-icu-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/hhopke/intervals-icu-mcp/actions/workflows/test.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io-blue?logo=docker)](https://github.com/hhopke/intervals-icu-mcp/pkgs/container/intervals-icu-mcp)
 
 ## Overview
 
@@ -26,6 +29,34 @@ Additionally, the server provides:
 
 - 2 MCP Resources - Athlete profile with fitness metrics, and structured workout syntax reference for LLM-guided workout generation
 - 7 MCP Prompts - Templates for common queries (training analysis, performance analysis, activity deep dive, recovery check, training plan review, weekly planning, workout generation)
+
+## Quick Start
+
+Running with Claude Desktop, in 60 seconds:
+
+```bash
+git clone https://github.com/hhopke/intervals-icu-mcp.git
+cd intervals-icu-mcp
+uv sync
+uv run intervals-icu-mcp-auth   # paste your Intervals.icu API key + athlete ID
+```
+
+Then add the following to your Claude Desktop config (paths below):
+
+```json
+{
+  "mcpServers": {
+    "intervals-icu": {
+      "command": "uv",
+      "args": ["run", "--directory", "/ABSOLUTE/PATH/TO/intervals-icu-mcp", "intervals-icu-mcp"]
+    }
+  }
+}
+```
+
+Restart Claude and ask it *"Show me my activities from the last 7 days."*
+
+Prefer Claude Code or Cursor? See [Client Configuration](#client-configuration). Prefer Docker? See [Option 2: Using Docker](#option-2-using-docker).
 
 ## Prerequisites
 
@@ -107,14 +138,18 @@ This will prompt for credentials and save them to `intervals-icu-mcp.env`.
 
 Create an `intervals-icu-mcp.env` file manually in your current directory (see UV manual setup above for format).
 
-## Claude Desktop Configuration
+## Client Configuration
+
+The server speaks MCP over stdio and works with any compliant client. Configs below assume you've already run `uv sync` and `uv run intervals-icu-mcp-auth`.
+
+### Claude Desktop
 
 Add to your configuration file:
 
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
-### Using UV
+#### Using UV
 
 ```json
 {
@@ -132,7 +167,7 @@ Add to your configuration file:
 }
 ```
 
-### Using Docker
+#### Using Docker
 
 ```json
 {
@@ -152,11 +187,44 @@ Add to your configuration file:
 }
 ```
 
+### Claude Code
+
+From the project directory, register the server as a user-scoped MCP server:
+
+```bash
+claude mcp add intervals-icu --scope user \
+  -- uv run --directory /ABSOLUTE/PATH/TO/intervals-icu-mcp intervals-icu-mcp
+```
+
+Then in any Claude Code session, run `/mcp` to confirm `intervals-icu` is connected.
+
+### Cursor
+
+Add to `~/.cursor/mcp.json` (or the project-local `.cursor/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "intervals-icu": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "/ABSOLUTE/PATH/TO/intervals-icu-mcp",
+        "intervals-icu-mcp"
+      ]
+    }
+  }
+}
+```
+
+Restart Cursor and open *Settings → MCP* to verify the server is listed.
+
 ## Usage
 
 Ask Claude to interact with your Intervals.icu data using natural language. The server provides tools, a resource, and prompt templates to help you get started.
 
-### Quick Start with MCP Prompts
+### Try the MCP Prompts
 
 Use built-in prompt templates for common queries (available via prompt suggestions in Claude):
 
@@ -403,6 +471,16 @@ Prompt templates for common queries (accessible via prompt suggestions in Claude
 - Upgraded to FastMCP 3.x
 - Added middleware integration tests
 - Added tests for multi-athlete routing, model aliases, and date handling
+
+## Documentation
+
+- [Architecture overview](docs/architecture.md) — how the server, middleware, client, and tools fit together
+- [Testing guide](docs/testing.md) — conventions for pytest + respx, fixtures, and running the suite
+- [Adding a new tool](.claude/skills/add-tool/SKILL.md) — step-by-step workflow for contributors
+
+## Contributing
+
+Issues and pull requests are welcome. Before opening a PR, run `make can-release` locally to match what CI enforces (ruff, pyright, pytest). For new tools, follow the pattern in [`.claude/skills/add-tool/SKILL.md`](.claude/skills/add-tool/SKILL.md) and add a respx-mocked test file alongside the implementation.
 
 ## License
 

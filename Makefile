@@ -2,7 +2,7 @@
 .DEFAULT_GOAL := help
 
 SHELL := /bin/bash
-IMAGE_NAME := ghcr.io/eddmann/intervals-icu-mcp
+IMAGE_NAME := ghcr.io/hhopke/intervals-icu-mcp
 VERSION := $(shell grep '^version' pyproject.toml | cut -d '"' -f 2)
 
 ##@ Setup

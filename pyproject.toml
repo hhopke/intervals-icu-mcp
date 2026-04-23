@@ -1,10 +1,37 @@
 [project]
 name = "intervals-icu-mcp"
 version = "1.0.0"
-description = "Model Context Protocol server for Intervals.icu API integration"
+description = "Model Context Protocol server for Intervals.icu — access training data, wellness metrics, and performance analysis from Claude and other LLMs."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
+authors = [{ name = "Heiko Kromminga" }]
+keywords = [
+    "intervals.icu",
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "training",
+    "cycling",
+    "running",
+    "fitness",
+    "wellness",
+    "sports-analytics",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
 dependencies = [
     "fastmcp>=3.0.0",
     "httpx>=0.28.1",
@@ -12,6 +39,12 @@ dependencies = [
     "pydantic-settings>=2.11.0",
     "python-dotenv>=1.1.1",
 ]
+
+[project.urls]
+Homepage = "https://github.com/hhopke/intervals-icu-mcp"
+Repository = "https://github.com/hhopke/intervals-icu-mcp"
+Issues = "https://github.com/hhopke/intervals-icu-mcp/issues"
+Changelog = "https://github.com/hhopke/intervals-icu-mcp/blob/main/README.md#changelog"
 
 [project.scripts]
 intervals-icu-mcp = "intervals_icu_mcp.server:main"

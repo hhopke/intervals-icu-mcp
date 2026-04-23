@@ -1,0 +1,38 @@
+name: Feature request
+description: Suggest a new tool, endpoint, or improvement
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the workflow or analysis you can't do today with the existing tools.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: A new tool? An extra parameter on an existing one? A new MCP prompt? Link to the relevant Intervals.icu API endpoint if applicable.
+    validations:
+      required: true
+
+  - type: textarea
+    id: api-endpoint
+    attributes:
+      label: Intervals.icu API endpoint (if known)
+      description: Path and method, e.g. `GET /athlete/{id}/activities`. See `openapi-spec.json` for the full reference.
+      placeholder: "GET /athlete/{id}/..."
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+
+  - type: checkboxes
+    id: willing-to-contribute
+    attributes:
+      label: Willing to contribute?
+      options:
+        - label: I'd be open to sending a PR for this.

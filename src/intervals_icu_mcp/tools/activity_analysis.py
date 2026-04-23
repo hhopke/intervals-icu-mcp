@@ -202,11 +202,19 @@ async def get_activity_intervals(
 async def get_best_efforts(
     activity_id: Annotated[str, "Activity ID to analyze"],
     stream: Annotated[
-        str, "Stream to search for best efforts (e.g., 'watts', 'heartrate', 'pace')"
+        str, "Stream to search for best efforts: 'watts', 'heartrate', or 'pace'"
     ] = "watts",
-    duration: Annotated[int | None, "Duration of each effort in seconds"] = None,
-    distance: Annotated[float | None, "Distance of each effort in meters"] = None,
-    count: Annotated[int, "Number of efforts to return"] = 8,
+    duration: Annotated[
+        int | None,
+        "Duration of each effort in seconds (e.g., 60 for 1-min, 1200 for 20-min). "
+        "At least one of 'duration' or 'distance' is required.",
+    ] = None,
+    distance: Annotated[
+        float | None,
+        "Distance of each effort in meters (e.g., 5000 for 5k). "
+        "At least one of 'duration' or 'distance' is required.",
+    ] = None,
+    count: Annotated[int, "Number of efforts to return (default 8)"] = 8,
     ctx: Context | None = None,
 ) -> str:
     """Get best efforts/peak performances from an activity.

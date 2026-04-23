@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Intervals.icu API questions
+    url: https://forum.intervals.icu/
+    about: For questions about the Intervals.icu API itself, ask on the official Intervals.icu forum. This tracker is only for issues with the MCP server.
+  - name: Model Context Protocol spec questions
+    url: https://github.com/modelcontextprotocol/modelcontextprotocol
+    about: For questions about the MCP spec itself, see the official MCP repository.

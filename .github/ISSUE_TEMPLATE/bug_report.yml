@@ -1,0 +1,76 @@
+name: Bug report
+description: Report something that isn't working as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a report. Please fill out the fields below so we can reproduce the issue quickly.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug. Include the exact tool name (e.g. `icu_get_recent_activities`) and what you asked the LLM to do.
+      placeholder: "I asked Claude to ... and the tool returned ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How can we reproduce it?
+      description: Minimal steps or the exact prompt that triggered the bug.
+    validations:
+      required: true
+
+  - type: textarea
+    id: error
+    attributes:
+      label: Error response / logs
+      description: If the tool returned an error, paste the full JSON response. Redact any API keys.
+      render: json
+
+  - type: dropdown
+    id: client
+    attributes:
+      label: MCP client
+      options:
+        - Claude Desktop
+        - Claude Code
+        - Cursor
+        - MCP Inspector
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Server version
+      description: Output of `make version`, or Docker image tag.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      description: Output of `python --version`. Leave blank if using Docker.
+      placeholder: "3.11.9"
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "macOS 14.5"
+    validations:
+      required: true
