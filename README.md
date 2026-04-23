@@ -1,6 +1,6 @@
 # Intervals.icu MCP Server
 
-![Intervals.icu MCP Server](docs/heading.png)
+![intervals-icu-mcp demo](/docs/demo.gif)
 
 A Model Context Protocol (MCP) server for Intervals.icu integration. Access your training data, wellness metrics, and performance analysis through Claude and other LLMs.
 
