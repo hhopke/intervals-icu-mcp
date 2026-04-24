@@ -1,9 +1,10 @@
 [project]
 name = "intervals-icu-mcp"
-version = "1.0.1"
+version = "1.0.2"
 description = "Model Context Protocol server for Intervals.icu — access training data, wellness metrics, and performance analysis from Claude and other LLMs."
 readme = "README.md"
 license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 authors = [{ name = "Heiko Kromminga" }]
 keywords = [
