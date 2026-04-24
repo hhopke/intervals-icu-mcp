@@ -10,7 +10,7 @@ A Model Context Protocol (MCP) server for Intervals.icu integration. Access your
 
 [![Tests](https://github.com/hhopke/intervals-icu-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/hhopke/intervals-icu-mcp/actions/workflows/test.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/hhopke/intervals-icu-mcp/blob/main/LICENSE)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-blue?logo=docker)](https://github.com/hhopke/intervals-icu-mcp/pkgs/container/intervals-icu-mcp)
 
 ## Overview
@@ -527,7 +527,7 @@ Issues and pull requests are welcome. Before opening a PR, run `make can-release
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details
+MIT License - see the [LICENSE](https://github.com/hhopke/intervals-icu-mcp/blob/main/LICENSE) file for details.
 
 ## Disclaimer
 
