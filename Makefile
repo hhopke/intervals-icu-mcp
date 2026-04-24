@@ -29,7 +29,7 @@ clean: ## Clean up cache files and build artifacts
 
 ##@ Testing/Linting
 
-can-release: test lint ## Run all the same checks as CI to ensure code can be released
+can-release: test lint lint/package ## Run all the same checks as CI to ensure code can be released
 
 test: ## Run the test suite
 	uv run pytest
@@ -50,6 +50,16 @@ lint/ruff: ## Run ruff linter
 
 lint/pyright: ## Run pyright type checker
 	uv run pyright
+
+lint/package: ## Validate PyPI package metadata and README rendering (twine + pyroma)
+	rm -rf dist/
+	uv build
+	uvx twine check --strict dist/*
+	uvx pyroma --min=10 .
+
+lint/links: ## Check markdown links (requires lychee: `brew install lychee`)
+	@command -v lychee >/dev/null 2>&1 || { echo "lychee not installed. Install with: brew install lychee"; exit 1; }
+	lychee --include-fragments README.md CHANGELOG.md docs/
 
 fmt: format
 format: ## Fix style violations and format code

@@ -44,3 +44,24 @@ jobs:
           --cov=src/intervals_icu_mcp
           --cov-report=term-missing
           --cov-fail-under=43
+
+  package:
+    name: Validate package metadata and links
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Validate PyPI metadata and README rendering
+        run: make lint/package
+
+      - name: Check markdown links
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --include-fragments README.md CHANGELOG.md docs/
+          fail: true
