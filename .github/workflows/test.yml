@@ -39,4 +39,8 @@ jobs:
         run: uv run pyright
 
       - name: Run tests
-        run: uv run pytest
+        run: >
+          uv run pytest
+          --cov=src/intervals_icu_mcp
+          --cov-report=term-missing
+          --cov-fail-under=43

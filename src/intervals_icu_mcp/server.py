@@ -1,5 +1,6 @@
 """Intervals.icu MCP Server - FastMCP entry point."""
 
+import argparse
 from typing import Any
 
 from dotenv import load_dotenv
@@ -639,10 +640,54 @@ Present a summary table:
 Flag any 401/403 errors as permission issues (coach access required)."""
 
 
-def main():
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse CLI arguments for transport selection.
+
+    Defaults to stdio so existing Claude Desktop / Cursor / Claude Code
+    configurations keep working without changes. Pass --transport http (or sse)
+    to expose the server over HTTP for remote deployment.
+    """
+    parser = argparse.ArgumentParser(
+        prog="intervals-icu-mcp",
+        description="Intervals.icu MCP server. Defaults to stdio transport.",
+    )
+    parser.add_argument(
+        "--transport",
+        choices=("stdio", "http", "sse", "streamable-http"),
+        default="stdio",
+        help="Transport protocol. Use 'http' for remote deployment. Default: stdio.",
+    )
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Host to bind when using an HTTP transport. Default: 127.0.0.1.",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port to bind when using an HTTP transport. Default: 8000.",
+    )
+    parser.add_argument(
+        "--path",
+        default=None,
+        help="URL path to mount the server under (HTTP transports only).",
+    )
+    return parser.parse_args(argv)
+
+
+def main() -> None:
     """Main entry point for the Intervals.icu MCP server."""
-    # Run the server with stdio transport (default)
-    mcp.run()
+    args = _parse_args()
+
+    if args.transport == "stdio":
+        mcp.run()
+        return
+
+    kwargs: dict[str, Any] = {"host": args.host, "port": args.port}
+    if args.path is not None:
+        kwargs["path"] = args.path
+    mcp.run(transport=args.transport, **kwargs)
 
 
 if __name__ == "__main__":
