@@ -269,10 +269,10 @@ By default the server runs over **stdio** — the right transport for local clie
 
 ```bash
 # Streamable HTTP (recommended for new remote clients)
-intervals-icu-mcp --transport http --host 0.0.0.0 --port 8000
+intervals-icu-mcp --transport http --host 127.0.0.1 --port 8000
 
 # Legacy SSE (for clients that haven't moved to streamable HTTP yet)
-intervals-icu-mcp --transport sse --host 0.0.0.0 --port 8000
+intervals-icu-mcp --transport sse --host 127.0.0.1 --port 8000
 ```
 
 All flags:
@@ -280,11 +280,20 @@ All flags:
 | Flag | Default | Description |
 |---|---|---|
 | `--transport` | `stdio` | One of `stdio`, `http`, `sse`, `streamable-http` |
-| `--host` | `127.0.0.1` | Interface to bind (use `0.0.0.0` in containers) |
+| `--host` | `127.0.0.1` | Interface to bind. Use `0.0.0.0` only inside a container where Docker controls the exposure. |
 | `--port` | `8000` | TCP port |
 | `--path` | (framework default) | URL path to mount the server under |
 
-Credentials are still read from `INTERVALS_ICU_API_KEY` and `INTERVALS_ICU_ATHLETE_ID` environment variables or a `.env` file. When deploying to a shared host, prefer env vars and put the server behind TLS + auth — the MCP protocol itself does not authenticate callers.
+> ⚠️ **Security: do not expose an HTTP-mode server to untrusted networks.**
+>
+> The MCP protocol has **no built-in authentication**. Anyone who can reach the URL can exercise every tool with your credentials — read every activity, delete activities, modify your FTP, create calendar events, etc. Binding to `0.0.0.0` on a direct-exposed host (VPS, LAN with open port) is equivalent to publishing your Intervals.icu API key.
+>
+> For remote access, prefer one of the following:
+> - **Tailscale / Cloudflare Tunnel / ZeroTier** — only your authenticated devices can reach the endpoint. Zero code changes, simplest option.
+> - **Reverse proxy with auth** (nginx + basic auth, Cloudflare Access, etc.) — terminates TLS and gates access.
+> - **SSH tunnel** — `ssh -L 8000:localhost:8000 host` if you just need occasional access from one machine.
+>
+> Credentials are always read from `INTERVALS_ICU_API_KEY` and `INTERVALS_ICU_ATHLETE_ID` — use env vars (not a committed `.env`) when deploying to a shared host.
 
 ## Usage
 
