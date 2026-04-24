@@ -263,6 +263,29 @@ Add to `~/.cursor/mcp.json` (or the project-local `.cursor/mcp.json`):
 
 Restart Cursor and open *Settings → MCP* to verify the server is listed.
 
+## Remote Deployment (HTTP / SSE)
+
+By default the server runs over **stdio** — the right transport for local clients like Claude Desktop, Claude Code, and Cursor. For remote deployment (hosted MCP, reverse proxy, Docker-on-a-server), the server also supports HTTP-based transports via a `--transport` flag:
+
+```bash
+# Streamable HTTP (recommended for new remote clients)
+intervals-icu-mcp --transport http --host 0.0.0.0 --port 8000
+
+# Legacy SSE (for clients that haven't moved to streamable HTTP yet)
+intervals-icu-mcp --transport sse --host 0.0.0.0 --port 8000
+```
+
+All flags:
+
+| Flag | Default | Description |
+|---|---|---|
+| `--transport` | `stdio` | One of `stdio`, `http`, `sse`, `streamable-http` |
+| `--host` | `127.0.0.1` | Interface to bind (use `0.0.0.0` in containers) |
+| `--port` | `8000` | TCP port |
+| `--path` | (framework default) | URL path to mount the server under |
+
+Credentials are still read from `INTERVALS_ICU_API_KEY` and `INTERVALS_ICU_ATHLETE_ID` environment variables or a `.env` file. When deploying to a shared host, prefer env vars and put the server behind TLS + auth — the MCP protocol itself does not authenticate callers.
+
 ## Usage
 
 Ask Claude to interact with your Intervals.icu data using natural language. The server provides tools, a resource, and prompt templates to help you get started.
