@@ -1,6 +1,6 @@
 [project]
 name = "intervals-icu-mcp"
-version = "1.1.0"
+version = "1.1.1"
 description = "Model Context Protocol server for Intervals.icu — access training data, wellness metrics, and performance analysis from Claude and other LLMs."
 readme = "README.md"
 license = "MIT"
