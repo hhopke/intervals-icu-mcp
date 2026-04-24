@@ -1,3 +1,5 @@
+<!-- mcp-name: io.github.hhopke/intervals-icu-mcp -->
+
 # Intervals.icu MCP Server
 
 ![intervals-icu-mcp demo](/docs/demo.gif)
@@ -32,36 +34,44 @@ Additionally, the server provides:
 
 ## Quick Start
 
-Running with Claude Desktop, in 60 seconds:
+Running with Claude Desktop, in 30 seconds:
 
-```bash
-git clone https://github.com/hhopke/intervals-icu-mcp.git
-cd intervals-icu-mcp
-uv sync
-uv run intervals-icu-mcp-auth   # paste your Intervals.icu API key + athlete ID
-```
-
-Then add the following to your Claude Desktop config (paths below):
+1. Get your [API key and athlete ID](#intervalsicu-api-key-setup)
+2. Add this to your Claude Desktop config:
 
 ```json
 {
   "mcpServers": {
     "intervals-icu": {
-      "command": "uv",
-      "args": ["run", "--directory", "/ABSOLUTE/PATH/TO/intervals-icu-mcp", "intervals-icu-mcp"]
+      "command": "uvx",
+      "args": ["intervals-icu-mcp"],
+      "env": {
+        "INTERVALS_ICU_API_KEY": "your-api-key-here",
+        "INTERVALS_ICU_ATHLETE_ID": "i123456"
+      }
     }
   }
 }
 ```
 
-Restart Claude and ask it *"Show me my activities from the last 7 days."*
+3. Restart Claude and ask *"Show me my activities from the last 7 days."*
 
-Prefer Claude Code or Cursor? See [Client Configuration](#client-configuration). Prefer Docker? See [Option 2: Using Docker](#option-2-using-docker).
+Prefer Claude Code or Cursor? See [Client Configuration](#client-configuration). Want to run from source or with Docker? See [Installation & Setup](#installation--setup).
 
 ## Prerequisites
 
-- Python 3.11+ and [uv](https://github.com/astral-sh/uv), OR
-- Docker
+Install [uv](https://github.com/astral-sh/uv) — it handles Python, dependencies, and execution in one tool:
+
+```bash
+# macOS / Linux
+brew install uv
+# or: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+That's all you need — `uvx` will fetch Python and the package automatically. Docker is also supported as an alternative.
 
 ## Intervals.icu API Key Setup
 
@@ -78,14 +88,27 @@ Before installation, you need to obtain your Intervals.icu API key:
 ### How Authentication Works
 
 1. API Key - Simple API key authentication (no OAuth required)
-2. Configuration - API key and athlete ID saved to `.env` file
+2. Configuration - API key and athlete ID provided via environment variables (or `.env` file when running from source)
 3. Basic Auth - HTTP Basic Auth with username "API_KEY" and your key as password
 4. Persistence - Subsequent runs reuse stored credentials
 
-### Option 1: Using UV
+### Option 1: Using uvx (Recommended)
+
+No clone, no manual install. Credentials are passed via the `env` block in your MCP client config (see [Client Configuration](#client-configuration)).
 
 ```bash
-# Install dependencies
+# Optional: test it runs locally
+INTERVALS_ICU_API_KEY=your_key INTERVALS_ICU_ATHLETE_ID=i123456 uvx intervals-icu-mcp
+```
+
+`uvx` downloads the package from PyPI on first run, caches it, and reuses the cache thereafter.
+
+### Option 2: From Source
+
+For development or if you want to modify the server:
+
+```bash
+git clone https://github.com/hhopke/intervals-icu-mcp.git
 cd intervals-icu-mcp
 uv sync
 ```
@@ -109,7 +132,7 @@ INTERVALS_ICU_API_KEY=your_api_key_here
 INTERVALS_ICU_ATHLETE_ID=i123456
 ```
 
-### Option 2: Using Docker
+### Option 3: Using Docker
 
 ```bash
 # Build the image
@@ -140,7 +163,7 @@ Create an `intervals-icu-mcp.env` file manually in your current directory (see U
 
 ## Client Configuration
 
-The server speaks MCP over stdio and works with any compliant client. Configs below assume you've already run `uv sync` and `uv run intervals-icu-mcp-auth`.
+The server speaks MCP over stdio and works with any compliant client.
 
 ### Claude Desktop
 
@@ -149,7 +172,26 @@ Add to your configuration file:
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
-#### Using UV
+#### Using uvx (recommended)
+
+```json
+{
+  "mcpServers": {
+    "intervals-icu": {
+      "command": "uvx",
+      "args": ["intervals-icu-mcp"],
+      "env": {
+        "INTERVALS_ICU_API_KEY": "your-api-key-here",
+        "INTERVALS_ICU_ATHLETE_ID": "i123456"
+      }
+    }
+  }
+}
+```
+
+#### From source
+
+Requires having cloned the repo and run `uv sync` + `uv run intervals-icu-mcp-auth`.
 
 ```json
 {
@@ -189,11 +231,13 @@ Add to your configuration file:
 
 ### Claude Code
 
-From the project directory, register the server as a user-scoped MCP server:
+Register the server as a user-scoped MCP server:
 
 ```bash
 claude mcp add intervals-icu --scope user \
-  -- uv run --directory /ABSOLUTE/PATH/TO/intervals-icu-mcp intervals-icu-mcp
+  --env INTERVALS_ICU_API_KEY=your-key \
+  --env INTERVALS_ICU_ATHLETE_ID=i123456 \
+  -- uvx intervals-icu-mcp
 ```
 
 Then in any Claude Code session, run `/mcp` to confirm `intervals-icu` is connected.
@@ -206,13 +250,12 @@ Add to `~/.cursor/mcp.json` (or the project-local `.cursor/mcp.json`):
 {
   "mcpServers": {
     "intervals-icu": {
-      "command": "uv",
-      "args": [
-        "run",
-        "--directory",
-        "/ABSOLUTE/PATH/TO/intervals-icu-mcp",
-        "intervals-icu-mcp"
-      ]
+      "command": "uvx",
+      "args": ["intervals-icu-mcp"],
+      "env": {
+        "INTERVALS_ICU_API_KEY": "your-api-key-here",
+        "INTERVALS_ICU_ATHLETE_ID": "i123456"
+      }
     }
   }
 }

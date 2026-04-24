@@ -1,0 +1,36 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.hhopke/intervals-icu-mcp",
+  "description": "Model Context Protocol server for Intervals.icu — access training data, wellness metrics, and performance analysis from Claude and other LLMs.",
+  "repository": {
+    "url": "https://github.com/hhopke/intervals-icu-mcp",
+    "source": "github"
+  },
+  "version": "1.0.1",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "intervals-icu-mcp",
+      "version": "1.0.1",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "description": "Your Intervals.icu API key (from Settings → Developer)",
+          "isRequired": true,
+          "format": "string",
+          "isSecret": true,
+          "name": "INTERVALS_ICU_API_KEY"
+        },
+        {
+          "description": "Your Intervals.icu athlete ID (e.g. i12345)",
+          "isRequired": true,
+          "format": "string",
+          "isSecret": false,
+          "name": "INTERVALS_ICU_ATHLETE_ID"
+        }
+      ]
+    }
+  ]
+}
