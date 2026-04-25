@@ -1,7 +1,7 @@
 [project]
 name = "intervals-icu-mcp"
 dynamic = ["version"]
-description = "Model Context Protocol server for Intervals.icu — access training data, wellness metrics, and performance analysis from Claude and other LLMs."
+description = "Model Context Protocol server for Intervals.icu — access training data, wellness metrics, and performance analysis from Claude, ChatGPT, and other LLMs."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -12,6 +12,7 @@ keywords = [
     "mcp",
     "model-context-protocol",
     "claude",
+    "chatgpt",
     "training",
     "cycling",
     "running",
