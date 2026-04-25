@@ -4,7 +4,7 @@
 
 ![intervals-icu-mcp demo](https://raw.githubusercontent.com/hhopke/intervals-icu-mcp/main/docs/demo.gif)
 
-A Model Context Protocol (MCP) server for Intervals.icu integration. Access your training data, wellness metrics, and performance analysis through Claude and other LLMs.
+A Model Context Protocol (MCP) server for Intervals.icu integration. Access your training data, wellness metrics, and performance analysis through Claude, ChatGPT, and other LLMs.
 
 > Originally based on [eddmann/intervals-icu-mcp](https://github.com/eddmann/intervals-icu-mcp) (MIT licensed). This project is an independent continuation with significant bug fixes and new features — see [CHANGELOG.md](https://github.com/hhopke/intervals-icu-mcp/blob/main/CHANGELOG.md) for details.
 
@@ -41,7 +41,7 @@ Running with Claude Desktop, in 30 seconds:
 
 3. Restart Claude and ask *"Show me my activities from the last 7 days."*
 
-Prefer Claude Code or Cursor? See [Client Configuration](#client-configuration). Want to run from source or with Docker? See [Installation & Setup](#installation--setup).
+Prefer Claude Code, Cursor, or ChatGPT? See [Client Configuration](#client-configuration). Want to run from source or with Docker? See [Installation & Setup](#installation--setup).
 
 ## Prerequisites
 
@@ -54,21 +54,12 @@ Before installation, obtain your Intervals.icu API key:
 1. Go to https://intervals.icu/settings → **Developer** → **Create API Key**.
 2. Copy the key, and note your **Athlete ID** from your profile URL (format: `i123456`).
 
-## Installation & Setup
+## Installation
 
-Credentials are passed via the `env` block in your MCP client config (see [Client Configuration](#client-configuration)) or, for source installs, via a local `.env` file.
-
-### Using uvx (recommended)
-
-No clone, no manual install — `uvx` downloads the package from PyPI on first run, caches it, and reuses the cache thereafter.
-
-```bash
-# Optional: test it runs locally
-INTERVALS_ICU_API_KEY=your_key INTERVALS_ICU_ATHLETE_ID=i123456 uvx intervals-icu-mcp
-```
+**Nothing to install separately if you use the recommended setup.** `uvx` (which ships with `uv`) automatically downloads and caches the `intervals-icu-mcp` package the first time your MCP client launches it — just paste the config snippet from [Client Configuration](#client-configuration) into your client and you're done.
 
 <details>
-<summary><b>From source</b> — for development or local modifications</summary>
+<summary><b>Alternative: from source</b> — for development or local modifications</summary>
 
 ```bash
 git clone https://github.com/hhopke/intervals-icu-mcp.git
@@ -79,10 +70,12 @@ uv run intervals-icu-mcp-auth  # interactive credential setup; or create .env ma
 #   INTERVALS_ICU_ATHLETE_ID=i123456
 ```
 
+Then point your MCP client at this checkout — see the **From source** snippet inside each client below.
+
 </details>
 
 <details>
-<summary><b>Using Docker</b></summary>
+<summary><b>Alternative: Docker</b></summary>
 
 ```bash
 docker build -t intervals-icu-mcp .
@@ -97,16 +90,18 @@ docker run -it --rm \
 
 Or create `intervals-icu-mcp.env` manually (same format as the `.env` above).
 
+Then point your MCP client at the Docker image — see the **Docker** snippet inside each client below.
+
 </details>
 
 ## Client Configuration
 
-The server speaks MCP over stdio and works with any compliant client.
+The server speaks MCP over stdio and works with any compliant client. Click a client to expand. If you followed Quick Start (uvx), use the first config block; if you used the source or Docker alternative above, use the matching variant inside the same collapsible.
 
-### Claude Desktop
+<details>
+<summary><b>Claude Desktop</b></summary>
 
 Add to your configuration file:
-
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
@@ -125,9 +120,6 @@ Add to your configuration file:
 }
 ```
 
-<details>
-<summary>Alternate flavors: from source / Docker</summary>
-
 **From source** (requires `git clone` + `uv sync` + `uv run intervals-icu-mcp-auth`):
 
 ```json
@@ -135,12 +127,7 @@ Add to your configuration file:
   "mcpServers": {
     "intervals-icu": {
       "command": "uv",
-      "args": [
-        "run",
-        "--directory",
-        "/ABSOLUTE/PATH/TO/intervals-icu-mcp",
-        "intervals-icu-mcp"
-      ]
+      "args": ["run", "--directory", "/ABSOLUTE/PATH/TO/intervals-icu-mcp", "intervals-icu-mcp"]
     }
   }
 }
@@ -153,14 +140,7 @@ Add to your configuration file:
   "mcpServers": {
     "intervals-icu": {
       "command": "docker",
-      "args": [
-        "run",
-        "-i",
-        "--rm",
-        "-v",
-        "/ABSOLUTE/PATH/TO/intervals-icu-mcp.env:/app/.env",
-        "intervals-icu-mcp:latest"
-      ]
+      "args": ["run", "-i", "--rm", "-v", "/ABSOLUTE/PATH/TO/intervals-icu-mcp.env:/app/.env", "intervals-icu-mcp:latest"]
     }
   }
 }
@@ -168,7 +148,8 @@ Add to your configuration file:
 
 </details>
 
-### Claude Code
+<details>
+<summary><b>Claude Code</b></summary>
 
 Register the server as a user-scoped MCP server:
 
@@ -181,7 +162,10 @@ claude mcp add intervals-icu --scope user \
 
 Then in any Claude Code session, run `/mcp` to confirm `intervals-icu` is connected.
 
-### Cursor
+</details>
+
+<details>
+<summary><b>Cursor</b></summary>
 
 Add to `~/.cursor/mcp.json` (or the project-local `.cursor/mcp.json`):
 
@@ -202,19 +186,65 @@ Add to `~/.cursor/mcp.json` (or the project-local `.cursor/mcp.json`):
 
 Restart Cursor and open *Settings → MCP* to verify the server is listed.
 
-## Remote Deployment (HTTP / SSE)
+</details>
 
-By default the server runs over **stdio** — the right transport for local clients like Claude Desktop, Claude Code, and Cursor. For remote deployment (hosted MCP, reverse proxy, Docker-on-a-server), the server also supports HTTP-based transports via a `--transport` flag:
+<details>
+<summary><b>ChatGPT</b> — requires a paid plan, Developer Mode, and a publicly reachable URL <em>(walkthrough not yet verified end-to-end)</em></summary>
+
+> ⚠️ **Unverified.** The steps below are derived from OpenAI's and FastMCP's docs but have not been confirmed end-to-end against this server. Plan-tier eligibility for custom MCP connectors changes frequently — always check OpenAI's [current connector docs](https://help.openai.com/en/articles/12584461-developer-mode-apps-and-full-mcp-connectors-in-chatgpt-beta) before assuming your plan supports it. PRs from anyone who has confirmed the flow are welcome.
+
+**Requirements (as of writing)**
+- A ChatGPT plan that supports custom MCP connectors and Developer Mode (typically a paid tier — Free does not qualify; check OpenAI docs for the current list).
+- **Developer Mode** enabled in ChatGPT settings.
+- A public HTTPS URL pointing at the server (a tunnel is the easiest way).
+
+**Step 1 — Start the server in HTTP mode**
 
 ```bash
-# Streamable HTTP (recommended for new remote clients)
+intervals-icu-mcp --transport http --host 127.0.0.1 --port 8000
+```
+
+**Step 2 — Expose it via a tunnel**
+
+*Cloudflare Tunnel (free, recommended):*
+```bash
+brew install cloudflared   # macOS — or download from developers.cloudflare.com
+cloudflared tunnel --url http://127.0.0.1:8000
+```
+Cloudflare prints a URL like `https://abc-def-123.trycloudflare.com`. Your MCP endpoint is `https://abc-def-123.trycloudflare.com/mcp`.
+
+*ngrok (quick to try, URL changes on free-tier restart):*
+```bash
+ngrok http 8000
+```
+Your endpoint is `https://<random>.ngrok-free.app/mcp`.
+
+**Step 3 — Add the connector in ChatGPT**
+
+1. ChatGPT → **Settings** → **Connectors** → enable **Developer Mode** (Advanced settings) if you haven't already.
+2. **Connectors** → **Create** (or **Add new connector**).
+3. **MCP Server URL**: your tunnel URL with `/mcp` appended.
+4. **Authentication**: *No authentication* is fine for personal use behind a tunnel; configure OAuth if you've put one in front.
+5. Click **Create** and trust the provider.
+6. In each new chat, enable the connector from the chat's tools menu — it isn't enabled globally.
+
+**Security note:** The server runs with your personal `INTERVALS_ICU_API_KEY` — anyone who knows the tunnel URL can query your account. Add [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/applications/configure-apps/) or [Tailscale Funnel](https://tailscale.com/kb/1223/tailscale-funnel) to restrict who can reach the endpoint.
+
+> Deep Research mode (a separate ChatGPT feature) requires `search` and `fetch` tools that this server doesn't expose, so it will reject the connector there. Regular chat with Developer Mode works.
+
+</details>
+
+## Remote Deployment (HTTP / SSE)
+
+By default the server runs over **stdio** — the right transport for local clients like Claude Desktop, Claude Code, and Cursor. For remote deployment (hosted MCP, reverse proxy, Docker-on-a-server, ChatGPT connector), pass `--transport`:
+
+```bash
+# Streamable HTTP (recommended — used by ChatGPT and modern remote clients)
 intervals-icu-mcp --transport http --host 127.0.0.1 --port 8000
 
 # Legacy SSE (for clients that haven't moved to streamable HTTP yet)
 intervals-icu-mcp --transport sse --host 127.0.0.1 --port 8000
 ```
-
-All flags:
 
 | Flag | Default | Description |
 |---|---|---|
