@@ -1,12 +1,12 @@
 [project]
 name = "intervals-icu-mcp"
-version = "1.1.0"
+dynamic = ["version"]
 description = "Model Context Protocol server for Intervals.icu — access training data, wellness metrics, and performance analysis from Claude and other LLMs."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.11"
-authors = [{ name = "Heiko Kromminga" }]
+authors = [{ name = "Heiko Kromminga", email = "109036830+hhopke@users.noreply.github.com" }]
 keywords = [
     "intervals.icu",
     "mcp",
@@ -23,7 +23,6 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: End Users/Desktop",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
@@ -44,16 +43,20 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/hhopke/intervals-icu-mcp"
 Repository = "https://github.com/hhopke/intervals-icu-mcp"
+Documentation = "https://github.com/hhopke/intervals-icu-mcp/blob/main/docs/tools.md"
 Issues = "https://github.com/hhopke/intervals-icu-mcp/issues"
-Changelog = "https://github.com/hhopke/intervals-icu-mcp/blob/main/README.md#changelog"
+Changelog = "https://github.com/hhopke/intervals-icu-mcp/blob/main/CHANGELOG.md"
 
 [project.scripts]
 intervals-icu-mcp = "intervals_icu_mcp.server:main"
 intervals-icu-mcp-auth = "intervals_icu_mcp.scripts.setup_auth:main"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
 
 [dependency-groups]
 dev = [
