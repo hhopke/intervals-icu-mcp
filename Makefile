@@ -54,8 +54,8 @@ lint/pyright: ## Run pyright type checker
 lint/package: ## Validate PyPI package metadata and README rendering (twine + pyroma)
 	rm -rf dist/
 	uv build
-	uvx twine check --strict dist/*
-	uvx pyroma --min=10 .
+	uvx twine==6.2.0 check --strict dist/*
+	uvx pyroma==5.0.1 --min=10 .
 
 lint/links: ## Check markdown links (requires lychee: `brew install lychee`)
 	@command -v lychee >/dev/null 2>&1 || { echo "lychee not installed. Install with: brew install lychee"; exit 1; }
