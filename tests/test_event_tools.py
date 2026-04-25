@@ -130,6 +130,251 @@ class TestEventTools:
         response = json.loads(result)
         assert "error" in response
         assert "Invalid category" in response["error"]["message"]
+        # Error message lists the new category enum
+        assert "INJURED" in response["error"]["message"]
+        assert "HOLIDAY" in response["error"]["message"]
+
+    async def test_create_event_injury_with_date_range(self, mock_config, respx_mock):
+        """INJURED block with end_date and training_availability is forwarded correctly."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.post("/athlete/i123456/events").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 5001,
+                    "name": "Knieprobleme",
+                    "start_date_local": "2026-04-25T00:00:00",
+                    "end_date_local": "2026-05-05T00:00:00",
+                    "category": "INJURED",
+                    "training_availability": "LIMITED",
+                },
+            )
+        )
+
+        result = await create_event(
+            start_date="2026-04-25",
+            name="Knieprobleme",
+            category="INJURED",
+            end_date="2026-05-05",
+            training_availability="limited",
+            ctx=mock_ctx,
+        )
+
+        # Outgoing payload assertions
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["category"] == "INJURED"
+        assert sent["start_date_local"] == "2026-04-25T00:00:00"
+        assert sent["end_date_local"] == "2026-05-05T00:00:00"
+        assert sent["training_availability"] == "LIMITED"
+
+        # Response shape
+        response = json.loads(result)
+        assert response["data"]["category"] == "INJURED"
+        assert response["data"]["end_date"] == "2026-05-05T00:00:00"
+        assert response["data"]["training_availability"] == "LIMITED"
+
+    async def test_create_event_holiday_with_unavailable(self, mock_config, respx_mock):
+        """HOLIDAY with training_availability=UNAVAILABLE is accepted."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.post("/athlete/i123456/events").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 5002,
+                    "name": "Spring Break",
+                    "start_date_local": "2026-05-01T00:00:00",
+                    "end_date_local": "2026-05-08T00:00:00",
+                    "category": "HOLIDAY",
+                    "training_availability": "UNAVAILABLE",
+                },
+            )
+        )
+
+        await create_event(
+            start_date="2026-05-01",
+            name="Spring Break",
+            category="HOLIDAY",
+            end_date="2026-05-08",
+            training_availability="UNAVAILABLE",
+            ctx=mock_ctx,
+        )
+
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["category"] == "HOLIDAY"
+        assert sent["training_availability"] == "UNAVAILABLE"
+
+    async def test_create_event_legacy_race_alias(self, mock_config, respx_mock):
+        """Legacy 'RACE' is normalized to 'RACE_A' before sending."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.post("/athlete/i123456/events").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 5003,
+                    "name": "Goal Race",
+                    "start_date_local": "2026-06-01T00:00:00",
+                    "category": "RACE_A",
+                    "type": "Run",
+                },
+            )
+        )
+
+        await create_event(
+            start_date="2026-06-01",
+            name="Goal Race",
+            category="RACE",
+            event_type="Run",
+            ctx=mock_ctx,
+        )
+
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["category"] == "RACE_A"
+        assert sent["type"] == "Run"
+
+    async def test_create_event_race_without_type_is_rejected(self, mock_config):
+        """Validation: RACE_A/B/C without event_type returns helpful error pre-flight."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        result = await create_event(
+            start_date="2026-09-13",
+            name="Otztaler",
+            category="RACE_A",
+            ctx=mock_ctx,
+        )
+
+        response = json.loads(result)
+        assert "error" in response
+        message = response["error"]["message"]
+        assert "event_type" in message
+        assert "RACE_A" in message
+        # Hint lists the valid disciplines
+        assert "Ride" in message and "Run" in message
+
+    async def test_bulk_create_events_race_without_type_is_rejected(self, mock_config):
+        """Validation: bulk RACE_A entry without 'type' is rejected pre-flight."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        events_payload = json.dumps(
+            [
+                {
+                    "start_date_local": "2026-09-13",
+                    "name": "Otztaler",
+                    "category": "RACE_A",
+                },
+            ]
+        )
+
+        result = await bulk_create_events(events=events_payload, ctx=mock_ctx)
+
+        response = json.loads(result)
+        assert "error" in response
+        assert "type" in response["error"]["message"]
+        assert "RACE_A" in response["error"]["message"]
+
+    async def test_create_event_legacy_goal_alias(self, mock_config, respx_mock):
+        """Legacy 'GOAL' is normalized to 'TARGET' before sending."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.post("/athlete/i123456/events").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 5004,
+                    "name": "Sub-3 marathon",
+                    "start_date_local": "2026-09-01T00:00:00",
+                    "category": "TARGET",
+                },
+            )
+        )
+
+        await create_event(
+            start_date="2026-09-01",
+            name="Sub-3 marathon",
+            category="goal",
+            ctx=mock_ctx,
+        )
+
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["category"] == "TARGET"
+
+    async def test_create_event_rejects_invalid_availability(self, mock_config):
+        """Validation: bogus training_availability is rejected without API call."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        result = await create_event(
+            start_date="2026-04-25",
+            name="Knee",
+            category="INJURED",
+            training_availability="MAYBE",
+            ctx=mock_ctx,
+        )
+
+        response = json.loads(result)
+        assert "error" in response
+        assert "training_availability" in response["error"]["message"]
+
+    async def test_create_event_rejects_invalid_end_date(self, mock_config):
+        """Validation: malformed end_date is rejected without API call."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        result = await create_event(
+            start_date="2026-04-25",
+            name="Knee",
+            category="INJURED",
+            end_date="not-a-date",
+            ctx=mock_ctx,
+        )
+
+        response = json.loads(result)
+        assert "error" in response
+        assert "end_date" in response["error"]["message"]
+
+    async def test_update_event_can_set_end_date_and_availability(
+        self, mock_config, respx_mock
+    ):
+        """Updating an injury block to extend its end_date and change availability."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.put("/athlete/i123456/events/5001").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 5001,
+                    "name": "Knieprobleme",
+                    "start_date_local": "2026-04-25T00:00:00",
+                    "end_date_local": "2026-05-15T00:00:00",
+                    "category": "INJURED",
+                    "training_availability": "NORMAL",
+                },
+            )
+        )
+
+        result = await update_event(
+            event_id=5001,
+            end_date="2026-05-15",
+            training_availability="NORMAL",
+            ctx=mock_ctx,
+        )
+
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["end_date_local"] == "2026-05-15T00:00:00"
+        assert sent["training_availability"] == "NORMAL"
+
+        response = json.loads(result)
+        assert response["data"]["end_date"] == "2026-05-15T00:00:00"
+        assert response["data"]["training_availability"] == "NORMAL"
 
     async def test_create_event_rejects_invalid_date(self, mock_config):
         """Validation: malformed start_date returns an error without hitting the API."""
@@ -224,6 +469,74 @@ class TestEventTools:
         assert len(response["data"]["events"]) == 2
         assert response["metadata"]["count"] == 2
         assert response["metadata"]["message"] == "Successfully created 2 events"
+
+    async def test_bulk_create_events_supports_injury_block(self, mock_config, respx_mock):
+        """Bulk create forwards INJURED + end_date_local + training_availability."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.post("/athlete/i123456/events/bulk").mock(
+            return_value=Response(
+                200,
+                json=[
+                    {
+                        "id": 6001,
+                        "start_date_local": "2026-04-25T00:00:00",
+                        "end_date_local": "2026-05-05T00:00:00",
+                        "name": "Knee",
+                        "category": "INJURED",
+                        "training_availability": "LIMITED",
+                    },
+                ],
+            )
+        )
+
+        events_payload = json.dumps(
+            [
+                {
+                    "start_date_local": "2026-04-25",
+                    "end_date_local": "2026-05-05",
+                    "name": "Knee",
+                    "category": "injured",
+                    "training_availability": "limited",
+                },
+            ]
+        )
+
+        result = await bulk_create_events(events=events_payload, ctx=mock_ctx)
+
+        sent = json.loads(route.calls.last.request.content)
+        assert sent[0]["category"] == "INJURED"
+        assert sent[0]["start_date_local"] == "2026-04-25T00:00:00"
+        assert sent[0]["end_date_local"] == "2026-05-05T00:00:00"
+        assert sent[0]["training_availability"] == "LIMITED"
+
+        response = json.loads(result)
+        assert response["data"]["events"][0]["category"] == "INJURED"
+        assert response["data"]["events"][0]["end_date"] == "2026-05-05T00:00:00"
+        assert response["data"]["events"][0]["training_availability"] == "LIMITED"
+
+    async def test_bulk_create_events_rejects_invalid_availability(self, mock_config):
+        """Validation: bogus training_availability in a bulk entry is rejected."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        events_payload = json.dumps(
+            [
+                {
+                    "start_date_local": "2026-04-25",
+                    "name": "Knee",
+                    "category": "INJURED",
+                    "training_availability": "SOMETIMES",
+                },
+            ]
+        )
+
+        result = await bulk_create_events(events=events_payload, ctx=mock_ctx)
+
+        response = json.loads(result)
+        assert "error" in response
+        assert "training_availability" in response["error"]["message"]
 
     async def test_bulk_create_events_rejects_invalid_json(self, mock_config):
         """Validation: non-JSON input is rejected before any API call."""

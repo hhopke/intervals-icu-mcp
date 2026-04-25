@@ -108,6 +108,12 @@ async def get_calendar_events(
                     if event.icu_intensity:
                         event_item["intensity_factor"] = event.icu_intensity
 
+                # Ranged events (INJURED, SICK, HOLIDAY, SEASON_START, ...)
+                if event.end_date_local:
+                    event_item["end_date"] = event.end_date_local
+                if event.training_availability:
+                    event_item["training_availability"] = event.training_availability
+
                 # Description
                 if event.description:
                     event_item["description"] = event.description.strip()
@@ -116,9 +122,14 @@ async def get_calendar_events(
 
             # Calculate summary
             workout_count = sum(1 for e in events if e.category == "WORKOUT")
-            race_count = sum(1 for e in events if e.category == "RACE")
+            race_count = sum(1 for e in events if e.category in ("RACE_A", "RACE_B", "RACE_C"))
             note_count = sum(1 for e in events if e.category == "NOTE")
-            goal_count = sum(1 for e in events if e.category == "GOAL")
+            target_count = sum(1 for e in events if e.category == "TARGET")
+            block_count = sum(
+                1
+                for e in events
+                if e.category in ("INJURED", "SICK", "HOLIDAY", "SEASON_START")
+            )
 
             summary = {
                 "total_events": len(events),
@@ -126,7 +137,8 @@ async def get_calendar_events(
                     "workouts": workout_count,
                     "races": race_count,
                     "notes": note_count,
-                    "goals": goal_count,
+                    "targets": target_count,
+                    "blocks": block_count,
                 },
             }
 
@@ -319,6 +331,20 @@ async def get_event(
                 fitness["atl"] = round(event.icu_atl, 1)
             if fitness:
                 event_data["fitness_context"] = fitness
+
+            # Date range and availability (INJURED/SICK/HOLIDAY/SEASON_START)
+            if event.end_date_local:
+                event_data["end_date"] = event.end_date_local
+            if event.training_availability:
+                event_data["training_availability"] = event.training_availability
+
+            # Display flags
+            if event.show_as_note is not None:
+                event_data["show_as_note"] = event.show_as_note
+            if event.not_on_fitness_chart is not None:
+                event_data["not_on_fitness_chart"] = event.not_on_fitness_chart
+            if event.show_on_ctl_line is not None:
+                event_data["show_on_ctl_line"] = event.show_on_ctl_line
 
             # Metadata
             if event.color:
