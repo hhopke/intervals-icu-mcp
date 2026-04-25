@@ -7,7 +7,25 @@ from pydantic import BaseModel, ConfigDict, Field
 
 # Type aliases for common enums
 ActivityType = Literal["Ride", "Run", "Swim", "Walk", "Hike", "VirtualRide", "VirtualRun", "Other"]
-EventCategory = Literal["WORKOUT", "NOTE", "RACE", "GOAL"]
+EventCategory = Literal[
+    "WORKOUT",
+    "NOTE",
+    "RACE_A",
+    "RACE_B",
+    "RACE_C",
+    "TARGET",
+    "PLAN",
+    "HOLIDAY",
+    "SICK",
+    "INJURED",
+    "SET_EFTP",
+    "FITNESS_DAYS",
+    "SEASON_START",
+    "SET_FITNESS",
+    "RACE",
+    "GOAL",
+]
+TrainingAvailability = Literal["NORMAL", "LIMITED", "UNAVAILABLE"]
 
 
 # ==================== Athlete Models ====================
@@ -172,7 +190,8 @@ class Event(BaseModel):
 
     id: int
     start_date_local: str  # ISO-8601 date
-    category: str | None = None  # WORKOUT, NOTE, RACE, GOAL
+    end_date_local: str | None = None
+    category: str | None = None  # See EventCategory for valid values
     name: str | None = None
     description: str | None = None
     type: str | None = None
@@ -186,6 +205,10 @@ class Event(BaseModel):
     joules: int | None = None
     joules_above_ftp: int | None = Field(None, alias="joules_above_ftp")
     color: str | None = None
+    training_availability: str | None = None
+    show_as_note: bool | None = None
+    not_on_fitness_chart: bool | None = None
+    show_on_ctl_line: bool | None = None
     hide_from_athlete: bool | None = Field(None, alias="hide_from_athlete")
     athlete_cannot_edit: bool | None = Field(None, alias="athlete_cannot_edit")
     external_id: str | None = Field(None, alias="external_id")

@@ -7,13 +7,100 @@ from fastmcp import Context
 
 from ..auth import ICUConfig
 from ..client import ICUAPIError, ICUClient
+from ..models import Event
 from ..response_builder import ResponseBuilder
+
+VALID_CATEGORIES = {
+    "WORKOUT",
+    "NOTE",
+    "RACE_A",
+    "RACE_B",
+    "RACE_C",
+    "TARGET",
+    "PLAN",
+    "HOLIDAY",
+    "SICK",
+    "INJURED",
+    "SET_EFTP",
+    "FITNESS_DAYS",
+    "SEASON_START",
+    "SET_FITNESS",
+}
+CATEGORY_ALIASES = {"RACE": "RACE_A", "GOAL": "TARGET"}
+VALID_AVAILABILITY = {"NORMAL", "LIMITED", "UNAVAILABLE"}
+RACE_CATEGORIES = {"RACE_A", "RACE_B", "RACE_C"}
+# Canonical Intervals.icu activity disciplines accepted by the API for the
+# `type` field. Must match models.ActivityType.
+ACTIVITY_TYPES_HINT = "Ride, Run, Swim, Walk, Hike, VirtualRide, VirtualRun, Other"
+
+
+def _normalize_category(category: str) -> tuple[str | None, str | None]:
+    """Normalize a category string to its canonical API value.
+
+    Uppercases the input, applies legacy aliases (RACE→RACE_A, GOAL→TARGET),
+    and validates against the API enum. Returns (normalized, error_message).
+    """
+    normalized = category.upper()
+    normalized = CATEGORY_ALIASES.get(normalized, normalized)
+    if normalized not in VALID_CATEGORIES:
+        valid = ", ".join(sorted(VALID_CATEGORIES))
+        return None, f"Invalid category. Must be one of: {valid}"
+    return normalized, None
+
+
+def _normalize_date(date_str: str) -> str:
+    """Normalize a date string to ISO-8601 (YYYY-MM-DDTHH:MM:SS).
+
+    Accepts YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS. Raises ValueError on bad input.
+    """
+    return datetime.fromisoformat(date_str).strftime("%Y-%m-%dT%H:%M:%S")
+
+
+def _event_to_dict(event: Event) -> dict[str, Any]:
+    """Build the canonical tool response dict for an Event."""
+    result: dict[str, Any] = {
+        "id": event.id,
+        "start_date": event.start_date_local,
+        "name": event.name,
+        "category": event.category,
+    }
+
+    if event.end_date_local:
+        result["end_date"] = event.end_date_local
+    if event.description:
+        result["description"] = event.description
+    if event.type:
+        result["type"] = event.type
+    if event.moving_time:
+        result["duration_seconds"] = event.moving_time
+    if event.distance:
+        result["distance_meters"] = event.distance
+    if event.icu_training_load:
+        result["training_load"] = event.icu_training_load
+    if event.training_availability:
+        result["training_availability"] = event.training_availability
+    if event.color:
+        result["color"] = event.color
+    if event.show_as_note is not None:
+        result["show_as_note"] = event.show_as_note
+    if event.not_on_fitness_chart is not None:
+        result["not_on_fitness_chart"] = event.not_on_fitness_chart
+    if event.show_on_ctl_line is not None:
+        result["show_on_ctl_line"] = event.show_on_ctl_line
+
+    return result
 
 
 async def create_event(
     start_date: Annotated[str, "Start date in YYYY-MM-DD format"],
     name: Annotated[str, "Event name"],
-    category: Annotated[str, "Event category: WORKOUT, NOTE, RACE, or GOAL"],
+    category: Annotated[
+        str,
+        "Event category. WORKOUT, NOTE, RACE_A/RACE_B/RACE_C (race tier), TARGET "
+        "(performance goal), PLAN, HOLIDAY (Urlaub), SICK (Krank), INJURED "
+        "(Verletzt), SET_EFTP, FITNESS_DAYS (Fitnesstage), SEASON_START (Saison), "
+        "SET_FITNESS. Legacy aliases RACE→RACE_A and GOAL→TARGET are accepted.",
+    ],
     description: Annotated[
         str | None,
         "Event description. For WORKOUT events, use Intervals.icu structured workout "
@@ -22,17 +109,45 @@ async def create_event(
         "resource for the complete syntax reference. Example: "
         "'Warmup\n- 10m ramp 50%-75%\n\nMain Set 3x\n- 5m 95%\n- 3m 55%\n\nCooldown\n- 10m 50%'",
     ] = None,
-    event_type: Annotated[str | None, "Activity type (e.g., Ride, Run, Swim)"] = None,
+    event_type: Annotated[
+        str | None,
+        "Activity discipline (NOT the category). Must be one of: "
+        "Ride, Run, Swim, Walk, Hike, VirtualRide, VirtualRun, Other. "
+        "Required for RACE_A/RACE_B/RACE_C events — the API rejects races "
+        "without a discipline.",
+    ] = None,
     duration_seconds: Annotated[int | None, "Planned duration in seconds"] = None,
     distance_meters: Annotated[float | None, "Planned distance in meters"] = None,
     training_load: Annotated[int | None, "Planned training load"] = None,
+    end_date: Annotated[
+        str | None,
+        "End date in YYYY-MM-DD format. Use for ranged categories like INJURED, "
+        "SICK, HOLIDAY, SEASON_START to mark a multi-day block.",
+    ] = None,
+    training_availability: Annotated[
+        str | None,
+        "Training availability during the event: NORMAL (Verfügbar), LIMITED "
+        "(Begrenzt), or UNAVAILABLE (Nicht verfügbar). Typical for INJURED/SICK/"
+        "HOLIDAY blocks so the planner skips or scales workouts.",
+    ] = None,
+    color: Annotated[str | None, "Custom display color (hex string)"] = None,
+    show_as_note: Annotated[
+        bool | None, "Show event as a note marker on the fitness chart"
+    ] = None,
+    not_on_fitness_chart: Annotated[
+        bool | None, "Hide event entirely from the fitness chart"
+    ] = None,
+    show_on_ctl_line: Annotated[bool | None, "Render event on the CTL line"] = None,
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
-    """Create a new calendar event (planned workout, note, race, or goal).
+    """Create a new calendar event.
 
-    Adds an event to your Intervals.icu calendar. Events can be workouts with
-    planned metrics, notes for tracking information, races, or training goals.
+    Supports the full Intervals.icu calendar category set: planned workouts, notes,
+    races (RACE_A/B/C tiers), performance targets, training plans, and life-event
+    blocks like INJURED, SICK, HOLIDAY, SEASON_START. Block-style categories
+    typically use start_date + end_date + training_availability so the planner
+    treats the affected days correctly.
 
     For WORKOUT events, the 'description' field accepts Intervals.icu structured
     workout syntax. The server automatically parses this text into a structured
@@ -42,12 +157,18 @@ async def create_event(
     Args:
         start_date: Date in ISO-8601 format (YYYY-MM-DD)
         name: Name of the event
-        category: Type of event - WORKOUT, NOTE, RACE, or GOAL
+        category: One of the categories listed in the parameter description
         description: For workouts, structured workout text (see workout-syntax resource)
         event_type: Activity type (e.g., "Ride", "Run", "Swim") for workouts
         duration_seconds: Planned duration for workouts
         distance_meters: Planned distance for workouts
         training_load: Planned training load for workouts
+        end_date: End date for ranged categories (INJURED, SICK, HOLIDAY, ...)
+        training_availability: NORMAL, LIMITED, or UNAVAILABLE
+        color: Custom color hex string
+        show_as_note: Show as a note on the fitness chart
+        not_on_fitness_chart: Hide from the fitness chart
+        show_on_ctl_line: Render on the CTL line
 
     Returns:
         JSON string with created event data
@@ -55,29 +176,53 @@ async def create_event(
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
 
-    # Validate category
-    valid_categories = ["WORKOUT", "NOTE", "RACE", "GOAL"]
-    if category.upper() not in valid_categories:
+    normalized_category, category_error = _normalize_category(category)
+    if category_error or normalized_category is None:
         return ResponseBuilder.build_error_response(
-            f"Invalid category. Must be one of: {', '.join(valid_categories)}",
+            category_error or "Invalid category",
             error_type="validation_error",
         )
 
-    # Validate and normalize date format (accept YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
+    if normalized_category in RACE_CATEGORIES and not event_type:
+        return ResponseBuilder.build_error_response(
+            f"event_type is required for {normalized_category} events. "
+            f"Provide the activity discipline: {ACTIVITY_TYPES_HINT}.",
+            error_type="validation_error",
+        )
+
+    if training_availability is not None:
+        normalized_availability = training_availability.upper()
+        if normalized_availability not in VALID_AVAILABILITY:
+            return ResponseBuilder.build_error_response(
+                f"Invalid training_availability. Must be one of: "
+                f"{', '.join(sorted(VALID_AVAILABILITY))}",
+                error_type="validation_error",
+            )
+    else:
+        normalized_availability = None
+
     try:
-        start_date = datetime.fromisoformat(start_date).strftime("%Y-%m-%dT%H:%M:%S")
+        start_date = _normalize_date(start_date)
     except ValueError:
         return ResponseBuilder.build_error_response(
             "Invalid date format. Please use YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS format.",
             error_type="validation_error",
         )
 
+    if end_date is not None:
+        try:
+            end_date = _normalize_date(end_date)
+        except ValueError:
+            return ResponseBuilder.build_error_response(
+                "Invalid end_date format. Please use YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS format.",
+                error_type="validation_error",
+            )
+
     try:
-        # Build event data
         event_data: dict[str, Any] = {
             "start_date_local": start_date,
             "name": name,
-            "category": category.upper(),
+            "category": normalized_category,
         }
 
         if description:
@@ -90,32 +235,28 @@ async def create_event(
             event_data["distance"] = distance_meters
         if training_load:
             event_data["icu_training_load"] = training_load
+        if end_date is not None:
+            event_data["end_date_local"] = end_date
+        if normalized_availability is not None:
+            event_data["training_availability"] = normalized_availability
+        if color is not None:
+            event_data["color"] = color
+        if show_as_note is not None:
+            event_data["show_as_note"] = show_as_note
+        if not_on_fitness_chart is not None:
+            event_data["not_on_fitness_chart"] = not_on_fitness_chart
+        if show_on_ctl_line is not None:
+            event_data["show_on_ctl_line"] = show_on_ctl_line
 
         async with ICUClient(config) as client:
             event = await client.create_event(event_data, athlete_id=athlete_id)
 
-            event_result: dict[str, Any] = {
-                "id": event.id,
-                "start_date": event.start_date_local,
-                "name": event.name,
-                "category": event.category,
-            }
-
-            if event.description:
-                event_result["description"] = event.description
-            if event.type:
-                event_result["type"] = event.type
-            if event.moving_time:
-                event_result["duration_seconds"] = event.moving_time
-            if event.distance:
-                event_result["distance_meters"] = event.distance
-            if event.icu_training_load:
-                event_result["training_load"] = event.icu_training_load
-
             return ResponseBuilder.build_response(
-                data=event_result,
+                data=_event_to_dict(event),
                 query_type="create_event",
-                metadata={"message": f"Successfully created {category.lower()}: {name}"},
+                metadata={
+                    "message": f"Successfully created {normalized_category.lower()}: {name}"
+                },
             )
 
     except ICUAPIError as e:
@@ -135,13 +276,22 @@ async def update_event(
     duration_seconds: Annotated[int | None, "Updated duration in seconds"] = None,
     distance_meters: Annotated[float | None, "Updated distance in meters"] = None,
     training_load: Annotated[int | None, "Updated training load"] = None,
+    end_date: Annotated[str | None, "Updated end date (YYYY-MM-DD)"] = None,
+    training_availability: Annotated[
+        str | None, "Updated training availability: NORMAL, LIMITED, or UNAVAILABLE"
+    ] = None,
+    color: Annotated[str | None, "Updated color (hex string)"] = None,
+    show_as_note: Annotated[bool | None, "Show event as a note on the fitness chart"] = None,
+    not_on_fitness_chart: Annotated[bool | None, "Hide event from the fitness chart"] = None,
+    show_on_ctl_line: Annotated[bool | None, "Render event on the CTL line"] = None,
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Update an existing calendar event.
 
     Modifies one or more fields of an existing event. Only provide the fields
-    you want to change - other fields will remain unchanged.
+    you want to change - other fields will remain unchanged. Use end_date and
+    training_availability to extend or update INJURED/SICK/HOLIDAY blocks.
 
     Args:
         event_id: ID of the event to update
@@ -152,6 +302,12 @@ async def update_event(
         duration_seconds: New planned duration
         distance_meters: New planned distance
         training_load: New planned training load
+        end_date: New end date for ranged events
+        training_availability: NORMAL, LIMITED, or UNAVAILABLE
+        color: New color hex string
+        show_as_note: Show as a note on the fitness chart
+        not_on_fitness_chart: Hide from the fitness chart
+        show_on_ctl_line: Render on the CTL line
 
     Returns:
         JSON string with updated event data
@@ -159,18 +315,36 @@ async def update_event(
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
 
-    # Validate and normalize date format if provided (accept YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
-    if start_date:
+    if start_date is not None:
         try:
-            start_date = datetime.fromisoformat(start_date).strftime("%Y-%m-%dT%H:%M:%S")
+            start_date = _normalize_date(start_date)
         except ValueError:
             return ResponseBuilder.build_error_response(
                 "Invalid date format. Please use YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS format.",
                 error_type="validation_error",
             )
 
+    if end_date is not None:
+        try:
+            end_date = _normalize_date(end_date)
+        except ValueError:
+            return ResponseBuilder.build_error_response(
+                "Invalid end_date format. Please use YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS format.",
+                error_type="validation_error",
+            )
+
+    if training_availability is not None:
+        normalized_availability = training_availability.upper()
+        if normalized_availability not in VALID_AVAILABILITY:
+            return ResponseBuilder.build_error_response(
+                f"Invalid training_availability. Must be one of: "
+                f"{', '.join(sorted(VALID_AVAILABILITY))}",
+                error_type="validation_error",
+            )
+    else:
+        normalized_availability = None
+
     try:
-        # Build update data (only include provided fields)
         event_data: dict[str, Any] = {}
 
         if name is not None:
@@ -187,6 +361,18 @@ async def update_event(
             event_data["distance"] = distance_meters
         if training_load is not None:
             event_data["icu_training_load"] = training_load
+        if end_date is not None:
+            event_data["end_date_local"] = end_date
+        if normalized_availability is not None:
+            event_data["training_availability"] = normalized_availability
+        if color is not None:
+            event_data["color"] = color
+        if show_as_note is not None:
+            event_data["show_as_note"] = show_as_note
+        if not_on_fitness_chart is not None:
+            event_data["not_on_fitness_chart"] = not_on_fitness_chart
+        if show_on_ctl_line is not None:
+            event_data["show_on_ctl_line"] = show_on_ctl_line
 
         if not event_data:
             return ResponseBuilder.build_error_response(
@@ -197,26 +383,8 @@ async def update_event(
         async with ICUClient(config) as client:
             event = await client.update_event(event_id, event_data, athlete_id=athlete_id)
 
-            event_result: dict[str, Any] = {
-                "id": event.id,
-                "start_date": event.start_date_local,
-                "name": event.name,
-                "category": event.category,
-            }
-
-            if event.description:
-                event_result["description"] = event.description
-            if event.type:
-                event_result["type"] = event.type
-            if event.moving_time:
-                event_result["duration_seconds"] = event.moving_time
-            if event.distance:
-                event_result["distance_meters"] = event.distance
-            if event.icu_training_load:
-                event_result["training_load"] = event.icu_training_load
-
             return ResponseBuilder.build_response(
-                data=event_result,
+                data=_event_to_dict(event),
                 query_type="update_event",
                 metadata={"message": f"Successfully updated event {event_id}"},
             )
@@ -274,23 +442,27 @@ async def delete_event(
 async def bulk_create_events(
     events: Annotated[
         str,
-        "JSON string containing array of events. Each event should have: "
-        "start_date_local, name, category, and optional fields like description, "
-        "type, moving_time, distance, icu_training_load. For WORKOUT events, "
-        "include structured workout syntax in the 'description' field "
-        "(see intervals-icu://workout-syntax resource for syntax reference).",
+        "JSON array of events. Required per event: start_date_local, name, category. "
+        "Optional: description, type, moving_time, distance, icu_training_load, "
+        "end_date_local (ranged categories), training_availability "
+        "(NORMAL/LIMITED/UNAVAILABLE), color, show_as_note, not_on_fitness_chart, "
+        "show_on_ctl_line. Categories: WORKOUT, NOTE, RACE_A/B/C, TARGET, PLAN, "
+        "HOLIDAY, SICK, INJURED, SET_EFTP, FITNESS_DAYS, SEASON_START, SET_FITNESS "
+        "(legacy RACE→RACE_A and GOAL→TARGET aliases accepted). For WORKOUT events, "
+        "include structured workout syntax in 'description' (see "
+        "intervals-icu://workout-syntax resource).",
     ],
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Create multiple calendar events in a single operation.
 
-    This is more efficient than creating events one at a time. Provide a JSON array
-    of event objects, each with the same structure as create_event.
+    More efficient than creating events one at a time. Provide a JSON array
+    of event objects with the same fields accepted by create_event.
 
     For WORKOUT events, include Intervals.icu structured workout syntax in the
-    'description' field. The server automatically parses workout text into structured
-    workouts. Read the intervals-icu://workout-syntax resource for the complete syntax.
+    'description' field. Read the intervals-icu://workout-syntax resource for the
+    complete syntax.
 
     Args:
         events: JSON array of event objects to create
@@ -304,7 +476,6 @@ async def bulk_create_events(
     try:
         import json
 
-        # Parse the JSON string
         try:
             parsed_data = json.loads(events)
         except json.JSONDecodeError as e:
@@ -317,11 +488,8 @@ async def bulk_create_events(
                 "Events must be a JSON array", error_type="validation_error"
             )
 
-        # Type cast after validation
         events_data: list[dict[str, Any]] = parsed_data  # type: ignore[assignment]
 
-        # Validate each event
-        valid_categories = ["WORKOUT", "NOTE", "RACE", "GOAL"]
         for i, event_data in enumerate(events_data):
             if "start_date_local" not in event_data:
                 return ResponseBuilder.build_error_response(
@@ -337,50 +505,56 @@ async def bulk_create_events(
                     f"Event {i}: Missing required field 'category'",
                     error_type="validation_error",
                 )
-            if event_data["category"].upper() not in valid_categories:
+
+            normalized_category, category_error = _normalize_category(event_data["category"])
+            if category_error or normalized_category is None:
                 return ResponseBuilder.build_error_response(
-                    f"Event {i}: Invalid category. Must be one of: {', '.join(valid_categories)}",
+                    f"Event {i}: {category_error or 'Invalid category'}",
+                    error_type="validation_error",
+                )
+            event_data["category"] = normalized_category
+
+            if normalized_category in RACE_CATEGORIES and not event_data.get("type"):
+                return ResponseBuilder.build_error_response(
+                    f"Event {i}: 'type' is required for {normalized_category} events. "
+                    f"Provide the activity discipline: {ACTIVITY_TYPES_HINT}.",
                     error_type="validation_error",
                 )
 
-            # Normalize category to uppercase
-            event_data["category"] = event_data["category"].upper()
-
-            # Validate and normalize date format (accept YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
             try:
-                event_data["start_date_local"] = datetime.fromisoformat(
-                    event_data["start_date_local"]
-                ).strftime("%Y-%m-%dT%H:%M:%S")
+                event_data["start_date_local"] = _normalize_date(event_data["start_date_local"])
             except ValueError:
                 return ResponseBuilder.build_error_response(
                     f"Event {i}: Invalid date format. Please use YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS format.",
                     error_type="validation_error",
                 )
 
+            if "end_date_local" in event_data and event_data["end_date_local"] is not None:
+                try:
+                    event_data["end_date_local"] = _normalize_date(event_data["end_date_local"])
+                except ValueError:
+                    return ResponseBuilder.build_error_response(
+                        f"Event {i}: Invalid end_date_local format. Please use YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS format.",
+                        error_type="validation_error",
+                    )
+
+            if (
+                "training_availability" in event_data
+                and event_data["training_availability"] is not None
+            ):
+                availability = str(event_data["training_availability"]).upper()
+                if availability not in VALID_AVAILABILITY:
+                    return ResponseBuilder.build_error_response(
+                        f"Event {i}: Invalid training_availability. Must be one of: "
+                        f"{', '.join(sorted(VALID_AVAILABILITY))}",
+                        error_type="validation_error",
+                    )
+                event_data["training_availability"] = availability
+
         async with ICUClient(config) as client:
             created_events = await client.bulk_create_events(events_data, athlete_id=athlete_id)
 
-            events_result: list[dict[str, Any]] = []
-            for event in created_events:
-                event_info: dict[str, Any] = {
-                    "id": event.id,
-                    "start_date": event.start_date_local,
-                    "name": event.name,
-                    "category": event.category,
-                }
-
-                if event.description:
-                    event_info["description"] = event.description
-                if event.type:
-                    event_info["type"] = event.type
-                if event.moving_time:
-                    event_info["duration_seconds"] = event.moving_time
-                if event.distance:
-                    event_info["distance_meters"] = event.distance
-                if event.icu_training_load:
-                    event_info["training_load"] = event.icu_training_load
-
-                events_result.append(event_info)
+            events_result = [_event_to_dict(event) for event in created_events]
 
             return ResponseBuilder.build_response(
                 data={"events": events_result},
