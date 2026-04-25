@@ -65,5 +65,8 @@ jobs:
       - name: Check markdown links
         uses: lycheeverse/lychee-action@8646ba30535128ac92d33dfc9133794bfdd9b411  # v2
         with:
-          args: --include-fragments README.md CHANGELOG.md docs/
+          args: >-
+            --include-fragments
+            --remap 'https://github.com/hhopke/intervals-icu-mcp/blob/main/(.*) ./$1'
+            README.md CHANGELOG.md docs/
           fail: true

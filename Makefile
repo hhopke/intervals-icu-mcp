@@ -59,7 +59,9 @@ lint/package: ## Validate PyPI package metadata and README rendering (twine + py
 
 lint/links: ## Check markdown links (requires lychee: `brew install lychee`)
 	@command -v lychee >/dev/null 2>&1 || { echo "lychee not installed. Install with: brew install lychee"; exit 1; }
-	lychee --include-fragments README.md CHANGELOG.md docs/
+	lychee --include-fragments \
+		--remap 'https://github.com/hhopke/intervals-icu-mcp/blob/main/(.*) ./$1' \
+		README.md CHANGELOG.md docs/
 
 fmt: format
 format: ## Fix style violations and format code
