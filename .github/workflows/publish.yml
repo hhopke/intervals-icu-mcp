@@ -38,9 +38,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           gh release download --repo modelcontextprotocol/registry \
-            --pattern '*linux_amd64.tar.gz'
-          tar xzf mcp-publisher_*_linux_amd64.tar.gz
+            --pattern 'mcp-publisher_linux_amd64.tar.gz'
+          tar xzf mcp-publisher_linux_amd64.tar.gz
           chmod +x mcp-publisher
 
       - name: Publish to MCP Registry
