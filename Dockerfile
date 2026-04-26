@@ -9,6 +9,12 @@ COPY --from=uv /uv /usr/local/bin/uv
 # Set working directory
 WORKDIR /app
 
+# Version is derived from git via hatch-vcs at build time, but the .git
+# directory is not in the Docker build context. The CI workflow builds a
+# wheel locally to compute the version and passes it through as a build-arg.
+ARG PKG_VERSION=0.0.0+docker
+ENV SETUPTOOLS_SCM_PRETEND_VERSION=$PKG_VERSION
+
 # Copy dependency files and README (needed for package metadata)
 COPY pyproject.toml uv.lock* README.md ./
 
