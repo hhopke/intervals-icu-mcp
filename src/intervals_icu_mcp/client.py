@@ -601,7 +601,7 @@ class ICUClient:
             Response dictionary confirmation
         """
         athlete_id = athlete_id or self.config.intervals_icu_athlete_id
-        
+
         payload: dict[str, Any] = {
             "folder_id": folder_id,
             "start_date_local": start_date_local,
@@ -805,7 +805,7 @@ class ICUClient:
             "PUT",
             f"/activity/{activity_id}/streams.csv",
             content=csv_data.encode("utf-8"),
-            headers={"Content-Type": "text/csv"}
+            headers={"Content-Type": "text/csv"},
         )
         try:
             return response.json()
@@ -1266,3 +1266,119 @@ class ICUClient:
         )
         adapter = TypeAdapter(list[Event])
         return adapter.validate_python(response.json())
+
+    # ==================== Activity Messages Endpoints ====================
+
+    async def get_activity_messages(self, activity_id: str) -> list[dict[str, Any]]:
+        """List messages (notes/comments) for an activity.
+
+        Args:
+            activity_id: Activity ID
+
+        Returns:
+            List of message dicts
+        """
+        response = await self._request("GET", f"/activity/{activity_id}/messages")
+        result: list[dict[str, Any]] = response.json()
+        return result
+
+    async def add_activity_message(self, activity_id: str, content: str) -> dict[str, Any]:
+        """Add a message (note/comment) to an activity.
+
+        Args:
+            activity_id: Activity ID
+            content: Message content
+
+        Returns:
+            Response dict (typically {"id": <new message id>})
+        """
+        response = await self._request(
+            "POST", f"/activity/{activity_id}/messages", json={"content": content}
+        )
+        result: dict[str, Any] = response.json()
+        return result
+
+    # ==================== Custom Items Endpoints ====================
+
+    async def get_custom_items(self, athlete_id: str | None = None) -> list[dict[str, Any]]:
+        """List custom items (charts, custom fields, zones, etc.) for an athlete.
+
+        Args:
+            athlete_id: Athlete ID (uses config default if not provided)
+
+        Returns:
+            List of custom item dicts
+        """
+        athlete_id = athlete_id or self.config.intervals_icu_athlete_id
+        response = await self._request("GET", f"/athlete/{athlete_id}/custom-item")
+        result: list[dict[str, Any]] = response.json()
+        return result
+
+    async def get_custom_item(self, item_id: int, athlete_id: str | None = None) -> dict[str, Any]:
+        """Get a single custom item by ID.
+
+        Args:
+            item_id: Custom item ID
+            athlete_id: Athlete ID (uses config default if not provided)
+
+        Returns:
+            Custom item dict
+        """
+        athlete_id = athlete_id or self.config.intervals_icu_athlete_id
+        response = await self._request("GET", f"/athlete/{athlete_id}/custom-item/{item_id}")
+        result: dict[str, Any] = response.json()
+        return result
+
+    async def create_custom_item(
+        self, item_data: dict[str, Any], athlete_id: str | None = None
+    ) -> dict[str, Any]:
+        """Create a custom item.
+
+        Args:
+            item_data: Custom item payload (must include name + type)
+            athlete_id: Athlete ID (uses config default if not provided)
+
+        Returns:
+            Created custom item dict
+        """
+        athlete_id = athlete_id or self.config.intervals_icu_athlete_id
+        response = await self._request("POST", f"/athlete/{athlete_id}/custom-item", json=item_data)
+        result: dict[str, Any] = response.json()
+        return result
+
+    async def update_custom_item(
+        self,
+        item_id: int,
+        item_data: dict[str, Any],
+        athlete_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Update a custom item.
+
+        Args:
+            item_id: Custom item ID
+            item_data: Partial custom item payload (only fields to update)
+            athlete_id: Athlete ID (uses config default if not provided)
+
+        Returns:
+            Updated custom item dict
+        """
+        athlete_id = athlete_id or self.config.intervals_icu_athlete_id
+        response = await self._request(
+            "PUT", f"/athlete/{athlete_id}/custom-item/{item_id}", json=item_data
+        )
+        result: dict[str, Any] = response.json()
+        return result
+
+    async def delete_custom_item(self, item_id: int, athlete_id: str | None = None) -> bool:
+        """Delete a custom item.
+
+        Args:
+            item_id: Custom item ID
+            athlete_id: Athlete ID (uses config default if not provided)
+
+        Returns:
+            True if deletion was successful
+        """
+        athlete_id = athlete_id or self.config.intervals_icu_athlete_id
+        await self._request("DELETE", f"/athlete/{athlete_id}/custom-item/{item_id}")
+        return True

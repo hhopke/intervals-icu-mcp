@@ -4,7 +4,7 @@ This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-MCP (Model Context Protocol) server for Intervals.icu — provides 51 tools, 2 resources, and 7 prompts for accessing training data, wellness metrics, and performance analysis through Claude and other LLMs.
+MCP (Model Context Protocol) server for Intervals.icu — provides 58 tools, 2 resources, and 7 prompts for accessing training data, wellness metrics, and performance analysis through Claude and other LLMs.
 
 - **Language**: Python 3.11+
 - **Framework**: FastMCP
@@ -37,7 +37,7 @@ make docker/run       # Run Docker container
 | Auth | `auth.py` | Loads credentials from `.env` |
 | Response | `response_builder.py` | Consistent JSON structure (data/analysis/metadata) |
 | Models | `models.py` | Pydantic models for API responses |
-| Tools | `tools/` | 11 tool modules (see below) |
+| Tools | `tools/` | 13 tool modules (see below) |
 
 **For detailed architecture**: see `docs/architecture.md`
 
@@ -45,15 +45,17 @@ make docker/run       # Run Docker container
 
 1. `activities.py` — Query/manage activities
 2. `activity_analysis.py` — Streams, intervals, best efforts
-3. `athlete.py` — Profile, fitness metrics (CTL/ATL/TSB)
-4. `wellness.py` — HRV, sleep, recovery
-5. `events.py` — Calendar queries
-6. `event_management.py` — Create/update/delete events
-7. `performance.py` — Power/HR/pace curves
-8. `curves.py` — HR and pace curve analysis
-9. `workout_library.py` — Browse workout folders and plans
-10. `gear.py` — Manage gear and reminders
-11. `sport_settings.py` — FTP, FTHR, pace thresholds
+3. `activity_messages.py` — Notes/comments on activities
+4. `athlete.py` — Profile, fitness metrics (CTL/ATL/TSB)
+5. `wellness.py` — HRV, sleep, recovery
+6. `events.py` — Calendar queries
+7. `event_management.py` — Create/update/delete events
+8. `performance.py` — Power/HR/pace curves
+9. `curves.py` — HR and pace curve analysis
+10. `workout_library.py` — Browse workout folders and plans
+11. `gear.py` — Manage gear and reminders
+12. `sport_settings.py` — FTP, FTHR, pace thresholds
+13. `custom_items.py` — Charts, custom fields, zones, etc.
 
 ## Code Style
 

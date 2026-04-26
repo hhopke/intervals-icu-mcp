@@ -131,9 +131,7 @@ async def create_event(
         "HOLIDAY blocks so the planner skips or scales workouts.",
     ] = None,
     color: Annotated[str | None, "Custom display color (hex string)"] = None,
-    show_as_note: Annotated[
-        bool | None, "Show event as a note marker on the fitness chart"
-    ] = None,
+    show_as_note: Annotated[bool | None, "Show event as a note marker on the fitness chart"] = None,
     not_on_fitness_chart: Annotated[
         bool | None, "Hide event entirely from the fitness chart"
     ] = None,
@@ -254,9 +252,7 @@ async def create_event(
             return ResponseBuilder.build_response(
                 data=_event_to_dict(event),
                 query_type="create_event",
-                metadata={
-                    "message": f"Successfully created {normalized_category.lower()}: {name}"
-                },
+                metadata={"message": f"Successfully created {normalized_category.lower()}: {name}"},
             )
 
     except ICUAPIError as e:
@@ -738,7 +734,7 @@ async def apply_training_plan(
 ) -> str:
     """Apply a training plan.
 
-    Programmatically applies an entire training plan (workout folders/schedules) 
+    Programmatically applies an entire training plan (workout folders/schedules)
     directly onto an athlete's calendar.
 
     Args:
@@ -765,6 +761,7 @@ async def apply_training_plan(
     extra_workouts: list[dict[str, Any]] | None = None
     if extra_workouts_json:
         import json
+
         try:
             extra_workouts = json.loads(extra_workouts_json)
             if not isinstance(extra_workouts, list):
