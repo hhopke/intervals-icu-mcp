@@ -7,6 +7,7 @@ from fastmcp import Context
 from ..auth import ICUConfig
 from ..client import ICUAPIError, ICUClient
 from ..response_builder import ResponseBuilder
+from ._strava import fetch_strava_limitation_note
 
 
 async def get_activity_streams(
@@ -51,8 +52,13 @@ async def get_activity_streams(
             stream_list = await client.get_activity_streams(activity_id, streams)
 
             if not stream_list:
+                analysis: dict[str, Any] = {}
+                strava_note = await fetch_strava_limitation_note(client, activity_id)
+                if strava_note:
+                    analysis["data_availability"] = strava_note
                 return ResponseBuilder.build_response(
                     data={"streams": {}, "available_streams": []},
+                    analysis=analysis if analysis else None,
                     metadata={"message": "No stream data available for this activity"},
                 )
 
@@ -114,8 +120,13 @@ async def get_activity_intervals(
             intervals = await client.get_activity_intervals(activity_id)
 
             if not intervals:
+                analysis: dict[str, Any] = {}
+                strava_note = await fetch_strava_limitation_note(client, activity_id)
+                if strava_note:
+                    analysis["data_availability"] = strava_note
                 return ResponseBuilder.build_response(
                     data={"intervals": [], "count": 0, "activity_id": activity_id},
+                    analysis=analysis if analysis else None,
                     metadata={"message": "No intervals found for this activity"},
                 )
 
@@ -248,8 +259,13 @@ async def get_best_efforts(
             )
 
             if not best_efforts.efforts:
+                analysis: dict[str, Any] = {}
+                strava_note = await fetch_strava_limitation_note(client, activity_id)
+                if strava_note:
+                    analysis["data_availability"] = strava_note
                 return ResponseBuilder.build_response(
                     data={"best_efforts": [], "count": 0, "activity_id": activity_id},
+                    analysis=analysis if analysis else None,
                     metadata={"message": "No best efforts found for this activity"},
                 )
 
@@ -385,8 +401,13 @@ async def get_power_histogram(
             histogram = await client.get_power_histogram(activity_id)
 
             if not histogram.bins:
+                analysis: dict[str, Any] = {}
+                strava_note = await fetch_strava_limitation_note(client, activity_id)
+                if strava_note:
+                    analysis["data_availability"] = strava_note
                 return ResponseBuilder.build_response(
                     data={"histogram": [], "activity_id": activity_id},
+                    analysis=analysis if analysis else None,
                     metadata={"message": "No power histogram data available for this activity"},
                 )
 
@@ -445,8 +466,13 @@ async def get_hr_histogram(
             histogram = await client.get_hr_histogram(activity_id)
 
             if not histogram.bins:
+                analysis: dict[str, Any] = {}
+                strava_note = await fetch_strava_limitation_note(client, activity_id)
+                if strava_note:
+                    analysis["data_availability"] = strava_note
                 return ResponseBuilder.build_response(
                     data={"histogram": [], "activity_id": activity_id},
+                    analysis=analysis if analysis else None,
                     metadata={"message": "No HR histogram data available for this activity"},
                 )
 
@@ -505,8 +531,13 @@ async def get_pace_histogram(
             histogram = await client.get_pace_histogram(activity_id)
 
             if not histogram.bins:
+                analysis: dict[str, Any] = {}
+                strava_note = await fetch_strava_limitation_note(client, activity_id)
+                if strava_note:
+                    analysis["data_availability"] = strava_note
                 return ResponseBuilder.build_response(
                     data={"histogram": [], "activity_id": activity_id},
+                    analysis=analysis if analysis else None,
                     metadata={"message": "No pace histogram data available for this activity"},
                 )
 
@@ -576,8 +607,13 @@ async def get_gap_histogram(
             histogram = await client.get_gap_histogram(activity_id)
 
             if not histogram.bins:
+                analysis: dict[str, Any] = {}
+                strava_note = await fetch_strava_limitation_note(client, activity_id)
+                if strava_note:
+                    analysis["data_availability"] = strava_note
                 return ResponseBuilder.build_response(
                     data={"histogram": [], "activity_id": activity_id},
+                    analysis=analysis if analysis else None,
                     metadata={"message": "No GAP histogram data available for this activity"},
                 )
 

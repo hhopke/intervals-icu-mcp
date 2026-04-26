@@ -8,6 +8,7 @@ from fastmcp import Context
 from ..auth import ICUConfig
 from ..client import ICUAPIError, ICUClient
 from ..response_builder import ResponseBuilder
+from ._strava import strava_limitation_note
 
 
 async def get_recent_activities(
@@ -218,8 +219,14 @@ async def get_activity_details(
             if other_info:
                 activity_data["other"] = other_info
 
+            analysis: dict[str, Any] = {}
+            strava_note = strava_limitation_note(activity)
+            if strava_note:
+                analysis["data_availability"] = strava_note
+
             return ResponseBuilder.build_response(
                 data=activity_data,
+                analysis=analysis if analysis else None,
                 query_type="activity_details",
             )
 
