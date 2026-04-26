@@ -24,6 +24,7 @@ jobs:
       - name: Check for changes and create PR
         uses: peter-evans/create-pull-request@v8
         with:
+          sign-commits: true
           commit-message: "chore: update intervals.icu OpenAPI specification"
           title: "chore: update intervals.icu OpenAPI specification"
           body: |
