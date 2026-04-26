@@ -340,9 +340,7 @@ class TestEventTools:
         assert "error" in response
         assert "end_date" in response["error"]["message"]
 
-    async def test_update_event_can_set_end_date_and_availability(
-        self, mock_config, respx_mock
-    ):
+    async def test_update_event_can_set_end_date_and_availability(self, mock_config, respx_mock):
         """Updating an injury block to extend its end_date and change availability."""
         mock_ctx = MagicMock()
         mock_ctx.get_state = AsyncMock(return_value=mock_config)

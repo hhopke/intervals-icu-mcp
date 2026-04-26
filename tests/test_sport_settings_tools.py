@@ -61,9 +61,7 @@ class TestSportSettingsTools:
 
     async def test_get_sport_settings_empty(self, patch_config, respx_mock):
         """Empty result returns a friendly message with count=0."""
-        respx_mock.get("/athlete/i123456/sport-settings").mock(
-            return_value=Response(200, json=[])
-        )
+        respx_mock.get("/athlete/i123456/sport-settings").mock(return_value=Response(200, json=[]))
 
         result = await get_sport_settings()
 
@@ -73,9 +71,7 @@ class TestSportSettingsTools:
 
     async def test_get_sport_settings_api_error(self, patch_config, respx_mock):
         """API errors are surfaced via ResponseBuilder.build_error_response."""
-        respx_mock.get("/athlete/i123456/sport-settings").mock(
-            return_value=Response(401, json={})
-        )
+        respx_mock.get("/athlete/i123456/sport-settings").mock(return_value=Response(401, json={}))
 
         result = await get_sport_settings()
 

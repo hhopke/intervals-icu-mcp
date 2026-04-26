@@ -126,9 +126,7 @@ async def get_calendar_events(
             note_count = sum(1 for e in events if e.category == "NOTE")
             target_count = sum(1 for e in events if e.category == "TARGET")
             block_count = sum(
-                1
-                for e in events
-                if e.category in ("INJURED", "SICK", "HOLIDAY", "SEASON_START")
+                1 for e in events if e.category in ("INJURED", "SICK", "HOLIDAY", "SEASON_START")
             )
 
             summary = {

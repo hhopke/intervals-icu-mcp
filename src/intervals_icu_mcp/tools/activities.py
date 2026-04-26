@@ -832,6 +832,7 @@ async def update_activity_streams(
                 )
             else:
                 import json
+
                 try:
                     streams = json.loads(payload_string)
                 except json.JSONDecodeError as e:
@@ -865,8 +866,8 @@ async def bulk_create_manual_activities(
 ) -> str:
     """Create multiple manual activities with upsert on external_id.
 
-    Existing activities with matching external_id, created by the same OAuth application 
-    are updated. Activities created/updated are returned. Activities with no external_id 
+    Existing activities with matching external_id, created by the same OAuth application
+    are updated. Activities created/updated are returned. Activities with no external_id
     are always created.
 
     Args:
@@ -878,8 +879,9 @@ async def bulk_create_manual_activities(
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
-    
+
     import json
+
     try:
         activities = json.loads(activities_json)
     except json.JSONDecodeError as e:
@@ -895,6 +897,7 @@ async def bulk_create_manual_activities(
         )
 
     from typing import Any
+
     activities_list: list[dict[str, Any]] = activities  # type: ignore[assignment]
 
     try:
@@ -917,7 +920,9 @@ async def bulk_create_manual_activities(
             return ResponseBuilder.build_response(
                 data={"activities": activities_data, "count": len(activities_data)},
                 query_type="bulk_create_manual_activities",
-                metadata={"message": f"Successfully processed {len(activities_data)} manual activities"},
+                metadata={
+                    "message": f"Successfully processed {len(activities_data)} manual activities"
+                },
             )
 
     except ICUAPIError as e:

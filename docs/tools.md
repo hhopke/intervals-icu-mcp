@@ -1,6 +1,6 @@
 # Tool, Resource, and Prompt Reference
 
-Complete inventory of everything the Intervals.icu MCP server exposes: 51 tools across 9 categories, 2 MCP Resources, and 7 MCP Prompts.
+Complete inventory of everything the Intervals.icu MCP server exposes: 58 tools across 11 categories, 2 MCP Resources, and 7 MCP Prompts.
 
 ## Tools
 
@@ -33,6 +33,15 @@ Complete inventory of everything the Intervals.icu MCP server exposes: 51 tools 
 | `icu_get_hr_histogram`       | Get heart rate distribution histogram for an activity         |
 | `icu_get_pace_histogram`     | Get pace distribution histogram for an activity               |
 | `icu_get_gap_histogram`      | Get grade-adjusted pace histogram for an activity             |
+
+### Activity Messages (2 tools)
+
+The threaded notes/comments shown under an activity — the user's own training notes, comments from followers, or coach feedback.
+
+| Tool                       | Description                                                |
+| -------------------------- | ---------------------------------------------------------- |
+| `icu_get_activity_messages`    | Read notes/comments/coach feedback on a specific activity  |
+| `icu_add_activity_message`     | Post a note or comment on a specific activity              |
 
 ### Athlete (2 tools)
 
@@ -99,6 +108,18 @@ Complete inventory of everything the Intervals.icu MCP server exposes: 51 tools 
 | `icu_apply_sport_settings`  | Apply updated settings to historical activities         |
 | `icu_create_sport_settings` | Create new sport-specific settings                      |
 | `icu_delete_sport_settings` | Delete sport-specific settings                          |
+
+### Custom Items (5 tools)
+
+The user's personal additions to their account: custom charts on dashboards, custom data fields on wellness/activities/intervals, custom power/HR/pace zone configurations, custom activity panels, and custom computed streams. The Intervals.icu API umbrella name is "custom items".
+
+| Tool                    | Description                                                                |
+| ----------------------- | -------------------------------------------------------------------------- |
+| `icu_get_custom_items`      | List the user's custom additions (charts, fields, zones, panels, etc.)     |
+| `icu_get_custom_item`       | Fetch the full configuration of one custom addition by ID                  |
+| `icu_create_custom_item`    | Add a new custom chart, field, zones config, or dashboard panel            |
+| `icu_update_custom_item`    | Modify an existing custom addition (rename, reconfigure, change visibility)|
+| `icu_delete_custom_item`    | Permanently remove a custom addition                                       |
 
 ## MCP Resources
 

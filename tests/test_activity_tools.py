@@ -130,7 +130,9 @@ class TestActivityTools:
         respx_mock.post("/athlete/i123456/activities/manual/bulk").mock(
             return_value=Response(
                 200,
-                json=[{"id": "a123", "name": "Bulk Ride", "start_date_local": "2026-03-20T10:00:00"}],
+                json=[
+                    {"id": "a123", "name": "Bulk Ride", "start_date_local": "2026-03-20T10:00:00"}
+                ],
             )
         )
 
