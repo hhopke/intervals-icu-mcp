@@ -4,7 +4,7 @@ This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-MCP (Model Context Protocol) server for Intervals.icu — provides 58 tools, 2 resources, and 7 prompts for accessing training data, wellness metrics, and performance analysis through Claude and other LLMs.
+MCP (Model Context Protocol) server for Intervals.icu — provides 58 tools, 2 resources, and 9 prompts for accessing training data, wellness metrics, and performance analysis through Claude and other LLMs.
 
 - **Language**: Python 3.11+
 - **Framework**: FastMCP
@@ -16,6 +16,7 @@ MCP (Model Context Protocol) server for Intervals.icu — provides 58 tools, 2 r
 
 ```bash
 make install          # Install dependencies
+make auth             # Set up Intervals.icu credentials (.env)
 make run              # Run the MCP server
 make test             # Run tests
 make test/athlete     # Run tests matching "athlete"
@@ -37,6 +38,8 @@ make docker/run       # Run Docker container
 | Auth | `auth.py` | Loads credentials from `.env` |
 | Response | `response_builder.py` | Consistent JSON structure (data/analysis/metadata) |
 | Models | `models.py` | Pydantic models for API responses |
+| Formatters | `formatters.py` | Data display formatting helpers |
+| Workout syntax | `workout_syntax.py` | Intervals.icu workout DSL reference for LLMs |
 | Tools | `tools/` | 13 tool modules (see below) |
 
 **For detailed architecture**: see `docs/architecture.md`
@@ -77,6 +80,13 @@ Tests use pytest + pytest-asyncio with `respx` for HTTP mocking.
 
 **For testing conventions and examples**: see `docs/testing.md`
 
+## Further Documentation
+
+- `docs/architecture.md` — Detailed architecture and design decisions
+- `docs/tools.md` — Reference for all registered tools
+- `docs/examples.md` — Usage examples
+- `docs/testing.md` — Testing conventions
+
 ## Skills
 
 The following skills are available in `.claude/skills/`:
@@ -86,7 +96,6 @@ The following skills are available in `.claude/skills/`:
 | `/commit` | Analyze changes and create conventional commits |
 | `/add-tool` | Step-by-step workflow for adding new MCP tools |
 | `/release-check` | Run pre-release verification and summarize results |
-| `/mcp-builder` | Anthropic's official guide for building MCP servers |
 
 ## Verification
 
