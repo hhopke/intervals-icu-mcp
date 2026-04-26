@@ -176,11 +176,16 @@ async def create_custom_item(
     description: Annotated[str | None, "Optional description shown to the user"] = None,
     content: Annotated[
         dict[str, Any] | None,
-        "Configuration object whose schema depends on item_type. For most "
-        "fields/charts you can omit this and configure later. Common gotchas: "
-        "for INPUT_FIELD/ACTIVITY_FIELD the inner 'type' must be 'numeric', "
-        "'text', or 'select' (NOT 'number'); 'aggregate' must be 'MIN', "
-        "'SUM', 'MAX', or 'AVERAGE' (NOT 'AVG').",
+        "Configuration object whose schema depends on item_type. "
+        "REQUIRED for INPUT_FIELD, ACTIVITY_FIELD, INTERVAL_FIELD; for these "
+        "the schema is: `code` (machine identifier — must match regex "
+        "[A-Z][A-Za-z0-9]+, i.e. start with uppercase and contain only "
+        "alphanumerics, no spaces/underscores), `type` ('numeric', 'text', "
+        "or 'select' — NOT 'number'), `aggregate` ('MIN', 'SUM', 'MAX', or "
+        "'AVERAGE' — NOT 'AVG'). Example: "
+        "{'code': 'Rpe', 'type': 'numeric', 'aggregate': 'AVERAGE'}. "
+        "Optional for chart/panel/zones/stream types where the API uses "
+        "defaults — you can omit and configure in the Intervals.icu UI later.",
     ] = None,
     visibility: Annotated[
         str | None,
@@ -203,7 +208,10 @@ async def create_custom_item(
         name: Display name shown in the Intervals.icu UI
         item_type: One of the API enum values matching the user's intent
         description: Optional human-readable description
-        content: Optional configuration; schema varies by item_type
+        content: Configuration object. REQUIRED for INPUT_FIELD, ACTIVITY_FIELD,
+            INTERVAL_FIELD — see the parameter's annotation for the inner schema
+            (`code`, `type`, `aggregate`) and validation rules. Optional for
+            chart/panel/zones/stream types.
         visibility: PRIVATE, FOLLOWERS, or PUBLIC
         athlete_id: Athlete ID (uses configured default if not provided)
 
@@ -250,7 +258,12 @@ async def update_custom_item(
     item_type: Annotated[str | None, "Updated type (see create_custom_item for values)"] = None,
     description: Annotated[str | None, "Updated description"] = None,
     content: Annotated[
-        dict[str, Any] | None, "Updated configuration content (replaces existing content)"
+        dict[str, Any] | None,
+        "Updated configuration content (replaces existing content). Same "
+        "schema rules as create_custom_item.content — for field-type items "
+        "the inner shape is {`code`, `type`, `aggregate`} with the same "
+        "validation constraints (code regex [A-Z][A-Za-z0-9]+, type in "
+        "numeric/text/select, aggregate in MIN/SUM/MAX/AVERAGE).",
     ] = None,
     visibility: Annotated[str | None, "Updated visibility: PRIVATE, FOLLOWERS, or PUBLIC"] = None,
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
