@@ -1,6 +1,48 @@
 # Tool, Resource, and Prompt Reference
 
-Complete inventory of everything the Intervals.icu MCP server exposes: 58 tools across 11 categories, 2 MCP Resources, and 7 MCP Prompts.
+Complete inventory of everything the Intervals.icu MCP server exposes: up to 58 tools across 11 categories, 2 MCP Resources, and 7 MCP Prompts.
+
+## Delete Safety Mode
+
+Destructive tools are gated by the optional `INTERVALS_ICU_DELETE_MODE` env var. The gate sits **outside the model's reach** — tools that aren't registered cannot be invoked by any prompt or parameter.
+
+| Mode | Registered tools | Events | Activities | Gear | Sport settings | Custom items |
+|---|---|---|---|---|---|---|
+| `safe` (default) | 55 | tomorrow or later | ✗ | ✓ | ✗ | ✗ |
+| `full` | 58 | any date | ✓ | ✓ | ✓ | ✓ |
+| `none` | 52 | ✗ | ✗ | ✗ | ✗ | ✗ |
+
+In `safe` mode, `icu_delete_event` and `icu_bulk_delete_events` return a uniform envelope showing what was deleted and what was skipped:
+
+```json
+{
+  "deleted": [124],
+  "deleted_count": 1,
+  "skipped": [
+    {
+      "id": 123,
+      "reason": "past_event",
+      "start_date_local": "2026-04-15",
+      "hint": "Past events (today and earlier) require INTERVALS_ICU_DELETE_MODE=full."
+    }
+  ],
+  "skipped_count": 1
+}
+```
+
+Set the mode in your client config alongside the credentials:
+
+```json
+"env": {
+  "INTERVALS_ICU_API_KEY": "your-api-key-here",
+  "INTERVALS_ICU_ATHLETE_ID": "i123456",
+  "INTERVALS_ICU_DELETE_MODE": "safe"
+}
+```
+
+**Why today is treated as past:** Safe mode only deletes events dated *strictly after today* in the server's local timezone. The one-day buffer absorbs server-vs-athlete TZ skew. If you run the server in Docker (defaults to UTC) and live in a different timezone, set the container's `TZ` env var to match your athlete profile (e.g., `TZ=Europe/Berlin`) so "today" lines up.
+
+**Why sport settings and custom items are full-only:** Sport-settings deletion shifts retroactive chart math (current FTP/zones drive past activity calculations on Intervals.icu, so deleting them re-renders historical training load). Custom items can be data-bearing fields whose values are stored across activities. Neither is recoverable by re-creating the deleted record.
 
 ## Tools
 
@@ -14,7 +56,7 @@ Complete inventory of everything the Intervals.icu MCP server exposes: 58 tools 
 | `icu_search_activities_full` | Search activities with full details               |
 | `icu_get_activities_around`  | Get activities before and after a specific one    |
 | `icu_update_activity`        | Update activity name, description, or metadata    |
-| `icu_delete_activity`        | Delete an activity                                |
+| `icu_delete_activity`        | Delete an activity *(only registered when `INTERVALS_ICU_DELETE_MODE=full`)* |
 | `icu_download_activity_file` | Download original activity file                   |
 | `icu_download_fit_file`      | Download activity as FIT file                     |
 | `icu_download_gpx_file`      | Download activity as GPX file                     |
@@ -67,9 +109,9 @@ The threaded notes/comments shown under an activity — the user's own training 
 | `icu_get_event`             | Get details for a specific event                           |
 | `icu_create_event`          | Create new calendar events (workouts, races, notes, goals) |
 | `icu_update_event`          | Modify existing calendar events                            |
-| `icu_delete_event`          | Remove events from calendar                                |
+| `icu_delete_event`          | Remove an event from the calendar *(safe mode: future events only; envelope returns `deleted` / `skipped`)* |
 | `icu_bulk_create_events`    | Create multiple events in a single operation               |
-| `icu_bulk_delete_events`    | Delete multiple events in a single operation               |
+| `icu_bulk_delete_events`    | Delete multiple events in a single operation *(safe mode partitions into `deleted` / `skipped`)* |
 | `icu_duplicate_events`      | Duplicate one or more events with configurable copies and spacing |
 | `icu_apply_training_plan` | Apply an entire training plan (workout folder) onto the calendar |
 
@@ -107,7 +149,7 @@ The threaded notes/comments shown under an activity — the user's own training 
 | `icu_update_sport_settings` | Update FTP, FTHR, pace threshold, or zone configuration |
 | `icu_apply_sport_settings`  | Apply updated settings to historical activities         |
 | `icu_create_sport_settings` | Create new sport-specific settings                      |
-| `icu_delete_sport_settings` | Delete sport-specific settings                          |
+| `icu_delete_sport_settings` | Delete sport-specific settings *(only registered when `INTERVALS_ICU_DELETE_MODE=full`; deletion shifts retroactive chart math)* |
 
 ### Custom Items (5 tools)
 
@@ -119,7 +161,7 @@ The user's personal additions to their account: custom charts on dashboards, cus
 | `icu_get_custom_item`       | Fetch the full configuration of one custom addition by ID                  |
 | `icu_create_custom_item`    | Add a new custom chart, field, zones config, or dashboard panel            |
 | `icu_update_custom_item`    | Modify an existing custom addition (rename, reconfigure, change visibility)|
-| `icu_delete_custom_item`    | Permanently remove a custom addition                                       |
+| `icu_delete_custom_item`    | Permanently remove a custom addition *(only registered when `INTERVALS_ICU_DELETE_MODE=full`; data-bearing field types may cascade)* |
 
 ## MCP Resources
 

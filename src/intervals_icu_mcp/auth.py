@@ -2,9 +2,14 @@
 
 import os
 from pathlib import Path
+from typing import Literal
 
 from dotenv import load_dotenv, set_key
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+DeleteMode = Literal["safe", "full", "none"]
+VALID_DELETE_MODES: tuple[DeleteMode, ...] = ("safe", "full", "none")
 
 
 class ICUConfig(BaseSettings):
@@ -18,6 +23,20 @@ class ICUConfig(BaseSettings):
 
     intervals_icu_api_key: str = ""
     intervals_icu_athlete_id: str = ""
+    intervals_icu_delete_mode: DeleteMode = "safe"
+
+    @field_validator("intervals_icu_delete_mode", mode="before")
+    @classmethod
+    def _normalize_delete_mode(cls, v: object) -> str:
+        if v is None or v == "":
+            return "safe"
+        normalized = str(v).lower().strip()
+        if normalized not in VALID_DELETE_MODES:
+            raise ValueError(
+                "INTERVALS_ICU_DELETE_MODE must be one of: "
+                f"{', '.join(VALID_DELETE_MODES)}. Got: '{v}'"
+            )
+        return normalized
 
 
 def load_config() -> ICUConfig:

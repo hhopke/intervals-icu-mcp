@@ -4,7 +4,7 @@ This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-MCP (Model Context Protocol) server for Intervals.icu — provides 58 tools, 2 resources, and 9 prompts for accessing training data, wellness metrics, and performance analysis through Claude and other LLMs.
+MCP (Model Context Protocol) server for Intervals.icu — provides up to 58 tools, 2 resources, and 9 prompts for accessing training data, wellness metrics, and performance analysis through Claude and other LLMs. The default `INTERVALS_ICU_DELETE_MODE=safe` registers 55 tools; `full` registers all 58, `none` registers 52.
 
 - **Language**: Python 3.11+
 - **Framework**: FastMCP
@@ -83,9 +83,14 @@ Tests use pytest + pytest-asyncio with `respx` for HTTP mocking.
 ## Further Documentation
 
 - `docs/architecture.md` — Detailed architecture and design decisions
-- `docs/tools.md` — Reference for all registered tools
+- `docs/tools.md` — Reference for all registered tools (and the Delete Safety Mode spec)
 - `docs/examples.md` — Usage examples
 - `docs/testing.md` — Testing conventions
+- `docs/chatgpt-connector.md` — ChatGPT custom-connector setup walkthrough
+
+### README discipline
+
+**Keep README.md under 300 lines.** It is the front door for new users — onboarding, install, basic config, links out. Reference material (full tool inventory, deep architectural notes, exhaustive examples) belongs in `docs/`, not the README. If a new section grows past ~30 lines and isn't core onboarding, extract it to `docs/` and link from the README. The README has been trimmed before (PR #6) — don't let it bloat back.
 
 ## Skills
 
@@ -100,6 +105,20 @@ The following skills are available in `.claude/skills/`:
 ## Verification
 
 **Always run `make can-release` before finishing any feature work.** This runs the full test and lint suite, matching what CI checks on every push.
+
+## Releases
+
+CHANGELOG.md is **manual** — there is no automated changelog generation. The only release-related automation:
+- Package version comes from the git tag via `hatch-vcs` (no `pyproject.toml` bump needed)
+- `publish.yml` syncs `server.json` version from the tag and publishes to PyPI + MCP Registry
+- `release.yml` builds and pushes the Docker image
+
+To cut a release:
+1. Rename `## [Unreleased]` → `## [X.Y.Z] — YYYY-MM-DD` in CHANGELOG.md
+2. Commit (e.g., `chore(release): X.Y.Z`)
+3. Tag and push: `git tag vX.Y.Z && git push origin main vX.Y.Z`
+
+Follow strict SemVer — breaking changes (response shape changes, default-behavior changes that remove tools, removed parameters) require a major bump. The CHANGELOG header explicitly commits to SemVer.
 
 ## Important Files
 
