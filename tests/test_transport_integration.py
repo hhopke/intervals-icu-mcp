@@ -30,10 +30,11 @@ class TestInMemoryTransport:
         async with Client(mcp) as client:
             assert client.is_connected()
 
-    async def test_all_58_tools_registered(self):
+    async def test_all_default_mode_tools_registered(self):
+        """Default delete_mode=safe registers 55 tools (3 destructive tools gated)."""
         async with Client(mcp) as client:
             tools = await client.list_tools()
-            assert len(tools) == 58
+            assert len(tools) == 55
             names = {t.name for t in tools}
             # Spot-check tools from different modules / tiers
             assert "icu_get_recent_activities" in names
@@ -189,5 +190,5 @@ class TestHTTPTransport:
                 tools_body = (await tools_resp.aread()).decode()
                 tools_payload = self._parse_sse_response(tools_body)
                 tool_names = {t["name"] for t in tools_payload["result"]["tools"]}
-                assert len(tool_names) == 58
+                assert len(tool_names) == 55  # safe mode default
                 assert "icu_get_recent_activities" in tool_names

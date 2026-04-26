@@ -1,10 +1,13 @@
 """Tests for event management tools."""
 
 import json
+from datetime import date, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from httpx import Response
 
+from intervals_icu_mcp.auth import ICUConfig
 from intervals_icu_mcp.tools.event_management import (
     apply_training_plan,
     bulk_create_events,
@@ -14,6 +17,24 @@ from intervals_icu_mcp.tools.event_management import (
     duplicate_events,
     update_event,
 )
+
+
+def _future_date(days: int = 7) -> str:
+    return (date.today() + timedelta(days=days)).isoformat()
+
+
+def _past_date(days: int = 7) -> str:
+    return (date.today() - timedelta(days=days)).isoformat()
+
+
+@pytest.fixture
+def mock_config_full():
+    """Config with delete_mode=full for tests that bypass the safe-mode guard."""
+    return ICUConfig(
+        intervals_icu_api_key="test_api_key_12345",
+        intervals_icu_athlete_id="i123456",
+        intervals_icu_delete_mode="full",
+    )
 
 
 class TestEventTools:
@@ -78,22 +99,131 @@ class TestEventTools:
         assert response["data"]["name"] == "Updated Workout"
         assert response["metadata"]["message"] == "Successfully updated event 1001"
 
-    async def test_delete_event_success(self, mock_config, respx_mock):
-        """Test successful event deletion."""
+    async def test_delete_event_safe_allows_future(self, mock_config, respx_mock):
+        """Safe mode (default): future event is fetched, then deleted."""
         mock_ctx = MagicMock()
         mock_ctx.get_state = AsyncMock(return_value=mock_config)
 
+        respx_mock.get("/athlete/i123456/events/1001").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 1001,
+                    "start_date_local": _future_date(),
+                    "name": "Tomorrow's workout",
+                    "category": "WORKOUT",
+                },
+            )
+        )
         respx_mock.delete("/athlete/i123456/events/1001").mock(return_value=Response(200, json={}))
 
-        result = await delete_event(
-            event_id=1001,
-            ctx=mock_ctx,
-        )
+        result = await delete_event(event_id=1001, ctx=mock_ctx)
 
         response = json.loads(result)
         assert "data" in response
-        assert response["data"]["deleted"] is True
-        assert response["metadata"]["message"] == "Successfully deleted event 1001"
+        assert response["data"]["deleted"] == [1001]
+        assert response["data"]["deleted_count"] == 1
+        assert response["data"]["skipped"] == []
+        assert response["data"]["skipped_count"] == 0
+
+    async def test_delete_event_safe_refuses_past(self, mock_config, respx_mock):
+        """Safe mode: past event is skipped with reason=past_event."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        past = _past_date()
+        respx_mock.get("/athlete/i123456/events/1001").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 1001,
+                    "start_date_local": past,
+                    "name": "Last week",
+                    "category": "WORKOUT",
+                },
+            )
+        )
+        delete_route = respx_mock.delete("/athlete/i123456/events/1001").mock(
+            return_value=Response(200, json={})
+        )
+
+        result = await delete_event(event_id=1001, ctx=mock_ctx)
+
+        response = json.loads(result)
+        assert response["data"]["deleted"] == []
+        assert response["data"]["deleted_count"] == 0
+        assert len(response["data"]["skipped"]) == 1
+        skip = response["data"]["skipped"][0]
+        assert skip["id"] == 1001
+        assert skip["reason"] == "past_event"
+        assert skip["start_date_local"] == past
+        assert "INTERVALS_ICU_DELETE_MODE=full" in skip["hint"]
+        assert delete_route.call_count == 0
+
+    async def test_delete_event_safe_treats_today_as_past(self, mock_config, respx_mock):
+        """One-day buffer: today's events are refused to absorb TZ skew."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        today = date.today().isoformat()
+        respx_mock.get("/athlete/i123456/events/1001").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 1001,
+                    "start_date_local": today,
+                    "name": "Today",
+                    "category": "WORKOUT",
+                },
+            )
+        )
+        delete_route = respx_mock.delete("/athlete/i123456/events/1001").mock(
+            return_value=Response(200, json={})
+        )
+
+        result = await delete_event(event_id=1001, ctx=mock_ctx)
+
+        response = json.loads(result)
+        assert response["data"]["deleted"] == []
+        assert response["data"]["skipped"][0]["reason"] == "past_event"
+        assert delete_route.call_count == 0
+
+    async def test_delete_event_safe_skips_unparseable_date(self, mock_config, respx_mock):
+        """Safe mode: event with an unparseable date is skipped (cannot verify)."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.get("/athlete/i123456/events/1001").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 1001,
+                    "start_date_local": "not-a-date",
+                    "name": "Bad date",
+                    "category": "NOTE",
+                },
+            )
+        )
+
+        result = await delete_event(event_id=1001, ctx=mock_ctx)
+
+        response = json.loads(result)
+        assert response["data"]["deleted_count"] == 0
+        assert response["data"]["skipped"][0]["reason"] == "missing_date"
+
+    async def test_delete_event_full_skips_date_check(self, mock_config_full, respx_mock):
+        """Full mode: no fetch, deletes regardless of date."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config_full)
+
+        get_route = respx_mock.get("/athlete/i123456/events/1001")
+        respx_mock.delete("/athlete/i123456/events/1001").mock(return_value=Response(200, json={}))
+
+        result = await delete_event(event_id=1001, ctx=mock_ctx)
+
+        response = json.loads(result)
+        assert response["data"]["deleted"] == [1001]
+        assert get_route.call_count == 0
 
     async def test_apply_training_plan_success(self, mock_config, respx_mock):
         """Test successful training plan application."""
@@ -401,10 +531,10 @@ class TestEventTools:
         assert "error" in response
         assert "No fields provided" in response["error"]["message"]
 
-    async def test_delete_event_api_error(self, mock_config, respx_mock):
-        """API 404 on delete surfaces as error response."""
+    async def test_delete_event_api_error(self, mock_config_full, respx_mock):
+        """API 404 on delete surfaces as error response (full mode bypasses get_event)."""
         mock_ctx = MagicMock()
-        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+        mock_ctx.get_state = AsyncMock(return_value=mock_config_full)
 
         respx_mock.delete("/athlete/i123456/events/9999").mock(
             return_value=Response(404, json={"error": "Event not found"})
@@ -561,10 +691,10 @@ class TestEventTools:
         assert "error" in response
         assert "start_date_local" in response["error"]["message"]
 
-    async def test_bulk_delete_events_success(self, mock_config, respx_mock):
-        """Bulk delete events reports the deleted IDs."""
+    async def test_bulk_delete_events_full_mode(self, mock_config_full, respx_mock):
+        """Full mode: deletes all IDs without per-event date check."""
         mock_ctx = MagicMock()
-        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+        mock_ctx.get_state = AsyncMock(return_value=mock_config_full)
 
         respx_mock.put("/athlete/i123456/events/bulk-delete").mock(
             return_value=Response(200, json={"deleted": 2})
@@ -573,10 +703,84 @@ class TestEventTools:
         result = await bulk_delete_events(event_ids=json.dumps([1001, 1002]), ctx=mock_ctx)
 
         response = json.loads(result)
-        assert "data" in response
+        assert response["data"]["deleted"] == [1001, 1002]
         assert response["data"]["deleted_count"] == 2
-        assert response["data"]["event_ids"] == [1001, 1002]
+        assert response["data"]["skipped"] == []
         assert response["metadata"]["message"] == "Successfully deleted 2 events"
+
+    async def test_bulk_delete_events_safe_partition(self, mock_config, respx_mock):
+        """Safe mode: partitions input into deleted (future) and skipped (past)."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        future = _future_date()
+        past = _past_date()
+        respx_mock.get("/athlete/i123456/events/1001").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 1001,
+                    "start_date_local": future,
+                    "name": "Future workout",
+                    "category": "WORKOUT",
+                },
+            )
+        )
+        respx_mock.get("/athlete/i123456/events/1002").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 1002,
+                    "start_date_local": past,
+                    "name": "Past workout",
+                    "category": "WORKOUT",
+                },
+            )
+        )
+        bulk_route = respx_mock.put("/athlete/i123456/events/bulk-delete").mock(
+            return_value=Response(200, json={"deleted": 1})
+        )
+
+        result = await bulk_delete_events(event_ids=json.dumps([1001, 1002]), ctx=mock_ctx)
+
+        response = json.loads(result)
+        assert response["data"]["deleted"] == [1001]
+        assert response["data"]["deleted_count"] == 1
+        assert len(response["data"]["skipped"]) == 1
+        assert response["data"]["skipped"][0]["id"] == 1002
+        assert response["data"]["skipped"][0]["reason"] == "past_event"
+        sent = json.loads(bulk_route.calls.last.request.content)
+        sent_ids = [entry["id"] if isinstance(entry, dict) else entry for entry in sent]
+        assert sent_ids == [1001]
+
+    async def test_bulk_delete_events_safe_all_past(self, mock_config, respx_mock):
+        """Safe mode: when every input is past, no bulk-delete call is made."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        past = _past_date()
+        for eid in (1001, 1002):
+            respx_mock.get(f"/athlete/i123456/events/{eid}").mock(
+                return_value=Response(
+                    200,
+                    json={
+                        "id": eid,
+                        "start_date_local": past,
+                        "name": "Past",
+                        "category": "WORKOUT",
+                    },
+                )
+            )
+        bulk_route = respx_mock.put("/athlete/i123456/events/bulk-delete").mock(
+            return_value=Response(200, json={"deleted": 0})
+        )
+
+        result = await bulk_delete_events(event_ids=json.dumps([1001, 1002]), ctx=mock_ctx)
+
+        response = json.loads(result)
+        assert response["data"]["deleted_count"] == 0
+        assert response["data"]["skipped_count"] == 2
+        assert bulk_route.call_count == 0
 
     async def test_bulk_delete_events_requires_non_empty(self, mock_config):
         """Validation: empty array is rejected."""

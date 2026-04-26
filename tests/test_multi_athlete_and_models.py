@@ -151,6 +151,20 @@ class TestMultiAthleteEventManagement:
         assert COACH_ATHLETE in respx_mock.calls.last.request.url.path
 
     async def test_delete_event_with_athlete_id(self, mock_config, respx_mock):
+        from datetime import date, timedelta
+
+        future = (date.today() + timedelta(days=7)).isoformat()
+        respx_mock.get(f"/athlete/{COACH_ATHLETE}/events/1001").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 1001,
+                    "start_date_local": future,
+                    "name": "Future",
+                    "category": "WORKOUT",
+                },
+            )
+        )
         respx_mock.delete(f"/athlete/{COACH_ATHLETE}/events/1001").mock(
             return_value=Response(200, json={})
         )
@@ -159,7 +173,7 @@ class TestMultiAthleteEventManagement:
             event_id=1001, athlete_id=COACH_ATHLETE, ctx=make_ctx(mock_config)
         )
         response = json.loads(result)
-        assert response["data"]["deleted"] is True
+        assert response["data"]["deleted"] == [1001]
         assert COACH_ATHLETE in respx_mock.calls.last.request.url.path
 
     async def test_duplicate_events_with_athlete_id(self, mock_config, respx_mock, mock_event_data):
@@ -203,6 +217,21 @@ class TestMultiAthleteEventManagement:
         assert COACH_ATHLETE in respx_mock.calls.last.request.url.path
 
     async def test_bulk_delete_events_with_athlete_id(self, mock_config, respx_mock):
+        from datetime import date, timedelta
+
+        future = (date.today() + timedelta(days=7)).isoformat()
+        for eid in (2001, 2002):
+            respx_mock.get(f"/athlete/{COACH_ATHLETE}/events/{eid}").mock(
+                return_value=Response(
+                    200,
+                    json={
+                        "id": eid,
+                        "start_date_local": future,
+                        "name": f"E{eid}",
+                        "category": "WORKOUT",
+                    },
+                )
+            )
         respx_mock.put(f"/athlete/{COACH_ATHLETE}/events/bulk-delete").mock(
             return_value=Response(200, json={"deleted": 2})
         )
@@ -213,6 +242,7 @@ class TestMultiAthleteEventManagement:
             ctx=make_ctx(mock_config),
         )
         response = json.loads(result)
+        assert response["data"]["deleted"] == [2001, 2002]
         assert response["data"]["deleted_count"] == 2
         assert COACH_ATHLETE in respx_mock.calls.last.request.url.path
 
