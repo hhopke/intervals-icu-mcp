@@ -94,6 +94,8 @@ class ActivitySummary(BaseModel):
     average_cadence: float | None = None
     icu_training_load: int | None = None
     icu_intensity: float | None = None
+    source: str | None = None
+    note: str | None = Field(default=None, alias="_note")
 
 
 class Activity(ActivitySummary):
