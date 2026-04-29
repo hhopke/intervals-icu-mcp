@@ -353,6 +353,11 @@ async def update_wellness(
     mood: Annotated[int | None, "Mood level (1-5 scale)"] = None,
     motivation: Annotated[int | None, "Motivation level (1-5 scale)"] = None,
     readiness: Annotated[float | None, "Readiness score (0-100)"] = None,
+    calories_consumed: Annotated[int | None, "Calories consumed (kcal)"] = None,
+    carbohydrates: Annotated[float | None, "Carbohydrates consumed (grams)"] = None,
+    protein: Annotated[float | None, "Protein consumed (grams)"] = None,
+    fat_total: Annotated[float | None, "Total fat consumed (grams)"] = None,
+    hydration_liters: Annotated[float | None, "Hydration volume (liters)"] = None,
     comments: Annotated[str | None, "Comments or notes"] = None,
     ctx: Context | None = None,
 ) -> str:
@@ -377,6 +382,11 @@ async def update_wellness(
         mood: Mood rating (1-5)
         motivation: Motivation level (1-5)
         readiness: Overall readiness score (0-100)
+        calories_consumed: Total calories consumed in kcal
+        carbohydrates: Carbohydrates in grams
+        protein: Protein in grams
+        fat_total: Total fat in grams
+        hydration_liters: Hydration volume in liters
         comments: Any notes or comments about the day
 
     Returns:
@@ -420,6 +430,16 @@ async def update_wellness(
             wellness_data["motivation"] = motivation
         if readiness is not None:
             wellness_data["readiness"] = readiness
+        if calories_consumed is not None:
+            wellness_data["kcalConsumed"] = calories_consumed
+        if carbohydrates is not None:
+            wellness_data["carbohydrates"] = carbohydrates
+        if protein is not None:
+            wellness_data["protein"] = protein
+        if fat_total is not None:
+            wellness_data["fatTotal"] = fat_total
+        if hydration_liters is not None:
+            wellness_data["hydrationVolume"] = hydration_liters
         if comments is not None:
             wellness_data["comments"] = comments
 
