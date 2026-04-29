@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-This release will be cut as **2.0.0** — destructive-tool defaults change and `delete_event` response shape changes, both breaking per SemVer.
+## [2.0.0] — 2026-04-29
 
 ### Added
 - `INTERVALS_ICU_DELETE_MODE` env var (`safe` / `full` / `none`) gating which destructive tools are registered with the server. The gate sits outside the model's reach — unregistered tools cannot be invoked. See the README's *Delete Safety Mode* section.
