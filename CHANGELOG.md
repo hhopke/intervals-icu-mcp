@@ -5,10 +5,44 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.1] — 2026-04-24
+## [Unreleased]
+
+This release will be cut as **2.0.0** — destructive-tool defaults change and `delete_event` response shape changes, both breaking per SemVer.
 
 ### Added
+- `INTERVALS_ICU_DELETE_MODE` env var (`safe` / `full` / `none`) gating which destructive tools are registered with the server. The gate sits outside the model's reach — unregistered tools cannot be invoked. See the README's *Delete Safety Mode* section.
+- Safe-mode partition logic: `delete_event` / `bulk_delete_events` skip past events (today and earlier) and return a uniform `deleted` / `skipped` envelope with reason codes.
+- Startup log line: `intervals-icu MCP starting: delete_mode=<mode>, registered_tools=<n>`.
+- Strava-restricted activity detection: activity and analysis tools surface an explanation when Strava data is unavailable due to privacy settings.
+- `update_wellness` now accepts nutrition macro fields (`calories`, `carbs`, `fat`, `protein`, `fiber`).
+
+### Fixed
+- Wellness tools: surfaced previously dropped API fields and added human-readable labels for subjective scales (sleep quality, readiness, mood, fatigue, etc.).
+
+### Changed
+- **Breaking — default behavior:** `delete_activity`, `delete_sport_settings`, `delete_custom_item` are no longer registered out of the box. Set `INTERVALS_ICU_DELETE_MODE=full` to restore them. Sport settings and custom items are gated because their deletion impacts historical chart math and stored activity data, respectively.
+- **Breaking — response shape:** `delete_event` returns the `deleted` / `skipped` envelope (was `{event_id, deleted: true}`).
+- Bumped FastMCP from 3.1.1 to 3.2.4.
+
+## [1.3.0] — 2026-04-26
+
+### Added
+- **Activity messages tools** — read and write notes/comments on activities via `icu_get_activity_messages` and `icu_add_activity_message`.
+- **Custom items tools** — full CRUD for custom charts, fields, zones, and dashboard items via `icu_get_custom_items`, `icu_get_custom_item`, `icu_create_custom_item`, `icu_update_custom_item`, `icu_delete_custom_item`. Includes documented content schema and conditional-required fields for field-type items.
+- ChatGPT connector setup documented in the README (HTTP transport + tunnel walkthrough).
+- Automated OpenAPI spec refresh via `.github/workflows/update-openapi.yml`; bot commits are GPG-signed to satisfy the verified-signature branch rule.
+
+### Fixed
+- Docker release build: package version is now derived from a pre-built wheel so `hatch-vcs` resolves correctly inside the build context.
+- MCP Registry publish: `mcp-publisher` asset glob updated to the current upstream artifact name.
+
+## [1.2.0] — 2026-04-25
+
+### Added
+- **Full calendar category support** — `create_event` / `update_event` / `bulk_create_events` accept the complete Intervals.icu category enum (RACE_A/B/C, TARGET, PLAN, HOLIDAY, SICK, INJURED, SET_EFTP, FITNESS_DAYS, SEASON_START, SET_FITNESS) plus range fields (`end_date_local`) and `training_availability` (NORMAL/LIMITED/UNAVAILABLE) for life-event blocks. Legacy `RACE`→`RACE_A` and `GOAL`→`TARGET` aliases accepted.
 - Automated MCP Registry publishing on release via GitHub OIDC — `server.json` version is synced from the release tag, no manual bump required.
+- PyPI package quality gates in CI: `twine check`, `pyroma --min=10`, and link verification.
+- Dynamic versioning via `hatch-vcs` — package version flows from the git tag, no manual edits in `pyproject.toml`.
 
 ### Changed
 - README trimmed; reference content extracted to [docs/examples.md](docs/examples.md) and [docs/tools.md](docs/tools.md) for clearer onboarding and discoverability.
@@ -23,15 +57,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Expanded the HTTP transport security warning in the README with concrete deployment guidance (Tailscale, Cloudflare Tunnel, reverse-proxy-with-auth, SSH tunnel).
 
+## [1.0.2] — 2026-04-24
+
+### Fixed
+- LICENSE file now packaged with the PyPI distribution and links resolve correctly from the PyPI page.
+- `server.json` description shortened to meet the MCP Registry 100-char limit.
+
 ## [1.0.1] — 2026-04-24
 
 ### Added
 - PyPI publish workflow via Trusted Publishers.
 - MCP Registry submission metadata (`server.json`).
-
-### Fixed
-- LICENSE file now packaged with the PyPI distribution and links resolve correctly from the PyPI page.
-- `server.json` description shortened to meet the MCP Registry 100-char limit.
 
 ### Changed
 - Documentation leads with the `uvx` install flow now that the package is on PyPI.

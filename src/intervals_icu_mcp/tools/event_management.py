@@ -1,6 +1,7 @@
 """Event/calendar management tools for Intervals.icu MCP server."""
 
-from datetime import datetime
+import asyncio
+from datetime import date, datetime
 from typing import Annotated, Any, cast
 
 from fastmcp import Context
@@ -9,6 +10,67 @@ from ..auth import ICUConfig
 from ..client import ICUAPIError, ICUClient
 from ..models import Event
 from ..response_builder import ResponseBuilder
+
+PAST_EVENT_HINT = (
+    "Past events (today and earlier) require INTERVALS_ICU_DELETE_MODE=full. "
+    "Safe mode only deletes events dated tomorrow or later, to absorb "
+    "server-vs-athlete timezone skew. This is a server-side env var set by the "
+    "operator, not a tool parameter."
+)
+MISSING_DATE_HINT = (
+    "Event has no start_date_local; cannot verify it is in the future. "
+    "Use INTERVALS_ICU_DELETE_MODE=full to override."
+)
+
+
+def _classify_event_date(start_date_local: str | None) -> str:
+    """Classify an event's date for safe-mode gating.
+
+    Compares at date granularity (planned events typically lack meaningful times).
+    Today is classified as 'past' so safe mode only deletes events dated tomorrow
+    or later. The one-day buffer absorbs server-vs-athlete timezone skew (e.g.,
+    UTC server with non-UTC athlete profile) without an extra API call.
+
+    Returns one of: 'future', 'past', 'unknown'.
+    """
+    if not start_date_local:
+        return "unknown"
+    try:
+        parsed = datetime.fromisoformat(start_date_local).date()
+    except (ValueError, TypeError):
+        return "unknown"
+    return "future" if parsed > date.today() else "past"
+
+
+def _delete_envelope(
+    deleted: list[int],
+    skipped: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Build the uniform deleted/skipped response envelope."""
+    return {
+        "deleted": deleted,
+        "deleted_count": len(deleted),
+        "skipped": skipped,
+        "skipped_count": len(skipped),
+    }
+
+
+def _skipped_entry_for(event_id: int, event: Event | None) -> dict[str, Any]:
+    """Build a `skipped` entry for an event refused in safe mode."""
+    classification = _classify_event_date(event.start_date_local if event else None)
+    if classification == "past":
+        return {
+            "id": event_id,
+            "reason": "past_event",
+            "start_date_local": event.start_date_local if event else None,
+            "hint": PAST_EVENT_HINT,
+        }
+    return {
+        "id": event_id,
+        "reason": "missing_date",
+        "start_date_local": event.start_date_local if event else None,
+        "hint": MISSING_DATE_HINT,
+    }
 
 VALID_CATEGORIES = {
     "WORKOUT",
@@ -402,30 +464,45 @@ async def delete_event(
 
     Permanently removes an event from your calendar. This action cannot be undone.
 
+    In `safe` delete mode (the default), past events are refused — only events
+    dated today or later are deletable. The skipped event is reported in the
+    response with its date and a hint pointing the operator to
+    INTERVALS_ICU_DELETE_MODE=full if they need to delete past events.
+
     Args:
         event_id: ID of the event to delete
 
     Returns:
-        JSON string with deletion confirmation
+        JSON string with `deleted` / `skipped` envelope
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
 
     try:
         async with ICUClient(config) as client:
-            success = await client.delete_event(event_id, athlete_id=athlete_id)
+            if config.intervals_icu_delete_mode == "safe":
+                event = await client.get_event(event_id, athlete_id=athlete_id)
+                if _classify_event_date(event.start_date_local) != "future":
+                    return ResponseBuilder.build_response(
+                        data=_delete_envelope(
+                            deleted=[],
+                            skipped=[_skipped_entry_for(event_id, event)],
+                        ),
+                        query_type="delete_event",
+                        metadata={"message": f"Skipped event {event_id} in safe mode"},
+                    )
 
-            if success:
-                return ResponseBuilder.build_response(
-                    data={"event_id": event_id, "deleted": True},
-                    query_type="delete_event",
-                    metadata={"message": f"Successfully deleted event {event_id}"},
-                )
-            else:
+            success = await client.delete_event(event_id, athlete_id=athlete_id)
+            if not success:
                 return ResponseBuilder.build_error_response(
                     f"Failed to delete event {event_id}",
                     error_type="api_error",
                 )
+            return ResponseBuilder.build_response(
+                data=_delete_envelope(deleted=[event_id], skipped=[]),
+                query_type="delete_event",
+                metadata={"message": f"Successfully deleted event {event_id}"},
+            )
 
     except ICUAPIError as e:
         return ResponseBuilder.build_error_response(e.message, error_type="api_error")
@@ -579,11 +656,16 @@ async def bulk_delete_events(
     This is more efficient than deleting events one at a time. Provide a JSON array
     of event IDs to delete.
 
+    In `safe` delete mode (the default), past events are skipped — the call
+    partitions the input list into deleted (future) and skipped (past or
+    undated) and returns both. INTERVALS_ICU_DELETE_MODE=full disables the
+    partition and deletes everything.
+
     Args:
         event_ids: JSON array of event IDs (integers)
 
     Returns:
-        JSON string with deletion confirmation
+        JSON string with `deleted` / `skipped` envelope
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
@@ -591,7 +673,6 @@ async def bulk_delete_events(
     try:
         import json
 
-        # Parse the JSON string
         try:
             parsed_data = json.loads(event_ids)
         except json.JSONDecodeError as e:
@@ -609,14 +690,46 @@ async def bulk_delete_events(
                 "Must provide at least one event ID to delete", error_type="validation_error"
             )
 
-        # Type cast after validation
         ids_list: list[int] = parsed_data  # type: ignore[assignment]
 
         async with ICUClient(config) as client:
-            result = await client.bulk_delete_events(ids_list, athlete_id=athlete_id)
+            if config.intervals_icu_delete_mode == "safe":
+                fetched = await asyncio.gather(
+                    *(client.get_event(eid, athlete_id=athlete_id) for eid in ids_list),
+                    return_exceptions=True,
+                )
 
+                ids_to_delete: list[int] = []
+                skipped: list[dict[str, Any]] = []
+                for eid, fetched_event in zip(ids_list, fetched, strict=True):
+                    if isinstance(fetched_event, BaseException):
+                        if isinstance(fetched_event, ICUAPIError):
+                            return ResponseBuilder.build_error_response(
+                                fetched_event.message, error_type="api_error"
+                            )
+                        raise fetched_event
+                    if _classify_event_date(fetched_event.start_date_local) == "future":
+                        ids_to_delete.append(eid)
+                    else:
+                        skipped.append(_skipped_entry_for(eid, fetched_event))
+
+                if ids_to_delete:
+                    await client.bulk_delete_events(ids_to_delete, athlete_id=athlete_id)
+
+                return ResponseBuilder.build_response(
+                    data=_delete_envelope(deleted=ids_to_delete, skipped=skipped),
+                    query_type="bulk_delete_events",
+                    metadata={
+                        "message": (
+                            f"Deleted {len(ids_to_delete)} event(s); "
+                            f"skipped {len(skipped)} in safe mode"
+                        ),
+                    },
+                )
+
+            await client.bulk_delete_events(ids_list, athlete_id=athlete_id)
             return ResponseBuilder.build_response(
-                data={"deleted_count": len(ids_list), "event_ids": ids_list, "result": result},
+                data=_delete_envelope(deleted=ids_list, skipped=[]),
                 query_type="bulk_delete_events",
                 metadata={"message": f"Successfully deleted {len(ids_list)} events"},
             )

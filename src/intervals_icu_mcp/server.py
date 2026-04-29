@@ -1,6 +1,7 @@
 """Intervals.icu MCP Server - FastMCP entry point."""
 
 import argparse
+import sys
 from typing import Any
 
 from dotenv import load_dotenv
@@ -13,9 +14,15 @@ load_dotenv()
 mcp = FastMCP("intervals_icu_mcp")
 
 # Register middleware
+from .auth import load_config
 from .middleware import ConfigMiddleware
 
 mcp.add_middleware(ConfigMiddleware())
+
+# Read delete mode at startup. This decides which destructive tools are
+# *registered* with the server — the safety floor sits outside the LLM's reach
+# (no parameter the model invents can summon a tool that wasn't registered).
+_DELETE_MODE = load_config().intervals_icu_delete_mode
 
 # Import and register tools
 from .tools.activities import (
@@ -154,15 +161,16 @@ mcp.tool(
         "openWorldHint": True,
     },
 )(bulk_create_manual_activities)
-mcp.tool(
-    name="icu_delete_activity",
-    annotations={
-        "readOnlyHint": False,
-        "destructiveHint": True,
-        "idempotentHint": True,
-        "openWorldHint": True,
-    },
-)(delete_activity)
+if _DELETE_MODE == "full":
+    mcp.tool(
+        name="icu_delete_activity",
+        annotations={
+            "readOnlyHint": False,
+            "destructiveHint": True,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        },
+    )(delete_activity)
 mcp.tool(
     name="icu_download_activity_file",
     annotations={
@@ -360,15 +368,16 @@ mcp.tool(
         "openWorldHint": True,
     },
 )(update_event)
-mcp.tool(
-    name="icu_delete_event",
-    annotations={
-        "readOnlyHint": False,
-        "destructiveHint": True,
-        "idempotentHint": True,
-        "openWorldHint": True,
-    },
-)(delete_event)
+if _DELETE_MODE in ("safe", "full"):
+    mcp.tool(
+        name="icu_delete_event",
+        annotations={
+            "readOnlyHint": False,
+            "destructiveHint": True,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        },
+    )(delete_event)
 mcp.tool(
     name="icu_bulk_create_events",
     annotations={
@@ -378,15 +387,16 @@ mcp.tool(
         "openWorldHint": True,
     },
 )(bulk_create_events)
-mcp.tool(
-    name="icu_bulk_delete_events",
-    annotations={
-        "readOnlyHint": False,
-        "destructiveHint": True,
-        "idempotentHint": True,
-        "openWorldHint": True,
-    },
-)(bulk_delete_events)
+if _DELETE_MODE in ("safe", "full"):
+    mcp.tool(
+        name="icu_bulk_delete_events",
+        annotations={
+            "readOnlyHint": False,
+            "destructiveHint": True,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        },
+    )(bulk_delete_events)
 mcp.tool(
     name="icu_duplicate_events",
     annotations={
@@ -483,15 +493,16 @@ mcp.tool(
         "openWorldHint": True,
     },
 )(update_gear)
-mcp.tool(
-    name="icu_delete_gear",
-    annotations={
-        "readOnlyHint": False,
-        "destructiveHint": True,
-        "idempotentHint": True,
-        "openWorldHint": True,
-    },
-)(delete_gear)
+if _DELETE_MODE in ("safe", "full"):
+    mcp.tool(
+        name="icu_delete_gear",
+        annotations={
+            "readOnlyHint": False,
+            "destructiveHint": True,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        },
+    )(delete_gear)
 mcp.tool(
     name="icu_create_gear_reminder",
     annotations={
@@ -548,15 +559,16 @@ mcp.tool(
         "openWorldHint": True,
     },
 )(create_sport_settings)
-mcp.tool(
-    name="icu_delete_sport_settings",
-    annotations={
-        "readOnlyHint": False,
-        "destructiveHint": True,
-        "idempotentHint": True,
-        "openWorldHint": True,
-    },
-)(delete_sport_settings)
+if _DELETE_MODE == "full":
+    mcp.tool(
+        name="icu_delete_sport_settings",
+        annotations={
+            "readOnlyHint": False,
+            "destructiveHint": True,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        },
+    )(delete_sport_settings)
 
 # Register activity message tools
 mcp.tool(
@@ -615,15 +627,16 @@ mcp.tool(
         "openWorldHint": True,
     },
 )(update_custom_item)
-mcp.tool(
-    name="icu_delete_custom_item",
-    annotations={
-        "readOnlyHint": False,
-        "destructiveHint": True,
-        "idempotentHint": True,
-        "openWorldHint": True,
-    },
-)(delete_custom_item)
+if _DELETE_MODE == "full":
+    mcp.tool(
+        name="icu_delete_custom_item",
+        annotations={
+            "readOnlyHint": False,
+            "destructiveHint": True,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        },
+    )(delete_custom_item)
 
 
 # MCP Resources - Provide ongoing context
@@ -1006,9 +1019,27 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+async def _count_registered_tools() -> int:
+    return len(await mcp.list_tools())
+
+
+def _emit_startup_log() -> None:
+    import asyncio
+
+    try:
+        count = asyncio.run(_count_registered_tools())
+    except Exception:
+        count = -1
+    print(
+        f"intervals-icu MCP starting: delete_mode={_DELETE_MODE}, registered_tools={count}",
+        file=sys.stderr,
+    )
+
+
 def main() -> None:
     """Main entry point for the Intervals.icu MCP server."""
     args = _parse_args()
+    _emit_startup_log()
 
     if args.transport == "stdio":
         mcp.run()
