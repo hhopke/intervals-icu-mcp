@@ -352,7 +352,19 @@ async def update_wellness(
     stress: Annotated[int | None, "Stress level (1-5 scale)"] = None,
     mood: Annotated[int | None, "Mood level (1-5 scale)"] = None,
     motivation: Annotated[int | None, "Motivation level (1-5 scale)"] = None,
+    injury: Annotated[int | None, "Injury severity (1-5 scale: 1=none, 5=severe)"] = None,
     readiness: Annotated[float | None, "Readiness score (0-100)"] = None,
+    body_fat: Annotated[float | None, "Body fat percentage"] = None,
+    abdomen: Annotated[float | None, "Abdominal circumference in cm"] = None,
+    vo2max: Annotated[float | None, "VO2max (ml/kg/min) — lab result or device estimate"] = None,
+    systolic: Annotated[int | None, "Systolic blood pressure in mmHg"] = None,
+    diastolic: Annotated[int | None, "Diastolic blood pressure in mmHg"] = None,
+    spo2: Annotated[float | None, "Blood oxygen saturation percentage (SpO2)"] = None,
+    respiration: Annotated[float | None, "Respiration rate in breaths per minute"] = None,
+    blood_glucose: Annotated[float | None, "Blood glucose in mmol/L"] = None,
+    lactate: Annotated[float | None, "Blood lactate in mmol/L — lab result"] = None,
+    menstrual_phase: Annotated[str | None, "Menstrual phase (e.g. FOLLICULAR, OVULATING, LUTEAL, MENSTRUAL)"] = None,
+    locked: Annotated[bool | None, "Lock record to prevent device sync from overwriting manual entries"] = None,
     calories_consumed: Annotated[int | None, "Calories consumed (kcal)"] = None,
     carbohydrates: Annotated[float | None, "Carbohydrates consumed (grams)"] = None,
     protein: Annotated[float | None, "Protein consumed (grams)"] = None,
@@ -366,8 +378,8 @@ async def update_wellness(
     Updates wellness metrics for the specified date. If a record doesn't exist for
     that date, it will be created. Only provide the fields you want to update.
 
-    All subjective metrics (fatigue, soreness, stress, mood, motivation) use a 1-5 scale:
-    1 = Very low/poor, 3 = Normal/moderate, 5 = Very high/excellent
+    All subjective metrics (fatigue, soreness, stress, mood, motivation, injury) use a 1-5 scale.
+    Set `locked=True` to prevent device sync from overwriting manual entries.
 
     Args:
         date: Date in ISO-8601 format (YYYY-MM-DD)
@@ -375,13 +387,25 @@ async def update_wellness(
         resting_hr: Resting heart rate in beats per minute
         hrv: Heart rate variability (rMSSD) in milliseconds
         sleep_secs: Sleep duration in seconds
-        sleep_quality: Sleep quality rating (1-5)
+        sleep_quality: Sleep quality rating (1-5, inverted: 1=Great, 5=Poor)
         fatigue: Fatigue level (1-5)
         soreness: Muscle soreness level (1-5)
         stress: Stress level (1-5)
         mood: Mood rating (1-5)
         motivation: Motivation level (1-5)
+        injury: Injury severity (1-5: 1=none, 5=severe)
         readiness: Overall readiness score (0-100)
+        body_fat: Body fat percentage
+        abdomen: Abdominal circumference in cm
+        vo2max: VO2max in ml/kg/min
+        systolic: Systolic blood pressure in mmHg
+        diastolic: Diastolic blood pressure in mmHg
+        spo2: Blood oxygen saturation percentage (SpO2)
+        respiration: Respiration rate in breaths per minute
+        blood_glucose: Blood glucose in mmol/L
+        lactate: Blood lactate in mmol/L
+        menstrual_phase: Menstrual phase string
+        locked: Prevent device sync from overwriting this record
         calories_consumed: Total calories consumed in kcal
         carbohydrates: Carbohydrates in grams
         protein: Protein in grams
@@ -428,8 +452,32 @@ async def update_wellness(
             wellness_data["mood"] = mood
         if motivation is not None:
             wellness_data["motivation"] = motivation
+        if injury is not None:
+            wellness_data["injury"] = injury
         if readiness is not None:
             wellness_data["readiness"] = readiness
+        if body_fat is not None:
+            wellness_data["bodyFat"] = body_fat
+        if abdomen is not None:
+            wellness_data["abdomen"] = abdomen
+        if vo2max is not None:
+            wellness_data["vo2max"] = vo2max
+        if systolic is not None:
+            wellness_data["systolic"] = systolic
+        if diastolic is not None:
+            wellness_data["diastolic"] = diastolic
+        if spo2 is not None:
+            wellness_data["spO2"] = spo2
+        if respiration is not None:
+            wellness_data["respiration"] = respiration
+        if blood_glucose is not None:
+            wellness_data["bloodGlucose"] = blood_glucose
+        if lactate is not None:
+            wellness_data["lactate"] = lactate
+        if menstrual_phase is not None:
+            wellness_data["menstrualPhase"] = menstrual_phase
+        if locked is not None:
+            wellness_data["locked"] = locked
         if calories_consumed is not None:
             wellness_data["kcalConsumed"] = calories_consumed
         if carbohydrates is not None:

@@ -14,7 +14,7 @@ This release will be cut as **2.0.0** — destructive-tool defaults change and `
 - Safe-mode partition logic: `delete_event` / `bulk_delete_events` skip past events (today and earlier) and return a uniform `deleted` / `skipped` envelope with reason codes.
 - Startup log line: `intervals-icu MCP starting: delete_mode=<mode>, registered_tools=<n>`.
 - Strava-restricted activity detection: activity and analysis tools surface an explanation when Strava data is unavailable due to privacy settings.
-- `update_wellness` now accepts nutrition macro fields (`calories`, `carbs`, `fat`, `protein`, `fiber`).
+- `update_wellness` now accepts the full set of writable fields: nutrition macros (`calories`, `carbs`, `fat`, `protein`), body composition (`body_fat`, `abdomen`, `vo2max`), vitals (`systolic`, `diastolic`, `spo2`, `respiration`), lab results (`blood_glucose`, `lactate`), `injury` (1-5 scale), `menstrual_phase`, and `locked` (prevents device sync from overwriting manual entries).
 
 ### Fixed
 - Wellness tools: surfaced previously dropped API fields and added human-readable labels for subjective scales (sleep quality, readiness, mood, fatigue, etc.).
