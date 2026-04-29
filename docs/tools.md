@@ -40,6 +40,8 @@ Set the mode in your client config alongside the credentials:
 }
 ```
 
+**Events vs. activities — two separate records:** An event is a calendar entry (planned workout, race, note). An activity is a recorded workout synced from a device or uploaded manually. Completing a workout links the activity to the event, but both records remain independent — deleting one leaves the other intact. Deleting an event removes the plan from your calendar; the recorded data survives. Deleting an activity permanently removes the training data; the event remains on the calendar (reverting to an unexecuted plan). This is why `icu_delete_activity` is `full`-only: it destroys recorded training data with no recovery path. Event deletion is available in `safe` mode (future events only) because removing an unexecuted plan is low-stakes.
+
 **Why today is treated as past:** Safe mode only deletes events dated *strictly after today* in the server's local timezone. The one-day buffer absorbs server-vs-athlete TZ skew. If you run the server in Docker (defaults to UTC) and live in a different timezone, set the container's `TZ` env var to match your athlete profile (e.g., `TZ=Europe/Berlin`) so "today" lines up.
 
 **Why sport settings and custom items are full-only:** Sport-settings deletion shifts retroactive chart math (current FTP/zones drive past activity calculations on Intervals.icu, so deleting them re-renders historical training load). Custom items can be data-bearing fields whose values are stored across activities. Neither is recoverable by re-creating the deleted record.
