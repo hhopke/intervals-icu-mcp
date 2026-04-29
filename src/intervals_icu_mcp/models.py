@@ -138,8 +138,24 @@ class ActivitySearchResult(BaseModel):
 # ==================== Wellness Models ====================
 
 
+class SportInfo(BaseModel):
+    """Per-sport context attached to a wellness record."""
+
+    type: str | None = None
+    eftp: float | None = None
+    w_prime: float | None = Field(None, alias="wPrime")
+    p_max: float | None = Field(None, alias="pMax")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
 class Wellness(BaseModel):
-    """Wellness record with health metrics."""
+    """Wellness record with health metrics.
+
+    `extra="allow"` lets us surface fields that the Intervals.icu API may add
+    in the future without losing them silently — every field the API returns
+    is preserved on the model, even if not enumerated here.
+    """
 
     id: str  # ISO-8601 date
     weight: float | None = None
@@ -156,17 +172,23 @@ class Wellness(BaseModel):
     mood: int | None = None
     motivation: int | None = None
     injury: int | None = None
-    spo2: float | None = None
+    spo2: float | None = Field(None, alias="spO2")
     respiration: float | None = None
     hydration: int | None = None
     hydration_volume: float | None = Field(None, alias="hydrationVolume")
     kcal_consumed: int | None = Field(None, alias="kcalConsumed")
+    carbohydrates: float | None = None
+    protein: float | None = None
+    fat_total: float | None = Field(None, alias="fatTotal")
     menstrual_phase: str | None = Field(None, alias="menstrualPhase")
+    menstrual_phase_predicted: str | None = Field(None, alias="menstrualPhasePredicted")
     systolic: int | None = None
     diastolic: int | None = None
     blood_glucose: float | None = Field(None, alias="bloodGlucose")
     lactate: float | None = None
     body_fat: float | None = Field(None, alias="bodyFat")
+    abdomen: float | None = None
+    vo2max: float | None = None
     readiness: float | None = None
     baevsky_si: float | None = Field(None, alias="baevskySI")
     steps: int | None = None
@@ -177,9 +199,13 @@ class Wellness(BaseModel):
     ctl_load: float | None = Field(None, alias="ctlLoad")
     atl_load: float | None = Field(None, alias="atlLoad")
     ramp_rate: float | None = Field(None, alias="rampRate")
+    sport_info: list[SportInfo] = Field(default_factory=list[SportInfo], alias="sportInfo")
+    locked: bool | None = None
+    temp_weight: bool | None = Field(None, alias="tempWeight")
+    temp_resting_hr: bool | None = Field(None, alias="tempRestingHR")
     updated: datetime | None = None
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 
 # ==================== Event/Calendar Models ====================

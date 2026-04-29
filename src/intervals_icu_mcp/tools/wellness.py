@@ -9,6 +9,22 @@ from ..auth import ICUConfig
 from ..client import ICUAPIError, ICUClient
 from ..response_builder import ResponseBuilder
 
+# Scale labels for subjective metrics — surfaced in response metadata so LLM
+# clients that only see the JSON payload (not the tool docstring) can still
+# interpret the values correctly. Direction matters: sleep_quality is inverted
+# (1=Great, 5=Poor) while every other 1-5 metric is "higher = more".
+WELLNESS_SCALES: dict[str, str] = {
+    "fatigue": "1-5 (1=very low, 5=very high)",
+    "soreness": "1-5 (1=very low, 5=very high)",
+    "stress": "1-5 (1=very low, 5=very high)",
+    "mood": "1-5 (1=very poor, 5=very good)",
+    "motivation": "1-5 (1=very low, 5=very high)",
+    "injury": "1-5 (1=none, 5=severe)",
+    "sleep_quality": "1-5 (1=Great, 5=Poor — inverted scale)",
+    "sleep_score": "0-100 (device-specific, higher is better)",
+    "readiness": "0-100 (higher is better)",
+}
+
 
 def _format_wellness_record(record: Any, date_id: str) -> dict[str, Any]:
     """Format a wellness record object into a structured dictionary."""
@@ -56,6 +72,10 @@ def _format_wellness_record(record: Any, date_id: str) -> dict[str, Any]:
         body["weight_kg"] = record.weight
     if getattr(record, "body_fat", None):
         body["body_fat_percent"] = round(record.body_fat, 1)
+    if getattr(record, "abdomen", None):
+        body["abdomen_cm"] = round(record.abdomen, 1)
+    if getattr(record, "vo2max", None):
+        body["vo2max"] = round(record.vo2max, 1)
     if body:
         day_data["body"] = body
 
@@ -72,16 +92,27 @@ def _format_wellness_record(record: Any, date_id: str) -> dict[str, Any]:
     if vitals:
         day_data["vitals"] = vitals
 
-    # Activity & Nutrition
+    # Activity
     activity: dict[str, Any] = {}
     if getattr(record, "steps", None):
         activity["steps"] = record.steps
-    if getattr(record, "kcal_consumed", None):
-        activity["calories_consumed"] = record.kcal_consumed
-    if getattr(record, "hydration_volume", None):
-        activity["hydration_liters"] = round(record.hydration_volume, 1)
     if activity:
-        day_data["activity_nutrition"] = activity
+        day_data["activity"] = activity
+
+    # Nutrition
+    nutrition: dict[str, Any] = {}
+    if getattr(record, "kcal_consumed", None):
+        nutrition["calories_consumed"] = record.kcal_consumed
+    if getattr(record, "carbohydrates", None):
+        nutrition["carbohydrates_g"] = round(record.carbohydrates, 1)
+    if getattr(record, "protein", None):
+        nutrition["protein_g"] = round(record.protein, 1)
+    if getattr(record, "fat_total", None):
+        nutrition["fat_total_g"] = round(record.fat_total, 1)
+    if getattr(record, "hydration_volume", None):
+        nutrition["hydration_liters"] = round(record.hydration_volume, 1)
+    if nutrition:
+        day_data["nutrition"] = nutrition
 
     # Training load
     training: dict[str, Any] = {}
@@ -91,6 +122,33 @@ def _format_wellness_record(record: Any, date_id: str) -> dict[str, Any]:
     if training:
         day_data["training"] = training
 
+    # Per-sport context (eFTP, W', Pmax per sport type)
+    sport_info_raw: list[Any] = getattr(record, "sport_info", None) or []
+    sport_info_list: list[dict[str, Any]] = []
+    for sport in sport_info_raw:
+        entry: dict[str, Any] = {}
+        if getattr(sport, "type", None):
+            entry["type"] = sport.type
+        if getattr(sport, "eftp", None):
+            entry["eftp"] = round(sport.eftp, 1)
+        if getattr(sport, "w_prime", None):
+            entry["w_prime"] = round(sport.w_prime, 1)
+        if getattr(sport, "p_max", None):
+            entry["p_max"] = round(sport.p_max, 1)
+        if entry:
+            sport_info_list.append(entry)
+    if sport_info_list:
+        day_data["sport_info"] = sport_info_list
+
+    # State flags (record locked, fallback values in use)
+    state_flags: dict[str, Any] = {}
+    for field in ["locked", "temp_weight", "temp_resting_hr"]:
+        value = getattr(record, field, None)
+        if value is not None:
+            state_flags[field] = value
+    if state_flags:
+        day_data["state_flags"] = state_flags
+
     # Other metrics
     other: dict[str, Any] = {}
     if getattr(record, "blood_glucose", None):
@@ -99,6 +157,8 @@ def _format_wellness_record(record: Any, date_id: str) -> dict[str, Any]:
         other["lactate_mmol_per_l"] = round(record.lactate, 1)
     if getattr(record, "menstrual_phase", None):
         other["menstrual_phase"] = record.menstrual_phase
+    if getattr(record, "menstrual_phase_predicted", None):
+        other["menstrual_phase_predicted"] = record.menstrual_phase_predicted
     if other:
         day_data["other"] = other
 
@@ -107,6 +167,22 @@ def _format_wellness_record(record: Any, date_id: str) -> dict[str, Any]:
         day_data["comments"] = record.comments
 
     return day_data
+
+
+def _scales_for_records(records: list[dict[str, Any]]) -> dict[str, str]:
+    """Return scale labels only for subjective metrics actually present in output."""
+    present: set[str] = set()
+    for record in records:
+        sleep = record.get("sleep", {})
+        if "quality" in sleep:
+            present.add("sleep_quality")
+        if "score" in sleep:
+            present.add("sleep_score")
+        subjective = record.get("subjective", {})
+        for key in subjective:
+            if key in WELLNESS_SCALES:
+                present.add(key)
+    return {k: WELLNESS_SCALES[k] for k in present}
 
 
 async def get_wellness_data(
@@ -193,8 +269,14 @@ async def get_wellness_data(
             if trends:
                 result_data["trends"] = trends
 
+            metadata: dict[str, Any] = {}
+            scales = _scales_for_records(wellness_data)
+            if scales:
+                metadata["scales"] = scales
+
             return ResponseBuilder.build_response(
                 data=result_data,
+                metadata=metadata or None,
                 query_type="wellness_data",
             )
 
@@ -239,8 +321,14 @@ async def get_wellness_for_date(
 
             wellness_data = _format_wellness_record(wellness, date)
 
+            metadata: dict[str, Any] = {}
+            scales = _scales_for_records([wellness_data])
+            if scales:
+                metadata["scales"] = scales
+
             return ResponseBuilder.build_response(
                 data=wellness_data,
+                metadata=metadata or None,
                 query_type="wellness_for_date",
             )
 
@@ -265,6 +353,11 @@ async def update_wellness(
     mood: Annotated[int | None, "Mood level (1-5 scale)"] = None,
     motivation: Annotated[int | None, "Motivation level (1-5 scale)"] = None,
     readiness: Annotated[float | None, "Readiness score (0-100)"] = None,
+    calories_consumed: Annotated[int | None, "Calories consumed (kcal)"] = None,
+    carbohydrates: Annotated[float | None, "Carbohydrates consumed (grams)"] = None,
+    protein: Annotated[float | None, "Protein consumed (grams)"] = None,
+    fat_total: Annotated[float | None, "Total fat consumed (grams)"] = None,
+    hydration_liters: Annotated[float | None, "Hydration volume (liters)"] = None,
     comments: Annotated[str | None, "Comments or notes"] = None,
     ctx: Context | None = None,
 ) -> str:
@@ -289,6 +382,11 @@ async def update_wellness(
         mood: Mood rating (1-5)
         motivation: Motivation level (1-5)
         readiness: Overall readiness score (0-100)
+        calories_consumed: Total calories consumed in kcal
+        carbohydrates: Carbohydrates in grams
+        protein: Protein in grams
+        fat_total: Total fat in grams
+        hydration_liters: Hydration volume in liters
         comments: Any notes or comments about the day
 
     Returns:
@@ -332,6 +430,16 @@ async def update_wellness(
             wellness_data["motivation"] = motivation
         if readiness is not None:
             wellness_data["readiness"] = readiness
+        if calories_consumed is not None:
+            wellness_data["kcalConsumed"] = calories_consumed
+        if carbohydrates is not None:
+            wellness_data["carbohydrates"] = carbohydrates
+        if protein is not None:
+            wellness_data["protein"] = protein
+        if fat_total is not None:
+            wellness_data["fatTotal"] = fat_total
+        if hydration_liters is not None:
+            wellness_data["hydrationVolume"] = hydration_liters
         if comments is not None:
             wellness_data["comments"] = comments
 
@@ -346,10 +454,15 @@ async def update_wellness(
 
             result_data = _format_wellness_record(wellness, date)
 
+            metadata: dict[str, Any] = {"message": f"Successfully updated wellness for {date}"}
+            scales = _scales_for_records([result_data])
+            if scales:
+                metadata["scales"] = scales
+
             return ResponseBuilder.build_response(
                 data=result_data,
                 query_type="update_wellness",
-                metadata={"message": f"Successfully updated wellness for {date}"},
+                metadata=metadata,
             )
 
     except ICUAPIError as e:
