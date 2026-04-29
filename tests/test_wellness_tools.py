@@ -190,6 +190,65 @@ class TestWellnessTools:
         assert days[1]["nutrition"]["protein_g"] == 130.0
         assert "fatigue" in response["metadata"]["scales"]
 
+    async def test_update_wellness_new_fields(self, mock_config, respx_mock):
+        """New fields (injury, body metrics, vitals, lab, menstrual, locked) round-trip correctly."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.put("/athlete/i123456/wellness").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": "2026-04-29",
+                    "injury": 2,
+                    "bodyFat": 18.5,
+                    "abdomen": 80.0,
+                    "vo2max": 55.0,
+                    "systolic": 118,
+                    "diastolic": 76,
+                    "spO2": 98.0,
+                    "respiration": 14.5,
+                    "bloodGlucose": 5.2,
+                    "lactate": 1.8,
+                    "menstrualPhase": "FOLLICULAR",
+                    "locked": True,
+                },
+            )
+        )
+
+        result = await update_wellness(
+            date="2026-04-29",
+            injury=2,
+            body_fat=18.5,
+            abdomen=80.0,
+            vo2max=55.0,
+            systolic=118,
+            diastolic=76,
+            spo2=98.0,
+            respiration=14.5,
+            blood_glucose=5.2,
+            lactate=1.8,
+            menstrual_phase="FOLLICULAR",
+            locked=True,
+            ctx=mock_ctx,
+        )
+
+        response = json.loads(result)
+        data = response["data"]
+        assert data["subjective"]["injury"] == 2
+        assert data["body"]["body_fat_percent"] == 18.5
+        assert data["body"]["abdomen_cm"] == 80.0
+        assert data["body"]["vo2max"] == 55.0
+        assert data["vitals"]["systolic_mmhg"] == 118
+        assert data["vitals"]["diastolic_mmhg"] == 76
+        assert data["vitals"]["spo2_percent"] == 98.0
+        assert data["vitals"]["respiration_rate"] == 14.5
+        assert data["other"]["blood_glucose_mmol_per_l"] == 5.2
+        assert data["other"]["lactate_mmol_per_l"] == 1.8
+        assert data["other"]["menstrual_phase"] == "FOLLICULAR"
+        assert data["state_flags"]["locked"] is True
+        assert "injury" in response["metadata"]["scales"]
+
     async def test_wellness_model_preserves_unknown_fields(self):
         """`extra=allow` keeps future API additions accessible on the model."""
         from intervals_icu_mcp.models import Wellness
