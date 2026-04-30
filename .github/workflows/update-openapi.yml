@@ -17,9 +17,22 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Save current spec
+        run: cp openapi-spec.json /tmp/old-spec.json
+
       - name: Fetch latest OpenAPI spec
+        run: curl -s https://intervals.icu/api/v1/docs > openapi-spec.json
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Generate diff and impact scan
         run: |
-          curl -s https://intervals.icu/api/v1/docs > openapi-spec.json
+          python .github/scripts/openapi_diff.py \
+            /tmp/old-spec.json openapi-spec.json src \
+            > /tmp/pr-body.md
 
       - name: Check for changes and create PR
         uses: peter-evans/create-pull-request@v8
@@ -27,9 +40,6 @@ jobs:
           sign-commits: true
           commit-message: "chore: update intervals.icu OpenAPI specification"
           title: "chore: update intervals.icu OpenAPI specification"
-          body: |
-            Automated PR to update the `openapi-spec.json` from the latest Intervals.icu API.
-            
-            This ensures that our MCP tools are developed against the most recent API types.
+          body-path: /tmp/pr-body.md
           branch: "update-openapi-spec"
           delete-branch: true
