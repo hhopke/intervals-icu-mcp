@@ -13,12 +13,12 @@ from .models import (
     ActivitySummary,
     Athlete,
     BestEfforts,
+    Bucket,
     CurveSet,
     Event,
     Folder,
     Gear,
     GearReminder,
-    Histogram,
     Interval,
     IntervalsDTO,
     SportSettings,
@@ -368,62 +368,50 @@ class ICUClient:
     async def get_power_histogram(
         self,
         activity_id: str,
-    ) -> Histogram:
+    ) -> list[Bucket]:
         """Get power distribution histogram for an activity.
 
-        Args:
-            activity_id: Activity ID
-
-        Returns:
-            Histogram with power distribution bins
+        Returns a list of buckets sorted by `start` ascending. The endpoint
+        returns a bare JSON array, not an object — see `Bucket` for the shape.
         """
         response = await self._request("GET", f"/activity/{activity_id}/power-histogram")
-        return Histogram(**response.json())
+        return [Bucket(**b) for b in response.json()]
 
     async def get_hr_histogram(
         self,
         activity_id: str,
-    ) -> Histogram:
+    ) -> list[Bucket]:
         """Get heart rate distribution histogram for an activity.
 
-        Args:
-            activity_id: Activity ID
-
-        Returns:
-            Histogram with HR distribution bins
+        Returns a list of buckets sorted by `start` ascending. The endpoint
+        returns a bare JSON array, not an object — see `Bucket` for the shape.
         """
         response = await self._request("GET", f"/activity/{activity_id}/hr-histogram")
-        return Histogram(**response.json())
+        return [Bucket(**b) for b in response.json()]
 
     async def get_pace_histogram(
         self,
         activity_id: str,
-    ) -> Histogram:
+    ) -> list[Bucket]:
         """Get pace distribution histogram for an activity.
 
-        Args:
-            activity_id: Activity ID
-
-        Returns:
-            Histogram with pace distribution bins
+        Returns a list of buckets sorted by `start` ascending. The endpoint
+        returns a bare JSON array, not an object — see `Bucket` for the shape.
         """
         response = await self._request("GET", f"/activity/{activity_id}/pace-histogram")
-        return Histogram(**response.json())
+        return [Bucket(**b) for b in response.json()]
 
     async def get_gap_histogram(
         self,
         activity_id: str,
-    ) -> Histogram:
+    ) -> list[Bucket]:
         """Get grade-adjusted pace (GAP) histogram for an activity.
 
-        Args:
-            activity_id: Activity ID
-
-        Returns:
-            Histogram with GAP distribution bins
+        Returns a list of buckets sorted by `start` ascending. The endpoint
+        returns a bare JSON array, not an object — see `Bucket` for the shape.
         """
         response = await self._request("GET", f"/activity/{activity_id}/gap-histogram")
-        return Histogram(**response.json())
+        return [Bucket(**b) for b in response.json()]
 
     # ==================== Wellness Endpoints ====================
 

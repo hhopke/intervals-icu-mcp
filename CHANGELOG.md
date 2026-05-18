@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Histogram tools (`icu_get_hr_histogram`, `icu_get_power_histogram`, `icu_get_pace_histogram`, `icu_get_gap_histogram`) crashed with `argument after ** must be a mapping, not list` on any activity with real data. The endpoints return a bare JSON array of buckets, not a wrapper object; the `Histogram`/`HistogramBin` models never matched the API. Replaced with a `Bucket` model matching the OpenAPI spec, and added regression tests with non-empty payloads.
+
+### Changed
+- **Breaking — response shape:** Histogram tools now return `buckets` (was `bins`), with `{min_*, max_*}` ranges derived from consecutive bucket starts (last bucket's width inferred from the first consecutive pair). Per-bucket `time_seconds` + `moving_time_seconds` replace the inaccurate `count` field — the API surfaces time-in-bucket, not raw sample counts.
+
 ## [2.0.0] — 2026-04-29
 
 ### Added

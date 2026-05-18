@@ -170,7 +170,7 @@ class TestAnalysisToolsStravaSurface:
         mock_ctx.get_state = AsyncMock(return_value=mock_config)
 
         respx_mock.get("/activity/16358453283/power-histogram").mock(
-            return_value=Response(200, json={"bins": []})
+            return_value=Response(200, json=[])
         )
         respx_mock.get("/activity/16358453283").mock(
             return_value=Response(200, json=STRAVA_STUB)
@@ -186,7 +186,7 @@ class TestAnalysisToolsStravaSurface:
         mock_ctx.get_state = AsyncMock(return_value=mock_config)
 
         respx_mock.get("/activity/16358453283/hr-histogram").mock(
-            return_value=Response(200, json={"bins": []})
+            return_value=Response(200, json=[])
         )
         respx_mock.get("/activity/16358453283").mock(
             return_value=Response(200, json=STRAVA_STUB)
@@ -202,7 +202,7 @@ class TestAnalysisToolsStravaSurface:
         mock_ctx.get_state = AsyncMock(return_value=mock_config)
 
         respx_mock.get("/activity/16358453283/pace-histogram").mock(
-            return_value=Response(200, json={"bins": []})
+            return_value=Response(200, json=[])
         )
         respx_mock.get("/activity/16358453283").mock(
             return_value=Response(200, json=STRAVA_STUB)
@@ -218,7 +218,7 @@ class TestAnalysisToolsStravaSurface:
         mock_ctx.get_state = AsyncMock(return_value=mock_config)
 
         respx_mock.get("/activity/16358453283/gap-histogram").mock(
-            return_value=Response(200, json={"bins": []})
+            return_value=Response(200, json=[])
         )
         respx_mock.get("/activity/16358453283").mock(
             return_value=Response(200, json=STRAVA_STUB)

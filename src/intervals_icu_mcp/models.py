@@ -457,18 +457,20 @@ class Gear(BaseModel):
 # ==================== Histogram Models ====================
 
 
-class HistogramBin(BaseModel):
-    """Single bin in a histogram."""
+class Bucket(BaseModel):
+    """One bucket in a histogram returned by the Intervals.icu API.
 
-    min: float  # Minimum value for this bin
-    max: float  # Maximum value for this bin
-    count: int  # Number of data points in this bin
-    secs: int | None = None  # Time spent in this bin (seconds)
+    The API returns histogram endpoints as a bare JSON array of these buckets,
+    sorted by `start` ascending. Each bucket spans from `start` up to the next
+    bucket's `start` (the last bucket's width must be inferred). `secs` and
+    `moving_secs` carry time-in-bucket, not a raw sample count.
+    """
 
+    start: float | None = None
+    secs: int | None = None
+    moving_secs: int | None = Field(default=None, alias="movingSecs")
+    watts: float | None = None
+    hr: float | None = None
+    cadence: int | None = None
 
-class Histogram(BaseModel):
-    """Histogram data for activity metrics."""
-
-    bins: list[HistogramBin] = Field(default_factory=list[HistogramBin])
-    total_count: int | None = None
-    total_secs: int | None = None
+    model_config = ConfigDict(populate_by_name=True)

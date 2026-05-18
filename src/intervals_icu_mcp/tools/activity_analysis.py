@@ -6,8 +6,27 @@ from fastmcp import Context
 
 from ..auth import ICUConfig
 from ..client import ICUAPIError, ICUClient
+from ..models import Bucket
 from ..response_builder import ResponseBuilder
 from ._strava import fetch_strava_limitation_note
+
+
+def _bucket_end(buckets: list[Bucket], i: int) -> float | None:
+    """Return the upper bound of bucket `i`.
+
+    Uses the next bucket's `start` as the end. For the last bucket the API
+    gives us no explicit end, so we infer a uniform width from the first
+    consecutive pair of starts and project it onto the last bucket.
+    """
+    if i + 1 < len(buckets) and buckets[i + 1].start is not None:
+        return buckets[i + 1].start
+    starts = [b.start for b in buckets if b.start is not None]
+    if len(starts) < 2 or buckets[i].start is None:
+        return None
+    width = starts[1] - starts[0]
+    if width <= 0:
+        return None
+    return buckets[i].start + width
 
 
 async def get_activity_streams(
@@ -398,39 +417,39 @@ async def get_power_histogram(
 
     try:
         async with ICUClient(config) as client:
-            histogram = await client.get_power_histogram(activity_id)
+            buckets = await client.get_power_histogram(activity_id)
 
-            if not histogram.bins:
+            if not buckets:
                 analysis: dict[str, Any] = {}
                 strava_note = await fetch_strava_limitation_note(client, activity_id)
                 if strava_note:
                     analysis["data_availability"] = strava_note
                 return ResponseBuilder.build_response(
-                    data={"histogram": [], "activity_id": activity_id},
+                    data={"buckets": [], "activity_id": activity_id},
                     analysis=analysis if analysis else None,
                     metadata={"message": "No power histogram data available for this activity"},
                 )
 
-            bins_data: list[dict[str, Any]] = []
-            for bin_item in histogram.bins:
-                bin_data: dict[str, Any] = {
-                    "power_range": {"min_watts": int(bin_item.min), "max_watts": int(bin_item.max)},
-                    "count": bin_item.count,
+            buckets_data: list[dict[str, Any]] = []
+            for i, b in enumerate(buckets):
+                end = _bucket_end(buckets, i)
+                bucket_data: dict[str, Any] = {
+                    "power_range": {
+                        "min_watts": int(b.start) if b.start is not None else None,
+                        "max_watts": int(end) if end is not None else None,
+                    },
+                    "time_seconds": b.secs or 0,
+                    "moving_time_seconds": b.moving_secs or 0,
                 }
-                if bin_item.secs is not None:
-                    bin_data["time_seconds"] = bin_item.secs
-                bins_data.append(bin_data)
-
-            result_data = {
-                "activity_id": activity_id,
-                "bins": bins_data,
-                "total_samples": histogram.total_count,
-            }
-            if histogram.total_secs is not None:
-                result_data["total_time_seconds"] = histogram.total_secs
+                buckets_data.append(bucket_data)
 
             return ResponseBuilder.build_response(
-                data=result_data,
+                data={
+                    "activity_id": activity_id,
+                    "buckets": buckets_data,
+                    "total_time_seconds": sum(b.secs or 0 for b in buckets),
+                    "total_moving_time_seconds": sum(b.moving_secs or 0 for b in buckets),
+                },
                 query_type="power_histogram",
             )
 
@@ -463,39 +482,39 @@ async def get_hr_histogram(
 
     try:
         async with ICUClient(config) as client:
-            histogram = await client.get_hr_histogram(activity_id)
+            buckets = await client.get_hr_histogram(activity_id)
 
-            if not histogram.bins:
+            if not buckets:
                 analysis: dict[str, Any] = {}
                 strava_note = await fetch_strava_limitation_note(client, activity_id)
                 if strava_note:
                     analysis["data_availability"] = strava_note
                 return ResponseBuilder.build_response(
-                    data={"histogram": [], "activity_id": activity_id},
+                    data={"buckets": [], "activity_id": activity_id},
                     analysis=analysis if analysis else None,
                     metadata={"message": "No HR histogram data available for this activity"},
                 )
 
-            bins_data: list[dict[str, Any]] = []
-            for bin_item in histogram.bins:
-                bin_data: dict[str, Any] = {
-                    "hr_range": {"min_bpm": int(bin_item.min), "max_bpm": int(bin_item.max)},
-                    "count": bin_item.count,
+            buckets_data: list[dict[str, Any]] = []
+            for i, b in enumerate(buckets):
+                end = _bucket_end(buckets, i)
+                bucket_data: dict[str, Any] = {
+                    "hr_range": {
+                        "min_bpm": int(b.start) if b.start is not None else None,
+                        "max_bpm": int(end) if end is not None else None,
+                    },
+                    "time_seconds": b.secs or 0,
+                    "moving_time_seconds": b.moving_secs or 0,
                 }
-                if bin_item.secs is not None:
-                    bin_data["time_seconds"] = bin_item.secs
-                bins_data.append(bin_data)
-
-            result_data = {
-                "activity_id": activity_id,
-                "bins": bins_data,
-                "total_samples": histogram.total_count,
-            }
-            if histogram.total_secs is not None:
-                result_data["total_time_seconds"] = histogram.total_secs
+                buckets_data.append(bucket_data)
 
             return ResponseBuilder.build_response(
-                data=result_data,
+                data={
+                    "activity_id": activity_id,
+                    "buckets": buckets_data,
+                    "total_time_seconds": sum(b.secs or 0 for b in buckets),
+                    "total_moving_time_seconds": sum(b.moving_secs or 0 for b in buckets),
+                },
                 query_type="hr_histogram",
             )
 
@@ -528,50 +547,36 @@ async def get_pace_histogram(
 
     try:
         async with ICUClient(config) as client:
-            histogram = await client.get_pace_histogram(activity_id)
+            buckets = await client.get_pace_histogram(activity_id)
 
-            if not histogram.bins:
+            if not buckets:
                 analysis: dict[str, Any] = {}
                 strava_note = await fetch_strava_limitation_note(client, activity_id)
                 if strava_note:
                     analysis["data_availability"] = strava_note
                 return ResponseBuilder.build_response(
-                    data={"histogram": [], "activity_id": activity_id},
+                    data={"buckets": [], "activity_id": activity_id},
                     analysis=analysis if analysis else None,
                     metadata={"message": "No pace histogram data available for this activity"},
                 )
 
-            bins_data: list[dict[str, Any]] = []
-            for bin_item in histogram.bins:
-                # Convert pace from min/km to formatted string
-                min_minutes = int(bin_item.min)
-                min_seconds = int((bin_item.min - min_minutes) * 60)
-                max_minutes = int(bin_item.max)
-                max_seconds = int((bin_item.max - max_minutes) * 60)
-
-                bin_data: dict[str, Any] = {
-                    "pace_range": {
-                        "min_pace_min_per_km": bin_item.min,
-                        "max_pace_min_per_km": bin_item.max,
-                        "min_pace_formatted": f"{min_minutes}:{min_seconds:02d} /km",
-                        "max_pace_formatted": f"{max_minutes}:{max_seconds:02d} /km",
-                    },
-                    "count": bin_item.count,
+            buckets_data: list[dict[str, Any]] = []
+            for i, b in enumerate(buckets):
+                end = _bucket_end(buckets, i)
+                bucket_data: dict[str, Any] = {
+                    "pace_range": {"start": b.start, "end": end},
+                    "time_seconds": b.secs or 0,
+                    "moving_time_seconds": b.moving_secs or 0,
                 }
-                if bin_item.secs is not None:
-                    bin_data["time_seconds"] = bin_item.secs
-                bins_data.append(bin_data)
-
-            result_data = {
-                "activity_id": activity_id,
-                "bins": bins_data,
-                "total_samples": histogram.total_count,
-            }
-            if histogram.total_secs is not None:
-                result_data["total_time_seconds"] = histogram.total_secs
+                buckets_data.append(bucket_data)
 
             return ResponseBuilder.build_response(
-                data=result_data,
+                data={
+                    "activity_id": activity_id,
+                    "buckets": buckets_data,
+                    "total_time_seconds": sum(b.secs or 0 for b in buckets),
+                    "total_moving_time_seconds": sum(b.moving_secs or 0 for b in buckets),
+                },
                 query_type="pace_histogram",
             )
 
@@ -604,51 +609,37 @@ async def get_gap_histogram(
 
     try:
         async with ICUClient(config) as client:
-            histogram = await client.get_gap_histogram(activity_id)
+            buckets = await client.get_gap_histogram(activity_id)
 
-            if not histogram.bins:
+            if not buckets:
                 analysis: dict[str, Any] = {}
                 strava_note = await fetch_strava_limitation_note(client, activity_id)
                 if strava_note:
                     analysis["data_availability"] = strava_note
                 return ResponseBuilder.build_response(
-                    data={"histogram": [], "activity_id": activity_id},
+                    data={"buckets": [], "activity_id": activity_id},
                     analysis=analysis if analysis else None,
                     metadata={"message": "No GAP histogram data available for this activity"},
                 )
 
-            bins_data: list[dict[str, Any]] = []
-            for bin_item in histogram.bins:
-                # Convert GAP from min/km to formatted string
-                min_minutes = int(bin_item.min)
-                min_seconds = int((bin_item.min - min_minutes) * 60)
-                max_minutes = int(bin_item.max)
-                max_seconds = int((bin_item.max - max_minutes) * 60)
-
-                bin_data: dict[str, Any] = {
-                    "gap_range": {
-                        "min_gap_min_per_km": bin_item.min,
-                        "max_gap_min_per_km": bin_item.max,
-                        "min_gap_formatted": f"{min_minutes}:{min_seconds:02d} /km",
-                        "max_gap_formatted": f"{max_minutes}:{max_seconds:02d} /km",
-                    },
-                    "count": bin_item.count,
+            buckets_data: list[dict[str, Any]] = []
+            for i, b in enumerate(buckets):
+                end = _bucket_end(buckets, i)
+                bucket_data: dict[str, Any] = {
+                    "gap_range": {"start": b.start, "end": end},
+                    "time_seconds": b.secs or 0,
+                    "moving_time_seconds": b.moving_secs or 0,
                 }
-                if bin_item.secs is not None:
-                    bin_data["time_seconds"] = bin_item.secs
-                bins_data.append(bin_data)
-
-            result_data = {
-                "activity_id": activity_id,
-                "bins": bins_data,
-                "total_samples": histogram.total_count,
-                "note": "GAP (Grade Adjusted Pace) normalizes pace for elevation changes",
-            }
-            if histogram.total_secs is not None:
-                result_data["total_time_seconds"] = histogram.total_secs
+                buckets_data.append(bucket_data)
 
             return ResponseBuilder.build_response(
-                data=result_data,
+                data={
+                    "activity_id": activity_id,
+                    "buckets": buckets_data,
+                    "total_time_seconds": sum(b.secs or 0 for b in buckets),
+                    "total_moving_time_seconds": sum(b.moving_secs or 0 for b in buckets),
+                    "note": "GAP (Grade Adjusted Pace) normalizes pace for elevation changes",
+                },
                 query_type="gap_histogram",
             )
 
