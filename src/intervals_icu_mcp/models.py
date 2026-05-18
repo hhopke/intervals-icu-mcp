@@ -461,16 +461,12 @@ class Bucket(BaseModel):
     """One bucket in a histogram returned by the Intervals.icu API.
 
     The API returns histogram endpoints as a bare JSON array of these buckets,
-    sorted by `start` ascending. Each bucket spans from `start` up to the next
-    bucket's `start` (the last bucket's width must be inferred). `secs` and
-    `moving_secs` carry time-in-bucket, not a raw sample count.
+    sorted by `min` ascending. `secs` is time-in-bucket; the API does not
+    return raw sample counts or per-bucket moving time. (The OpenAPI spec
+    documents a richer shape with `start`/`movingSecs`/etc. — those fields are
+    not actually populated by any of the histogram endpoints.)
     """
 
-    start: float | None = None
+    min: float | None = None
+    max: float | None = None
     secs: int | None = None
-    moving_secs: int | None = Field(default=None, alias="movingSecs")
-    watts: float | None = None
-    hr: float | None = None
-    cadence: int | None = None
-
-    model_config = ConfigDict(populate_by_name=True)

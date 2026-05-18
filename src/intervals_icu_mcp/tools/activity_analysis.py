@@ -6,27 +6,8 @@ from fastmcp import Context
 
 from ..auth import ICUConfig
 from ..client import ICUAPIError, ICUClient
-from ..models import Bucket
 from ..response_builder import ResponseBuilder
 from ._strava import fetch_strava_limitation_note
-
-
-def _bucket_end(buckets: list[Bucket], i: int) -> float | None:
-    """Return the upper bound of bucket `i`.
-
-    Uses the next bucket's `start` as the end. For the last bucket the API
-    gives us no explicit end, so we infer a uniform width from the first
-    consecutive pair of starts and project it onto the last bucket.
-    """
-    if i + 1 < len(buckets) and buckets[i + 1].start is not None:
-        return buckets[i + 1].start
-    starts = [b.start for b in buckets if b.start is not None]
-    if len(starts) < 2 or buckets[i].start is None:
-        return None
-    width = starts[1] - starts[0]
-    if width <= 0:
-        return None
-    return buckets[i].start + width
 
 
 async def get_activity_streams(
@@ -430,25 +411,22 @@ async def get_power_histogram(
                     metadata={"message": "No power histogram data available for this activity"},
                 )
 
-            buckets_data: list[dict[str, Any]] = []
-            for i, b in enumerate(buckets):
-                end = _bucket_end(buckets, i)
-                bucket_data: dict[str, Any] = {
+            buckets_data: list[dict[str, Any]] = [
+                {
                     "power_range": {
-                        "min_watts": int(b.start) if b.start is not None else None,
-                        "max_watts": int(end) if end is not None else None,
+                        "min_watts": int(b.min) if b.min is not None else None,
+                        "max_watts": int(b.max) if b.max is not None else None,
                     },
                     "time_seconds": b.secs or 0,
-                    "moving_time_seconds": b.moving_secs or 0,
                 }
-                buckets_data.append(bucket_data)
+                for b in buckets
+            ]
 
             return ResponseBuilder.build_response(
                 data={
                     "activity_id": activity_id,
                     "buckets": buckets_data,
                     "total_time_seconds": sum(b.secs or 0 for b in buckets),
-                    "total_moving_time_seconds": sum(b.moving_secs or 0 for b in buckets),
                 },
                 query_type="power_histogram",
             )
@@ -495,25 +473,22 @@ async def get_hr_histogram(
                     metadata={"message": "No HR histogram data available for this activity"},
                 )
 
-            buckets_data: list[dict[str, Any]] = []
-            for i, b in enumerate(buckets):
-                end = _bucket_end(buckets, i)
-                bucket_data: dict[str, Any] = {
+            buckets_data: list[dict[str, Any]] = [
+                {
                     "hr_range": {
-                        "min_bpm": int(b.start) if b.start is not None else None,
-                        "max_bpm": int(end) if end is not None else None,
+                        "min_bpm": int(b.min) if b.min is not None else None,
+                        "max_bpm": int(b.max) if b.max is not None else None,
                     },
                     "time_seconds": b.secs or 0,
-                    "moving_time_seconds": b.moving_secs or 0,
                 }
-                buckets_data.append(bucket_data)
+                for b in buckets
+            ]
 
             return ResponseBuilder.build_response(
                 data={
                     "activity_id": activity_id,
                     "buckets": buckets_data,
                     "total_time_seconds": sum(b.secs or 0 for b in buckets),
-                    "total_moving_time_seconds": sum(b.moving_secs or 0 for b in buckets),
                 },
                 query_type="hr_histogram",
             )
@@ -560,22 +535,19 @@ async def get_pace_histogram(
                     metadata={"message": "No pace histogram data available for this activity"},
                 )
 
-            buckets_data: list[dict[str, Any]] = []
-            for i, b in enumerate(buckets):
-                end = _bucket_end(buckets, i)
-                bucket_data: dict[str, Any] = {
-                    "pace_range": {"start": b.start, "end": end},
+            buckets_data: list[dict[str, Any]] = [
+                {
+                    "pace_range": {"min": b.min, "max": b.max},
                     "time_seconds": b.secs or 0,
-                    "moving_time_seconds": b.moving_secs or 0,
                 }
-                buckets_data.append(bucket_data)
+                for b in buckets
+            ]
 
             return ResponseBuilder.build_response(
                 data={
                     "activity_id": activity_id,
                     "buckets": buckets_data,
                     "total_time_seconds": sum(b.secs or 0 for b in buckets),
-                    "total_moving_time_seconds": sum(b.moving_secs or 0 for b in buckets),
                 },
                 query_type="pace_histogram",
             )
@@ -622,22 +594,19 @@ async def get_gap_histogram(
                     metadata={"message": "No GAP histogram data available for this activity"},
                 )
 
-            buckets_data: list[dict[str, Any]] = []
-            for i, b in enumerate(buckets):
-                end = _bucket_end(buckets, i)
-                bucket_data: dict[str, Any] = {
-                    "gap_range": {"start": b.start, "end": end},
+            buckets_data: list[dict[str, Any]] = [
+                {
+                    "gap_range": {"min": b.min, "max": b.max},
                     "time_seconds": b.secs or 0,
-                    "moving_time_seconds": b.moving_secs or 0,
                 }
-                buckets_data.append(bucket_data)
+                for b in buckets
+            ]
 
             return ResponseBuilder.build_response(
                 data={
                     "activity_id": activity_id,
                     "buckets": buckets_data,
                     "total_time_seconds": sum(b.secs or 0 for b in buckets),
-                    "total_moving_time_seconds": sum(b.moving_secs or 0 for b in buckets),
                     "note": "GAP (Grade Adjusted Pace) normalizes pace for elevation changes",
                 },
                 query_type="gap_histogram",

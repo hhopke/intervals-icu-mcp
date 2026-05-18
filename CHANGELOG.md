@@ -8,10 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
-- Histogram tools (`icu_get_hr_histogram`, `icu_get_power_histogram`, `icu_get_pace_histogram`, `icu_get_gap_histogram`) crashed with `argument after ** must be a mapping, not list` on any activity with real data. The endpoints return a bare JSON array of buckets, not a wrapper object; the `Histogram`/`HistogramBin` models never matched the API. Replaced with a `Bucket` model matching the OpenAPI spec, and added regression tests with non-empty payloads.
+- Histogram tools (`icu_get_hr_histogram`, `icu_get_power_histogram`, `icu_get_pace_histogram`, `icu_get_gap_histogram`) crashed with `argument after ** must be a mapping, not list` on any activity with real data. The endpoints return a bare JSON array of `{min, max, secs}` objects, not a wrapper object; the previous `Histogram`/`HistogramBin` models never matched the actual API (the OpenAPI spec advertises a richer shape that isn't populated by these endpoints). Replaced with a minimal `Bucket` model and added regression tests with real-shape payloads.
 
 ### Changed
-- **Breaking — response shape:** Histogram tools now return `buckets` (was `bins`), with `{min_*, max_*}` ranges derived from consecutive bucket starts (last bucket's width inferred from the first consecutive pair). Per-bucket `time_seconds` + `moving_time_seconds` replace the inaccurate `count` field — the API surfaces time-in-bucket, not raw sample counts.
+- **Breaking — response shape:** Histogram tools now return `buckets` (was `bins`), each shaped `{<metric>_range: {min_*, max_*}, time_seconds}` where boundaries come straight from the API's `min`/`max` fields. The previous `count` field is dropped (the API doesn't return raw sample counts — `secs` is time-in-bucket).
 
 ## [2.0.0] — 2026-04-29
 
