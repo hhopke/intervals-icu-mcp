@@ -18,31 +18,16 @@ async def get_activity_streams(
     ] = None,
     ctx: Context | None = None,
 ) -> str:
-    """Get time-series data streams for an activity.
+    """Fetch RAW per-sample time-series of one activity — second-by-second arrays for power, HR, cadence, speed, altitude, GPS, temperature, grade, etc.
 
-    Returns second-by-second data for various metrics like power, heart rate,
-    cadence, speed, altitude, etc. This data is essential for detailed workout
-    analysis and visualization.
+    Heavy payload. Use only when you need the underlying signal for
+    visualization or custom analysis. Most "how was my ride?" questions
+    are better answered by get_activity_details (summary metrics) or
+    get_activity_intervals (per-lap breakdown).
 
-    Available stream types:
-    - watts: Power data
-    - heartrate: Heart rate data
-    - cadence: Cadence (rpm or spm)
-    - velocity_smooth: Smoothed speed
-    - altitude: Elevation
-    - distance: Cumulative distance
-    - time: Time stamps
-    - latlng: GPS coordinates
-    - temp: Temperature
-    - moving: Moving status
-    - grade_smooth: Gradient
-
-    Args:
-        activity_id: The unique ID of the activity
-        streams: Optional list of specific stream types to fetch
-
-    Returns:
-        JSON string with time-series data streams
+    Stream-type filter accepts any of: watts, heartrate, cadence,
+    velocity_smooth, altitude, distance, time, latlng, temp, moving,
+    grade_smooth.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
@@ -100,17 +85,12 @@ async def get_activity_intervals(
     activity_id: Annotated[str, "Activity ID to fetch intervals for"],
     ctx: Context | None = None,
 ) -> str:
-    """Get structured interval data for an activity.
+    """Fetch the per-LAP / per-interval breakdown of one activity — each segment with its target, actual power/HR/pace, and type (warm-up / work / rest / cool-down).
 
-    Returns the intervals/segments of a workout, including targets, actual performance,
-    and interval types (warm-up, work, rest, cool-down). Essential for analyzing
-    structured workouts and training compliance.
-
-    Args:
-        activity_id: The unique ID of the activity
-
-    Returns:
-        JSON string with interval data
+    Use for workout-compliance analysis, lap-by-lap review,
+    "did I hit my intervals?". For headline summary metrics use
+    get_activity_details; for raw second-by-second data use
+    get_activity_streams.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")

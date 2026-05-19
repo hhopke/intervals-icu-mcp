@@ -103,16 +103,11 @@ async def get_activity_details(
     activity_id: Annotated[str, "Activity ID to fetch"],
     ctx: Context | None = None,
 ) -> str:
-    """Get detailed information for a specific activity.
+    """Fetch the headline SUMMARY of one activity — name, sport, date, distance, duration, training load, weather, plus all top-level metrics in a single JSON blob.
 
-    Returns comprehensive activity details including all metrics, weather,
-    and performance data.
-
-    Args:
-        activity_id: The unique ID of the activity
-
-    Returns:
-        JSON string with detailed activity information
+    Use for "how was my ride?", "tell me about activity X". For lap-by-lap or
+    per-interval breakdown use get_activity_intervals; for second-by-second
+    time-series use get_activity_streams.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
@@ -244,17 +239,11 @@ async def search_activities(
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
-    """Search for activities by name or tag.
+    """Search activities by name or tag, returning a LIGHT result list — id, name, type, date, distance, time only.
 
-    Searches the athlete's activity history for matching activities based on
-    name or tags. Useful for finding specific workouts or activity types.
-
-    Args:
-        query: Search term (e.g., "threshold", "long run", "race")
-        limit: Maximum number of results (default 30)
-
-    Returns:
-        JSON string with matching activities
+    Use this first for "find my X" queries. Only escalate to
+    search_activities_full when you specifically need power, HR, training
+    load, or intensity-factor data on the matches (heavier payload).
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
@@ -611,18 +600,10 @@ async def search_activities_full(
     limit: Annotated[int, "Maximum number of results to return"] = 30,
     ctx: Context | None = None,
 ) -> str:
-    """Search for activities by name or tag, returning complete activity details.
+    """Search activities by name or tag, returning FULL Activity objects with power, HR, training load, intensity factor, normalized power, weather — every metric per result.
 
-    Unlike the basic search, this returns full Activity objects with all metrics,
-    power data, heart rate, training load, and more. Use this when you need
-    detailed information about matching activities.
-
-    Args:
-        query: Search term (e.g., "threshold", "long run", "race", "#interval")
-        limit: Maximum number of results (default 30)
-
-    Returns:
-        JSON string with complete activity details for matches
+    Heavy payload. Use only when the lighter search_activities won't tell
+    you what you need (e.g. "find my threshold rides with NP above 250W").
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")

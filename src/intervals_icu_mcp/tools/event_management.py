@@ -196,7 +196,12 @@ async def create_event(
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
-    """Create a calendar event.
+    """Create ONE new calendar event from scratch.
+
+    For two or more events in a single call, prefer bulk_create_events
+    over a loop. For copying existing events forward in time (repeating
+    a workout for N weeks), use duplicate_events — that tool reuses an
+    existing event's payload instead of taking new fields.
 
     For category guidance and the training_availability enum, read the
     intervals-icu://event-categories resource. For structured WORKOUT events,
@@ -475,11 +480,13 @@ async def bulk_create_events(
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
-    """Create multiple calendar events in a single operation.
+    """Create MANY new calendar events in a single batch call (more efficient than looping create_event).
 
-    More efficient than calling create_event in a loop. Each event object accepts
-    the same fields as create_event. See intervals-icu://event-categories and
-    intervals-icu://workout-syntax for the referenced enums and DSL.
+    Accepts a JSON array of event objects, each shaped like a create_event
+    payload. For copying existing events forward use duplicate_events
+    instead — that reuses payloads rather than taking new fields. See
+    intervals-icu://event-categories and intervals-icu://workout-syntax
+    for the referenced enums and DSL.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
@@ -687,18 +694,12 @@ async def duplicate_events(
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
-    """Duplicate one or more calendar events.
+    """COPY existing events forward in time by N weeks.
 
-    Creates copies of the specified events, placed at weekly intervals from
-    the original dates. Useful for repeating workouts across multiple weeks.
-
-    Args:
-        event_ids: JSON array of event IDs to duplicate
-        num_copies: Number of copies to create (default 1)
-        weeks_between: Weeks between each copy (default 1)
-
-    Returns:
-        JSON string with the duplicated events
+    Use when the user says "repeat this workout for the next 4 weeks",
+    "duplicate Monday's run on the next 3 Mondays". Reuses the existing
+    events' payloads — different from create_event / bulk_create_events,
+    which both build NEW events from scratch.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")

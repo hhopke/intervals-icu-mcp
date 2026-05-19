@@ -189,16 +189,11 @@ async def get_wellness_data(
     days_back: Annotated[int, "Number of days to look back"] = 7,
     ctx: Context | None = None,
 ) -> str:
-    """Get wellness data for recent days.
+    """Fetch wellness records over a RANGE of recent days (default last 7).
 
-    Returns wellness metrics including HRV, sleep, resting heart rate,
-    mood, fatigue, soreness, and other health markers.
-
-    Args:
-        days_back: Number of days to retrieve (default 7)
-
-    Returns:
-        JSON string with wellness data
+    Use for trends, weekly summaries, "how has my sleep been this week?",
+    recovery curves. For a single specific date use get_wellness_for_date
+    instead — this tool always returns a multi-day list.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
@@ -292,16 +287,11 @@ async def get_wellness_for_date(
     date: Annotated[str, "Date in YYYY-MM-DD format"],
     ctx: Context | None = None,
 ) -> str:
-    """Get wellness data for a specific date.
+    """Fetch the wellness record for ONE specific date.
 
-    Returns all wellness metrics for the specified date including sleep,
-    HRV, heart rate, mood, fatigue, and other health markers.
-
-    Args:
-        date: Date in ISO-8601 format (YYYY-MM-DD)
-
-    Returns:
-        JSON string with wellness data for the date
+    Use when the user names a date — "show my HRV for Monday",
+    "wellness on 2026-03-15", "how did I sleep last Thursday?". For
+    ranges, weeks, or trends use get_wellness_data.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")

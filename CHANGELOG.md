@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Two new MCP Resources: `intervals-icu://event-categories` (calendar event category enum + use-case mapping + training_availability values) and `intervals-icu://custom-item-schemas` (per-item_type `content` schema for `create_custom_item` / `update_custom_item` with INPUT_FIELD/ACTIVITY_FIELD/INTERVAL_FIELD constraints and worked examples). The tool descriptions now point at these instead of inlining the same prose every session.
+- Tool-selection accuracy: rewrote disambiguating first-sentences across 9 confusable tools — `icu_get_activity_details` / `icu_get_activity_intervals` / `icu_get_activity_streams`, `icu_search_activities` / `icu_search_activities_full`, `icu_get_wellness_data` / `icu_get_wellness_for_date`, and `icu_create_event` / `icu_bulk_create_events` / `icu_duplicate_events`. Each first sentence now leads with the distinguishing access pattern (SUMMARY / per-LAP / RAW; LIGHT / FULL; RANGE / ONE; ONE new / MANY new / COPY existing) so the LLM picks the right tool first instead of a wrong-tool round-trip.
 
 ### Changed
 - **Breaking — response shape:** Histogram tools now return `buckets` (was `bins`), each shaped `{<metric>_range: {min_*, max_*}, time_seconds}` where boundaries come straight from the API's `min`/`max` fields. The previous `count` field is dropped (the API doesn't return raw sample counts — `secs` is time-in-bucket).

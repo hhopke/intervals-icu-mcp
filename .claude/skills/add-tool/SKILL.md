@@ -213,13 +213,21 @@ These are *targets*, not hard caps. Going over with good reason is fine — but 
 
 ### Confusable-name discipline
 
-If your tool name shares a prefix, suffix, or noun with another tool, the opening sentence MUST disambiguate. Existing confusable clusters to watch:
+If your tool name shares a prefix, suffix, or noun with another tool, the opening sentence MUST disambiguate. Anthropic identifies tool-name similarity as the *top cause* of LLM tool-selection failures — descriptions are the only thing standing between the LLM and a wrong-tool round-trip.
 
-- `icu_get_activity_*` family (details / intervals / streams)
-- `icu_search_activities` vs `icu_search_activities_full`
-- `icu_create_event` / `icu_bulk_create_events` / `icu_duplicate_events`
-- `icu_get_*_curves` / `icu_get_*_histogram` (per metric)
-- `icu_*_message` vs `icu_*_messages` (singular = write, plural = read)
+**Technique (per PR #30):**
+1. **Lead the first sentence with the distinguishing access pattern**, not the shared concept. NOT *"Get details about an activity."* → DO *"Fetch the headline SUMMARY of one activity — name, sport, date, distance, training load, weather."*
+2. **Use ALL-CAPS sparingly on the disambiguator word** (ONE / MANY / SUMMARY / RANGE / LIGHT / FULL / RAW / COPY). One word per first sentence. It anchors the LLM's attention to the choice axis.
+3. **Cross-reference siblings explicitly in the body** — name them and say when to pick each. The LLM evaluates tools partly by what their siblings claim NOT to do.
+
+**Existing confusable clusters (study these before adding to them):**
+
+- `icu_get_activity_*` family (details = SUMMARY / intervals = per-LAP / streams = RAW per-second)
+- `icu_search_activities` (LIGHT) vs `icu_search_activities_full` (FULL — heavy)
+- `icu_create_event` (ONE new) / `icu_bulk_create_events` (MANY new) / `icu_duplicate_events` (COPY existing forward)
+- `icu_get_wellness_data` (RANGE of days) vs `icu_get_wellness_for_date` (ONE specific date)
+- `icu_get_*_curves` (best-effort across durations) vs `icu_get_*_histogram` (time-in-zone distribution per activity)
+- `icu_*_message` (singular = write) vs `icu_*_messages` (plural = read)
 
 If adding to one of these clusters, study how the existing siblings differentiate and follow that pattern.
 
