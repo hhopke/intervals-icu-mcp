@@ -707,6 +707,37 @@ async def workout_syntax_resource() -> str:
     return WORKOUT_SYNTAX_SPEC
 
 
+@mcp.resource("intervals-icu://event-categories")
+async def event_categories_resource() -> str:
+    """Intervals.icu calendar event categories reference.
+
+    Use this when picking a `category` value for create_event / update_event /
+    bulk_create_events. Documents the full enum (WORKOUT, NOTE, RACE_A/B/C,
+    TARGET, PLAN, HOLIDAY, SICK, INJURED, SET_EFTP, FITNESS_DAYS, SEASON_START,
+    SET_FITNESS), the legacy aliases (RACE→RACE_A, GOAL→TARGET), the
+    training_availability enum for ranged categories, and use-case guidance.
+    """
+    from .event_categories import EVENT_CATEGORIES_SPEC
+
+    return EVENT_CATEGORIES_SPEC
+
+
+@mcp.resource("intervals-icu://custom-item-schemas")
+async def custom_item_schemas_resource() -> str:
+    """Intervals.icu custom item content schemas reference.
+
+    Use this BEFORE constructing the `content` object for create_custom_item or
+    update_custom_item. The shape of `content` depends on `item_type`. Documents
+    the well-known schema for INPUT_FIELD / ACTIVITY_FIELD / INTERVAL_FIELD
+    (code/type/aggregate constraints plus worked examples) and explains that
+    chart/panel/zones/stream types should omit `content` and be configured in
+    the Intervals.icu UI after creation.
+    """
+    from .custom_item_schemas import CUSTOM_ITEM_SCHEMAS_SPEC
+
+    return CUSTOM_ITEM_SCHEMAS_SPEC
+
+
 # MCP Prompts - Templates for common queries
 @mcp.prompt()
 async def generate_workout(

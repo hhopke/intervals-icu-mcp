@@ -1,6 +1,6 @@
 # Tool, Resource, and Prompt Reference
 
-Complete inventory of everything the Intervals.icu MCP server exposes: up to 58 tools across 11 categories, 2 MCP Resources, and 7 MCP Prompts.
+Complete inventory of everything the Intervals.icu MCP server exposes: up to 58 tools across 11 categories, 4 MCP Resources, and 7 MCP Prompts.
 
 ## Delete Safety Mode
 
@@ -169,10 +169,12 @@ The user's personal additions to their account: custom charts on dashboards, cus
 
 Resources provide ongoing context to the LLM without requiring explicit tool calls.
 
-| Resource                          | Description                                                              |
-| --------------------------------- | ------------------------------------------------------------------------ |
-| `intervals-icu://athlete/profile` | Complete athlete profile with current fitness metrics and sport settings |
-| `intervals-icu://workout-syntax`  | Structured workout syntax reference for generating valid Intervals.icu workouts (cycling, running, swimming) |
+| Resource                              | Description                                                              |
+| ------------------------------------- | ------------------------------------------------------------------------ |
+| `intervals-icu://athlete/profile`     | Complete athlete profile with current fitness metrics and sport settings |
+| `intervals-icu://workout-syntax`      | Structured workout syntax reference for generating valid Intervals.icu workouts (cycling, running, swimming) |
+| `intervals-icu://event-categories`    | Calendar event category enum (WORKOUT, RACE_A/B/C, HOLIDAY, …), training_availability values, legacy aliases, and use-case guidance for create_event / update_event / bulk_create_events |
+| `intervals-icu://custom-item-schemas` | Per-item_type `content` schema for create_custom_item / update_custom_item — INPUT_FIELD/ACTIVITY_FIELD/INTERVAL_FIELD constraints with worked examples; chart/panel/zones/stream guidance |
 
 ## MCP Prompts
 

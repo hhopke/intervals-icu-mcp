@@ -176,16 +176,11 @@ async def create_custom_item(
     description: Annotated[str | None, "Optional description shown to the user"] = None,
     content: Annotated[
         dict[str, Any] | None,
-        "Configuration object whose schema depends on item_type. "
-        "REQUIRED for INPUT_FIELD, ACTIVITY_FIELD, INTERVAL_FIELD; for these "
-        "the schema is: `code` (machine identifier — must match regex "
-        "[A-Z][A-Za-z0-9]+, i.e. start with uppercase and contain only "
-        "alphanumerics, no spaces/underscores), `type` ('numeric', 'text', "
-        "or 'select' — NOT 'number'), `aggregate` ('MIN', 'SUM', 'MAX', or "
-        "'AVERAGE' — NOT 'AVG'). Example: "
-        "{'code': 'Rpe', 'type': 'numeric', 'aggregate': 'AVERAGE'}. "
-        "Optional for chart/panel/zones/stream types where the API uses "
-        "defaults — you can omit and configure in the Intervals.icu UI later.",
+        "Configuration object whose schema depends on item_type. Read "
+        "intervals-icu://custom-item-schemas BEFORE constructing — it documents "
+        "the {code, type, aggregate} shape required for INPUT_FIELD / "
+        "ACTIVITY_FIELD / INTERVAL_FIELD (with constraints and worked examples) "
+        "and explains that chart/panel/zones/stream types should omit `content`.",
     ] = None,
     visibility: Annotated[
         str | None,
@@ -199,24 +194,9 @@ async def create_custom_item(
     """Create a custom addition to the user's Intervals.icu account.
 
     Use when the user says things like: "add a custom field for RPE", "create
-    a custom power zone set", "add a chart for monthly distance to my
-    dashboard", "add a bike-weight field to activities". Match the user's
-    intent to the right `item_type` enum value (see that param's description
-    for the mapping).
-
-    Args:
-        name: Display name shown in the Intervals.icu UI
-        item_type: One of the API enum values matching the user's intent
-        description: Optional human-readable description
-        content: Configuration object. REQUIRED for INPUT_FIELD, ACTIVITY_FIELD,
-            INTERVAL_FIELD — see the parameter's annotation for the inner schema
-            (`code`, `type`, `aggregate`) and validation rules. Optional for
-            chart/panel/zones/stream types.
-        visibility: PRIVATE, FOLLOWERS, or PUBLIC
-        athlete_id: Athlete ID (uses configured default if not provided)
-
-    Returns:
-        JSON string with the created custom item including its new ID
+    a custom power zone set", "add a chart for monthly distance". Match the
+    user's intent to the right `item_type` (see that param's description). For
+    the `content` schema per item_type, read intervals-icu://custom-item-schemas.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
@@ -259,11 +239,9 @@ async def update_custom_item(
     description: Annotated[str | None, "Updated description"] = None,
     content: Annotated[
         dict[str, Any] | None,
-        "Updated configuration content (replaces existing content). Same "
-        "schema rules as create_custom_item.content — for field-type items "
-        "the inner shape is {`code`, `type`, `aggregate`} with the same "
-        "validation constraints (code regex [A-Z][A-Za-z0-9]+, type in "
-        "numeric/text/select, aggregate in MIN/SUM/MAX/AVERAGE).",
+        "Updated configuration content (replaces existing wholesale). Same "
+        "schema as create_custom_item.content — see "
+        "intervals-icu://custom-item-schemas for the per-item_type shape.",
     ] = None,
     visibility: Annotated[str | None, "Updated visibility: PRIVATE, FOLLOWERS, or PUBLIC"] = None,
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
@@ -272,22 +250,10 @@ async def update_custom_item(
     """Modify an existing custom chart/field/zones/panel.
 
     Use when the user wants to change one of their existing customizations:
-    "rename my custom field", "make this chart public", "change the
-    description on my zones". You usually need icu_get_custom_items first to
-    find the right `item_id`. Only fields you pass are sent — others are
-    left unchanged.
-
-    Args:
-        item_id: Custom item ID (from icu_get_custom_items)
-        name: New display name (optional)
-        item_type: New API type (optional, rare)
-        description: New description (optional)
-        content: New configuration object — REPLACES the existing one (optional)
-        visibility: New visibility: PRIVATE, FOLLOWERS, or PUBLIC (optional)
-        athlete_id: Athlete ID (uses configured default if not provided)
-
-    Returns:
-        JSON string with the updated custom item
+    "rename my custom field", "make this chart public". Usually need
+    icu_get_custom_items first to find the right `item_id`. Only fields you
+    pass are sent — others are left unchanged. For `content` schema, see
+    intervals-icu://custom-item-schemas.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")

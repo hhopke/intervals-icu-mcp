@@ -64,12 +64,14 @@ class TestInMemoryTransport:
                         f"{tool.name} should carry destructiveHint=True"
                     )
 
-    async def test_both_resources_registered(self):
+    async def test_all_resources_registered(self):
         async with Client(mcp) as client:
             resources = await client.list_resources()
             uris = {str(r.uri) for r in resources}
             assert "intervals-icu://athlete/profile" in uris
             assert "intervals-icu://workout-syntax" in uris
+            assert "intervals-icu://event-categories" in uris
+            assert "intervals-icu://custom-item-schemas" in uris
 
     async def test_prompts_registered(self):
         async with Client(mcp) as client:

@@ -158,39 +158,34 @@ async def create_event(
     name: Annotated[str, "Event name"],
     category: Annotated[
         str,
-        "Event category. WORKOUT, NOTE, RACE_A/RACE_B/RACE_C (race tier), TARGET "
-        "(performance goal), PLAN, HOLIDAY (Urlaub), SICK (Krank), INJURED "
-        "(Verletzt), SET_EFTP, FITNESS_DAYS (Fitnesstage), SEASON_START (Saison), "
-        "SET_FITNESS. Legacy aliases RACE→RACE_A and GOAL→TARGET are accepted.",
+        "Event category enum. Common: WORKOUT, NOTE, RACE_A/B/C, TARGET, PLAN, "
+        "HOLIDAY, SICK, INJURED. Full list with use-case guidance and the "
+        "training_availability enum: intervals-icu://event-categories resource. "
+        "Legacy aliases RACE→RACE_A, GOAL→TARGET accepted.",
     ],
     description: Annotated[
         str | None,
-        "Event description. For WORKOUT events, use Intervals.icu structured workout "
-        "syntax to define intervals, targets, and structure. The server automatically "
-        "parses this into a structured workout. Read the intervals-icu://workout-syntax "
-        "resource for the complete syntax reference. Example: "
-        "'Warmup\n- 10m ramp 50%-75%\n\nMain Set 3x\n- 5m 95%\n- 3m 55%\n\nCooldown\n- 10m 50%'",
+        "Event description. For WORKOUT events, use Intervals.icu structured "
+        "workout syntax (see intervals-icu://workout-syntax resource) — the "
+        "server parses it into a structured workout with training load and zones.",
     ] = None,
     event_type: Annotated[
         str | None,
-        "Activity discipline (NOT the category). Must be one of: "
-        "Ride, Run, Swim, Walk, Hike, VirtualRide, VirtualRun, Other. "
-        "Required for RACE_A/RACE_B/RACE_C events — the API rejects races "
-        "without a discipline.",
+        "Activity discipline (NOT the category): Ride, Run, Swim, Walk, Hike, "
+        "VirtualRide, VirtualRun, Other. Required for RACE_A/B/C events.",
     ] = None,
     duration_seconds: Annotated[int | None, "Planned duration in seconds"] = None,
     distance_meters: Annotated[float | None, "Planned distance in meters"] = None,
     training_load: Annotated[int | None, "Planned training load"] = None,
     end_date: Annotated[
         str | None,
-        "End date in YYYY-MM-DD format. Use for ranged categories like INJURED, "
-        "SICK, HOLIDAY, SEASON_START to mark a multi-day block.",
+        "End date in YYYY-MM-DD format. Use for ranged categories (INJURED, "
+        "SICK, HOLIDAY, SEASON_START) to mark a multi-day block.",
     ] = None,
     training_availability: Annotated[
         str | None,
-        "Training availability during the event: NORMAL (Verfügbar), LIMITED "
-        "(Begrenzt), or UNAVAILABLE (Nicht verfügbar). Typical for INJURED/SICK/"
-        "HOLIDAY blocks so the planner skips or scales workouts.",
+        "Training availability: NORMAL, LIMITED, or UNAVAILABLE. Typical for "
+        "INJURED/SICK/HOLIDAY blocks.",
     ] = None,
     color: Annotated[str | None, "Custom display color (hex string)"] = None,
     show_as_note: Annotated[bool | None, "Show event as a note marker on the fitness chart"] = None,
@@ -201,37 +196,11 @@ async def create_event(
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
-    """Create a new calendar event.
+    """Create a calendar event.
 
-    Supports the full Intervals.icu calendar category set: planned workouts, notes,
-    races (RACE_A/B/C tiers), performance targets, training plans, and life-event
-    blocks like INJURED, SICK, HOLIDAY, SEASON_START. Block-style categories
-    typically use start_date + end_date + training_availability so the planner
-    treats the affected days correctly.
-
-    For WORKOUT events, the 'description' field accepts Intervals.icu structured
-    workout syntax. The server automatically parses this text into a structured
-    workout with calculated training load, zone distribution, and device sync.
-    Read the intervals-icu://workout-syntax resource for the complete syntax.
-
-    Args:
-        start_date: Date in ISO-8601 format (YYYY-MM-DD)
-        name: Name of the event
-        category: One of the categories listed in the parameter description
-        description: For workouts, structured workout text (see workout-syntax resource)
-        event_type: Activity type (e.g., "Ride", "Run", "Swim") for workouts
-        duration_seconds: Planned duration for workouts
-        distance_meters: Planned distance for workouts
-        training_load: Planned training load for workouts
-        end_date: End date for ranged categories (INJURED, SICK, HOLIDAY, ...)
-        training_availability: NORMAL, LIMITED, or UNAVAILABLE
-        color: Custom color hex string
-        show_as_note: Show as a note on the fitness chart
-        not_on_fitness_chart: Hide from the fitness chart
-        show_on_ctl_line: Render on the CTL line
-
-    Returns:
-        JSON string with created event data
+    For category guidance and the training_availability enum, read the
+    intervals-icu://event-categories resource. For structured WORKOUT events,
+    put workout-syntax text in `description` — see intervals-icu://workout-syntax.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
@@ -347,28 +316,9 @@ async def update_event(
 ) -> str:
     """Update an existing calendar event.
 
-    Modifies one or more fields of an existing event. Only provide the fields
-    you want to change - other fields will remain unchanged. Use end_date and
-    training_availability to extend or update INJURED/SICK/HOLIDAY blocks.
-
-    Args:
-        event_id: ID of the event to update
-        name: New name for the event
-        description: New description
-        start_date: New start date in YYYY-MM-DD format
-        event_type: New activity type
-        duration_seconds: New planned duration
-        distance_meters: New planned distance
-        training_load: New planned training load
-        end_date: New end date for ranged events
-        training_availability: NORMAL, LIMITED, or UNAVAILABLE
-        color: New color hex string
-        show_as_note: Show as a note on the fitness chart
-        not_on_fitness_chart: Hide from the fitness chart
-        show_on_ctl_line: Render on the CTL line
-
-    Returns:
-        JSON string with updated event data
+    Only fields you pass are sent — other fields remain unchanged. For category
+    and training_availability semantics, see intervals-icu://event-categories.
+    For WORKOUT `description` syntax, see intervals-icu://workout-syntax.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
@@ -515,33 +465,21 @@ async def delete_event(
 async def bulk_create_events(
     events: Annotated[
         str,
-        "JSON array of events. Required per event: start_date_local, name, category. "
-        "Optional: description, type, moving_time, distance, icu_training_load, "
-        "end_date_local (ranged categories), training_availability "
-        "(NORMAL/LIMITED/UNAVAILABLE), color, show_as_note, not_on_fitness_chart, "
-        "show_on_ctl_line. Categories: WORKOUT, NOTE, RACE_A/B/C, TARGET, PLAN, "
-        "HOLIDAY, SICK, INJURED, SET_EFTP, FITNESS_DAYS, SEASON_START, SET_FITNESS "
-        "(legacy RACE→RACE_A and GOAL→TARGET aliases accepted). For WORKOUT events, "
-        "include structured workout syntax in 'description' (see "
-        "intervals-icu://workout-syntax resource).",
+        "JSON array of event objects. Required per event: start_date_local, "
+        "name, category. Optional: description, type, moving_time, distance, "
+        "icu_training_load, end_date_local, training_availability, color, "
+        "show_as_note, not_on_fitness_chart, show_on_ctl_line. See "
+        "intervals-icu://event-categories for the category enum and "
+        "intervals-icu://workout-syntax for WORKOUT `description` syntax.",
     ],
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Create multiple calendar events in a single operation.
 
-    More efficient than creating events one at a time. Provide a JSON array
-    of event objects with the same fields accepted by create_event.
-
-    For WORKOUT events, include Intervals.icu structured workout syntax in the
-    'description' field. Read the intervals-icu://workout-syntax resource for the
-    complete syntax.
-
-    Args:
-        events: JSON array of event objects to create
-
-    Returns:
-        JSON string with created events
+    More efficient than calling create_event in a loop. Each event object accepts
+    the same fields as create_event. See intervals-icu://event-categories and
+    intervals-icu://workout-syntax for the referenced enums and DSL.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
