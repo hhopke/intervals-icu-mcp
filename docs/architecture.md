@@ -65,6 +65,19 @@ All tools return JSON with consistent structure:
 
 Pydantic models for all API responses. Models include: Activity, Athlete, Wellness, Event, PowerCurve, etc.
 
+## MCP Resources
+
+Resources expose reference content the LLM can pull on demand. They are paid only when fetched, unlike tool descriptions (paid every session). We use this to keep tool descriptions lean — long enum lists, schema definitions, and DSL specs live in resources.
+
+| URI | Source module | Purpose |
+|---|---|---|
+| `intervals-icu://athlete/profile` | inline in `server.py` | Live athlete profile + fitness metrics; loads via `ICUClient` |
+| `intervals-icu://workout-syntax` | `workout_syntax.py` | Intervals.icu structured workout DSL reference (cycling/running/swimming) |
+| `intervals-icu://event-categories` | `event_categories.py` | Calendar event category enum + use-case mapping + training_availability values, referenced from `create_event` / `update_event` / `bulk_create_events` |
+| `intervals-icu://custom-item-schemas` | `custom_item_schemas.py` | Per-`item_type` `content` schema for `create_custom_item` / `update_custom_item` (INPUT_FIELD / ACTIVITY_FIELD / INTERVAL_FIELD constraints + worked examples) |
+
+When adding a new tool whose description repeats >~200 chars of reference content (enums, schemas, DSL), prefer extracting that content into a new module and registering it as a resource. The pattern: a single `*_SPEC = """..."""` constant per module, imported lazily inside the resource function.
+
 ## Tool Organization
 
 Tools are organized into 11 categories in `src/intervals_icu_mcp/tools/`:
