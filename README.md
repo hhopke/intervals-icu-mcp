@@ -19,7 +19,7 @@ A Model Context Protocol (MCP) server for Intervals.icu integration. Access your
 
 ## Quick Start
 
-[![Install in Cursor](https://cursor.com/deeplink/mcp-install-light.svg)](cursor://anysphere.cursor-deeplink/mcp/install?name=intervals-icu&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyJpbnRlcnZhbHMtaWN1LW1jcCJdLCJlbnYiOnsiSU5URVJWQUxTX0lDVV9BUElfS0VZIjoiIiwiSU5URVJWQUxTX0lDVV9BVEhMRVRFX0lEIjoiIn19)
+<a href="https://cursor.com/en/install-mcp?name=intervals-icu&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyJpbnRlcnZhbHMtaWN1LW1jcCJdLCJlbnYiOnsiSU5URVJWQUxTX0lDVV9BUElfS0VZIjoiIiwiSU5URVJWQUxTX0lDVV9BVEhMRVRFX0lEIjoiIn19"><picture><source media="(prefers-color-scheme: dark)" srcset="https://cursor.com/deeplink/mcp-install-dark.svg"><img alt="Install in Cursor" src="https://cursor.com/deeplink/mcp-install-light.svg"></picture></a>
 
 Or for Claude Desktop, in 30 seconds:
 
