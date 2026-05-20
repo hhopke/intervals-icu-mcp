@@ -186,6 +186,17 @@ async def get_activity_details(
             if training_metrics:
                 activity_data["training"] = training_metrics
 
+            # Nutrition (intake + expenditure)
+            nutrition: dict[str, Any] = {}
+            if activity.calories:
+                nutrition["calories_burned"] = activity.calories
+            if activity.carbs_ingested is not None:
+                nutrition["carbs_ingested_g"] = activity.carbs_ingested
+            if activity.carbs_used is not None:
+                nutrition["carbs_used_g"] = activity.carbs_used
+            if nutrition:
+                activity_data["nutrition"] = nutrition
+
             # Subjective metrics
             subjective: dict[str, Any] = {}
             if activity.feel:
@@ -197,8 +208,6 @@ async def get_activity_details(
 
             # Other info
             other_info: dict[str, Any] = {}
-            if activity.calories:
-                other_info["calories"] = activity.calories
             if activity.device_name:
                 other_info["device"] = activity.device_name
             if activity.trainer or activity.indoor:
@@ -213,9 +222,20 @@ async def get_activity_details(
             if strava_note:
                 analysis["data_availability"] = strava_note
 
+            metadata: dict[str, Any] = {}
+            if activity.feel is not None or activity.perceived_exertion is not None:
+                scales = {}
+                if activity.feel is not None:
+                    scales["feel"] = "1-5"
+                if activity.perceived_exertion is not None:
+                    scales["rpe"] = "1-10"
+                if scales:
+                    metadata["subjective_scales"] = scales
+
             return ResponseBuilder.build_response(
                 data=activity_data,
                 analysis=analysis if analysis else None,
+                metadata=metadata if metadata else None,
                 query_type="activity_details",
             )
 
