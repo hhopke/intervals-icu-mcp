@@ -3,7 +3,6 @@
 import json
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 from httpx import Response
 
 from intervals_icu_mcp.tools.activities import (
@@ -148,7 +147,6 @@ class TestActivityTools:
         assert response["data"]["count"] == 1
         assert response["data"]["activities"][0]["name"] == "Bulk Ride"
 
-    @pytest.mark.asyncio
     async def test_get_activity_details_nutrition_section(self, mock_config, respx_mock):
         """Nutrition fields are grouped, calories renamed to calories_burned."""
         mock_ctx = MagicMock()
@@ -180,7 +178,6 @@ class TestActivityTools:
         assert "calories" not in response["data"].get("other", {})
         assert "calories" not in nutrition
 
-    @pytest.mark.asyncio
     async def test_get_activity_details_subjective_scale_metadata(self, mock_config, respx_mock):
         """Scale metadata accompanies feel (1-5) and RPE (1-10)."""
         mock_ctx = MagicMock()
@@ -206,7 +203,6 @@ class TestActivityTools:
         assert response["data"]["subjective"] == {"feel": 4, "rpe": 7}
         assert response["metadata"]["subjective_scales"] == {"feel": "1-5", "rpe": "1-10"}
 
-    @pytest.mark.asyncio
     async def test_get_activity_details_partial_nutrition(self, mock_config, respx_mock):
         """Nutrition section omits null fields; preserves zero values."""
         mock_ctx = MagicMock()
@@ -235,7 +231,6 @@ class TestActivityTools:
         assert nutrition["carbs_ingested_g"] == 0  # zero is meaningful, must be preserved
         assert "carbs_used_g" not in nutrition
 
-    @pytest.mark.asyncio
     async def test_get_activity_details_no_subjective_no_scale_metadata(self, mock_config, respx_mock):
         """When feel/RPE are absent, subjective_scales metadata is also absent."""
         mock_ctx = MagicMock()
