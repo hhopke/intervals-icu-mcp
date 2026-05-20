@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `icu_get_activity_details` now surfaces a dedicated `nutrition` section grouping `calories_burned`, `carbs_ingested_g`, and `carbs_used_g`. `carbs_used` is a new field on the `Activity` model (was previously dropped on the floor). The `_g` suffix on carb fields signals grams (matching the wellness-side `carbohydrates_g` convention).
+- `icu_get_activity_details` now emits `metadata.subjective_scales` (`{"feel": "1-5", "rpe": "1-10"}`) whenever the corresponding values are present, so downstream LLMs stop interpreting raw ordinals on an assumed 0-10 scale.
+
+### Changed
+- **Breaking — response shape:** `icu_get_activity_details` renamed the `calories` output key to `calories_burned` and moved it out of the `other` section into the new `nutrition` section. The API field is energy expenditure; the prior label collided with the wellness-side `calories_consumed`/`kcalConsumed` (intake), confusing intake-vs-expenditure comparisons.
+
 ## [3.0.0] — 2026-05-20
 
 This release focuses on **token efficiency** and **tool-selection accuracy**. Combined effect: ~3,300-3,500 fewer tokens per default-mode session (~35% of the pre-release tool-description budget). First-tool-call routing accuracy on Haiku 4.5 improved from 28/35 (80%) on the pre-trim baseline to 30/35 (86%) on the merged set, measured by the new smoke-eval harness (0 regressions).

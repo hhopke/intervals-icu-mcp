@@ -105,6 +105,7 @@ class Activity(ActivitySummary):
     description: str | None = None
     calories: int | None = None
     carbs_ingested: int | None = None
+    carbs_used: int | None = None
     device_name: str | None = None
     max_heartrate: int | None = None
     max_speed: float | None = None

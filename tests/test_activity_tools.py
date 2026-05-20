@@ -8,6 +8,7 @@ from httpx import Response
 from intervals_icu_mcp.tools.activities import (
     bulk_create_manual_activities,
     delete_activity,
+    get_activity_details,
     update_activity,
     update_activity_streams,
 )
@@ -145,3 +146,110 @@ class TestActivityTools:
         assert "data" in response
         assert response["data"]["count"] == 1
         assert response["data"]["activities"][0]["name"] == "Bulk Ride"
+
+    async def test_get_activity_details_nutrition_section(self, mock_config, respx_mock):
+        """Nutrition fields are grouped, calories renamed to calories_burned."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.get("/activity/a123").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": "a123",
+                    "start_date_local": "2026-03-20T10:00:00",
+                    "name": "Test Ride",
+                    "type": "Ride",
+                    "calories": 500,
+                    "carbs_ingested": 45,
+                    "carbs_used": 60,
+                },
+            )
+        )
+
+        result = await get_activity_details(activity_id="a123", ctx=mock_ctx)
+        response = json.loads(result)
+
+        nutrition = response["data"]["nutrition"]
+        assert nutrition["calories_burned"] == 500
+        assert nutrition["carbs_ingested_g"] == 45
+        assert nutrition["carbs_used_g"] == 60
+        # Old key must be gone from output (breaking change documented in CHANGELOG)
+        assert "calories" not in response["data"].get("other", {})
+        assert "calories" not in nutrition
+
+    async def test_get_activity_details_subjective_scale_metadata(self, mock_config, respx_mock):
+        """Scale metadata accompanies feel (1-5) and RPE (1-10)."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.get("/activity/a123").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": "a123",
+                    "start_date_local": "2026-03-20T10:00:00",
+                    "name": "Test Ride",
+                    "type": "Ride",
+                    "feel": 4,
+                    "perceived_exertion": 7,
+                },
+            )
+        )
+
+        result = await get_activity_details(activity_id="a123", ctx=mock_ctx)
+        response = json.loads(result)
+
+        assert response["data"]["subjective"] == {"feel": 4, "rpe": 7}
+        assert response["metadata"]["subjective_scales"] == {"feel": "1-5", "rpe": "1-10"}
+
+    async def test_get_activity_details_partial_nutrition(self, mock_config, respx_mock):
+        """Nutrition section omits null fields; preserves zero values."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.get("/activity/a123").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": "a123",
+                    "start_date_local": "2026-03-20T10:00:00",
+                    "name": "Test Ride",
+                    "type": "Ride",
+                    "calories": 400,
+                    "carbs_ingested": 0,
+                    # carbs_used omitted entirely
+                },
+            )
+        )
+
+        result = await get_activity_details(activity_id="a123", ctx=mock_ctx)
+        response = json.loads(result)
+
+        nutrition = response["data"]["nutrition"]
+        assert nutrition["calories_burned"] == 400
+        assert nutrition["carbs_ingested_g"] == 0  # zero is meaningful, must be preserved
+        assert "carbs_used_g" not in nutrition
+
+    async def test_get_activity_details_no_subjective_no_scale_metadata(self, mock_config, respx_mock):
+        """When feel/RPE are absent, subjective_scales metadata is also absent."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.get("/activity/a123").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": "a123",
+                    "start_date_local": "2026-03-20T10:00:00",
+                    "name": "Test Ride",
+                    "type": "Ride",
+                },
+            )
+        )
+
+        result = await get_activity_details(activity_id="a123", ctx=mock_ctx)
+        response = json.loads(result)
+
+        assert "subjective" not in response["data"]
+        assert "subjective_scales" not in response.get("metadata", {})
