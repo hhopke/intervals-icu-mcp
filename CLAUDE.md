@@ -38,7 +38,6 @@ make docker/run       # Run Docker container
 | Auth | `auth.py` | Loads credentials from `.env` |
 | Response | `response_builder.py` | Consistent JSON structure (data/analysis/metadata) |
 | Models | `models.py` | Pydantic models for API responses |
-| Formatters | `formatters.py` | Data display formatting helpers |
 | Workout syntax | `workout_syntax.py` | Intervals.icu workout DSL reference for LLMs |
 | Tools | `tools/` | 13 tool modules (see below) |
 

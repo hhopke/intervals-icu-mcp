@@ -1,9 +1,33 @@
 """Pytest configuration and shared fixtures."""
 
-import pytest
-import respx
+import os
 
-from intervals_icu_mcp.auth import ICUConfig
+import dotenv
+
+# Isolate the test suite from any local `.env` file. The developer's `.env`
+# can carry overrides like `INTERVALS_ICU_DELETE_MODE=full` that flip the
+# safe-mode default and break tests asserting safe-mode behavior. Both
+# `server.py` and `load_config()` call `load_dotenv()` at import time, and
+# `ICUConfig` reads `env_file=".env"` directly via pydantic-settings — so any
+# leak happens before per-test fixtures can intervene. We neutralize at
+# conftest module-load time, BEFORE importing any first-party module that
+# might do `from dotenv import load_dotenv` and capture the real binding.
+for _key in [k for k in os.environ if k.startswith("INTERVALS_ICU_")]:
+    del os.environ[_key]
+
+
+def _noop_load_dotenv(*_args, **_kwargs):
+    return False
+
+
+dotenv.load_dotenv = _noop_load_dotenv  # type: ignore[assignment]
+
+import pytest  # noqa: E402
+import respx  # noqa: E402
+
+from intervals_icu_mcp.auth import ICUConfig  # noqa: E402
+
+ICUConfig.model_config["env_file"] = None
 
 
 @pytest.fixture
