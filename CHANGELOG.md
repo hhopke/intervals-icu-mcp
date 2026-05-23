@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Multi-tenant credentials via per-request HTTP headers.** Over an HTTP transport, each request can carry `X-Intervals-Api-Key` and `X-Intervals-Athlete-Id` headers, letting a single deploy serve multiple athletes. Resolution is per request with priority header → env-var fallback; absent headers preserve the existing env-var (and stdio) behavior unchanged. Headers are layered onto `ICUConfig` by the new `apply_header_credentials()` in `auth.py`, applied in `ConfigMiddleware` (tool calls) and the `intervals-icu://athlete/profile` resource. Backwards compatible (additive). See README *Multi-tenant* and `docs/architecture.md`.
 - `icu_get_activity_details` now surfaces a dedicated `nutrition` section grouping `calories_burned`, `carbs_ingested_g`, and `carbs_used_g`. `carbs_used` is a new field on the `Activity` model (was previously dropped on the floor). The `_g` suffix on carb fields signals grams (matching the wellness-side `carbohydrates_g` convention).
 - `icu_get_activity_details` now emits `metadata.subjective_scales` (`{"feel": "1-5", "rpe": "1-10"}`) whenever the corresponding values are present, so downstream LLMs stop interpreting raw ordinals on an assumed 0-10 scale.
 

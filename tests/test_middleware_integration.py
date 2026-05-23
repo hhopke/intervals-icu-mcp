@@ -99,3 +99,77 @@ class TestMiddlewareIntegration:
         async with Client(server) as client:
             with pytest.raises(ToolError, match="credentials"):
                 await client.call_tool("dummy_tool")
+
+
+class TestHeaderCredentialResolution:
+    """Test per-request header overrides through the real middleware pipeline.
+
+    The in-memory transport has no HTTP layer, so we patch the middleware's
+    ``get_http_headers`` to simulate incoming request headers.
+    """
+
+    async def test_headers_override_env_credentials(
+        self, integration_server, monkeypatch
+    ):
+        """X-Intervals-* headers take priority over the configured env vars."""
+        monkeypatch.setattr(
+            "intervals_icu_mcp.middleware.get_http_headers",
+            lambda *a, **k: {
+                "x-intervals-api-key": "header_key",
+                "x-intervals-athlete-id": "i_header",
+            },
+        )
+
+        async with Client(integration_server) as client:
+            result = await client.call_tool("inspect_config")
+            data = json.loads(result.data)
+
+            assert data["api_key"] == "header_key"
+            assert data["athlete_id"] == "i_header"
+
+    async def test_env_used_when_no_headers(self, integration_server, monkeypatch):
+        """Without headers, the env-var fallback (from the fixture) is used."""
+        monkeypatch.setattr(
+            "intervals_icu_mcp.middleware.get_http_headers",
+            lambda *a, **k: {},
+        )
+
+        async with Client(integration_server) as client:
+            result = await client.call_tool("inspect_config")
+            data = json.loads(result.data)
+
+            assert data["api_key"] == "test_api_key_integration"
+            assert data["athlete_id"] == "i999999"
+
+    async def test_header_only_provides_credentials(self, monkeypatch):
+        """Headers alone satisfy validation even when env credentials are absent."""
+        monkeypatch.setenv("INTERVALS_ICU_API_KEY", "")
+        monkeypatch.setenv("INTERVALS_ICU_ATHLETE_ID", "")
+        monkeypatch.setenv("ENV_FILE", "/dev/null")
+        monkeypatch.setattr(
+            "intervals_icu_mcp.middleware.get_http_headers",
+            lambda *a, **k: {
+                "x-intervals-api-key": "header_key",
+                "x-intervals-athlete-id": "i_header",
+            },
+        )
+
+        server = FastMCP("header-only")
+        server.add_middleware(ConfigMiddleware())
+
+        @server.tool()
+        async def inspect_config(ctx: Context) -> str:
+            config = await ctx.get_state("config")
+            return json.dumps(
+                {
+                    "api_key": config.intervals_icu_api_key,
+                    "athlete_id": config.intervals_icu_athlete_id,
+                }
+            )
+
+        async with Client(server) as client:
+            result = await client.call_tool("inspect_config")
+            data = json.loads(result.data)
+
+            assert data["api_key"] == "header_key"
+            assert data["athlete_id"] == "i_header"

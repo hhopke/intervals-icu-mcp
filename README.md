@@ -229,7 +229,18 @@ intervals-icu-mcp --transport sse --host 127.0.0.1 --port 8000
 > - **Reverse proxy with auth** (nginx + basic auth, Cloudflare Access, etc.) — terminates TLS and gates access.
 > - **SSH tunnel** — `ssh -L 8000:localhost:8000 host` if you just need occasional access from one machine.
 >
-> Credentials are always read from `INTERVALS_ICU_API_KEY` and `INTERVALS_ICU_ATHLETE_ID` — use env vars (not a committed `.env`) when deploying to a shared host.
+> Credentials default to `INTERVALS_ICU_API_KEY` and `INTERVALS_ICU_ATHLETE_ID` — use env vars (not a committed `.env`) when deploying to a shared host.
+
+### Multi-tenant (per-request credentials)
+
+Over an HTTP transport, each request can carry its own credentials via headers, so a single deploy can serve many athletes:
+
+| Header | Overrides |
+|---|---|
+| `X-Intervals-Api-Key` | `INTERVALS_ICU_API_KEY` |
+| `X-Intervals-Athlete-Id` | `INTERVALS_ICU_ATHLETE_ID` |
+
+Headers take priority and are resolved **per request**; when absent, the server falls back to the env vars (so stdio and single-tenant setups are unchanged). The same security warning above applies — terminate TLS and authenticate at a proxy, and treat these headers as secrets. See [docs/architecture.md](docs/architecture.md) for details.
 
 ## Usage
 

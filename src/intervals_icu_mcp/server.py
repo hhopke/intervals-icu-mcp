@@ -643,12 +643,15 @@ if _DELETE_MODE == "full":
 @mcp.resource("intervals-icu://athlete/profile")
 async def athlete_profile_resource() -> str:
     """Complete athlete profile with fitness metrics and sport settings for context."""
-    from .auth import load_config
+    from fastmcp.server.dependencies import get_http_headers
+
+    from .auth import apply_header_credentials, load_config
     from .client import ICUAPIError, ICUClient
     from .response_builder import ResponseBuilder
 
-    # Load config directly since resources don't go through middleware
-    config = load_config()
+    # Resources don't go through middleware, so resolve credentials here too:
+    # env vars as the base, overridden by per-request headers (multi-tenant).
+    config = apply_header_credentials(load_config(), get_http_headers())
 
     try:
         async with ICUClient(config) as client:

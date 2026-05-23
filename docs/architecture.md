@@ -12,7 +12,9 @@ Detailed component documentation for the Intervals.icu MCP server.
 ## Middleware (`middleware.py`)
 
 - `ConfigMiddleware` runs before every tool call
-- Loads and validates Intervals.icu configuration from environment
+- Loads Intervals.icu configuration from environment, then applies per-request
+  HTTP header overrides (see [Multi-tenant credentials](#multi-tenant-credentials))
+- Validates the resolved configuration
 - Injects `ICUConfig` into context state via `ctx.set_state("config", config)`
 - Tools access config via `ctx.get_state("config")`
 
@@ -35,8 +37,34 @@ Detailed component documentation for the Intervals.icu MCP server.
 
 1. User runs `uv run intervals-icu-mcp-auth` to set up credentials
 2. Credentials stored in `.env` file (API key + athlete ID)
-3. `ConfigMiddleware` loads and validates on every tool call
+3. `ConfigMiddleware` resolves and validates credentials on every tool call
 4. `ICUClient` uses Basic Auth with username "API_KEY"
+
+### Multi-tenant credentials
+
+Credentials are resolved **per request**, so a single HTTP deployment can serve
+multiple athletes. `apply_header_credentials()` (in `auth.py`) layers per-request
+HTTP headers on top of the env-var-derived `ICUConfig`:
+
+| Header (case-insensitive) | Overrides config field |
+|---|---|
+| `X-Intervals-Api-Key` | `intervals_icu_api_key` |
+| `X-Intervals-Athlete-Id` | `intervals_icu_athlete_id` |
+
+Resolution priority is **header → env var fallback**. A present, non-empty header
+wins; absent or empty headers leave the env value in place. `intervals_icu_delete_mode`
+is a startup/env concern and is never affected by headers.
+
+Headers are read via FastMCP's `get_http_headers()`, which returns `{}` for
+non-HTTP transports (e.g. stdio) and never raises — so stdio and single-tenant
+env-only setups behave exactly as before. The resolution happens in
+`ConfigMiddleware` for tool calls, and inline in the
+`intervals-icu://athlete/profile` resource (resources bypass middleware).
+
+The per-tool `athlete_id` parameter still composes on top of this: the header sets
+the request's *default* athlete, while an explicit `athlete_id` argument can still
+target another athlete (coach access). Treat these headers as secrets and only
+expose the HTTP transport behind TLS + authentication (see the README security note).
 
 ## Response Builder (`response_builder.py`)
 
