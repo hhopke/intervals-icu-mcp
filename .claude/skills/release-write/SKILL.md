@@ -25,6 +25,7 @@ This repo's release path is half-manual:
 - The release commit (`chore(release): X.Y.Z`) is already on `origin/main` — i.e. CHANGELOG.md has been renamed from `[Unreleased]` to `[X.Y.Z] — YYYY-MM-DD`, committed, and pushed.
 - `make can-release` is green.
 - You are on `main`, up to date with `origin/main`.
+- **`server.json` `description` is ≤ 100 chars.** The MCP Registry rejects longer descriptions with HTTP 422 (`expected length <= 100`), failing the `mcp-registry` job *after* PyPI has already published — a partial release that's annoying to recover. Pre-flight check: `jq -r '.description | length' server.json`. If it's over 100, stop and get it trimmed on `main` first.
 
 If any prereq is missing, stop and tell the user what to do first.
 
@@ -104,13 +105,17 @@ Do NOT use `--draft`. The release needs to be published to trigger `publish.yml`
 gh release view vX.Y.Z --json url,tagName,publishedAt
 ```
 
-Report the URL to the user. Then watch the PyPI publish workflow:
+Report the URL to the user. Then watch the publish workflow to completion:
 
 ```bash
-gh run list --workflow=publish.yml --limit=1
+gh run watch "$(gh run list --workflow=publish.yml --limit=1 --json databaseId --jq '.[0].databaseId')" --exit-status
 ```
 
-Report status. If it fails, surface the failure and stop — do not retry without user confirmation.
+`publish.yml` has **two jobs**: `pypi` then `mcp-registry` (`needs: pypi`). Watch **both** — the registry job can fail *after* PyPI has published, leaving a partial release (PyPI live, registry missing). Don't report success off the PyPI job alone.
+
+If it fails, surface the failure (`gh run view <id> --log-failed`) and stop — do not retry without user confirmation. Recovery notes:
+- **Registry-only failure (PyPI already up):** re-running the CI run won't help — it's pinned to the original tag commit. Either (a) fix the cause on `main`, force-move the tag, and delete+recreate the Release to re-fire the workflow (the `pypi` job has `skip-existing: true`, so it no-ops on the already-published version), or (b) publish to the registry manually: download `mcp-publisher` from `modelcontextprotocol/registry`, `jq` the release version into `server.json`, `./mcp-publisher login github` (interactive device flow), `./mcp-publisher publish`.
+- Confirm the registry entry landed: `curl -s "https://registry.modelcontextprotocol.io/v0/servers?search=<pkg>" | jq '.servers[]?.version'`.
 
 ## Anti-patterns (don't do these)
 
