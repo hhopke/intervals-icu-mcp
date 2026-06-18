@@ -17,6 +17,8 @@ jobs:
       - uses: astral-sh/setup-uv@v7
       - run: uv build
       - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
 
   mcp-registry:
     needs: pypi
