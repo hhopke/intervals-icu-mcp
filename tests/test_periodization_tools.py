@@ -73,7 +73,7 @@ class TestGetAnnualTrainingPlan:
     async def test_happy_path(self, mock_config, respx_mock):
         respx_mock.get("/athlete/i123456/events").mock(return_value=Response(200, json=ATP_FIXTURE))
 
-        result = await get_annual_training_plan(days_ahead=90, ctx=_make_ctx(mock_config))
+        result = await get_annual_training_plan(ctx=_make_ctx(mock_config))
         response = json.loads(result)
         data = response["data"]
 

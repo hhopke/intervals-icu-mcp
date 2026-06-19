@@ -107,7 +107,10 @@ def _week_to_dict(
 
 
 async def get_annual_training_plan(
-    days_ahead: Annotated[int, "Number of days to look ahead"] = 90,
+    days_ahead: Annotated[
+        int,
+        "Days to look ahead (default 365 — full annual plan). Narrow for month/week queries, e.g. 31 for July.",
+    ] = 365,
     days_back: Annotated[int, "Number of days to look back"] = 0,
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
@@ -116,6 +119,8 @@ async def get_annual_training_plan(
 
     Use when the user asks: "what's my weekly TSS target?", "what training phase
     am I in?", "show my periodization plan", "when are my recovery weeks?".
+    Defaults to a 365-day forward window so the full ATP is returned; pass a
+    smaller days_ahead/days_back when the user asks about a specific month or week.
     NOT individual planned workouts (icu_get_upcoming_workouts), NOT all calendar
     entries (icu_get_calendar_events), NOT workout-library plan folders
     (icu_get_workout_library / icu_apply_training_plan).
