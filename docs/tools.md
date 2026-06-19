@@ -108,7 +108,7 @@ The threaded notes/comments shown under an activity — the user's own training 
 | ----------------------- | ---------------------------------------------------------- |
 | `icu_get_calendar_events`   | Get planned events and workouts from calendar              |
 | `icu_get_upcoming_workouts` | Get upcoming planned workouts only                         |
-| `icu_get_annual_training_plan` | Read ATP periodization — weekly TSS targets, phases, recovery weeks |
+| `icu_get_annual_training_plan` | Read ATP periodization — weekly TSS targets, phases, recovery weeks (default: 365 days ahead; narrow with `days_ahead`/`days_back` for a specific month) |
 | `icu_get_event`             | Get details for a specific event                           |
 | `icu_create_event`          | Create new calendar events (workouts, races, notes, goals) |
 | `icu_update_event`          | Modify existing calendar events                            |
