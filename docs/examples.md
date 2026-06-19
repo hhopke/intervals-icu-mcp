@@ -57,6 +57,9 @@ _Note: The athlete profile resource (`intervals-icu://athlete/profile`) automati
 
 ```
 "What workouts do I have planned this week?"
+"What's my weekly TSS target this month?"
+"What training phase am I in — Base, Build, or Peak?"
+"When are my recovery weeks?"
 "Create a sweet spot cycling workout for tomorrow"
 "Create a tempo run with 800m repeats for Wednesday"
 "Generate a CSS swim training session for Friday"

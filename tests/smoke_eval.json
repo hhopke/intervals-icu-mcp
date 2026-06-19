@@ -63,6 +63,13 @@
     "notes": "Broad calendar query"
   },
   {
+    "id": "annual_training_plan_tss",
+    "prompt": "What's my weekly TSS target for July?",
+    "expected_tool": "icu_get_annual_training_plan",
+    "bucket": "a",
+    "notes": "ATP weekly load targets — not all calendar events or workout library plans"
+  },
+  {
     "id": "upcoming_workouts",
     "prompt": "What's my next workout?",
     "expected_tool": "icu_get_upcoming_workouts",

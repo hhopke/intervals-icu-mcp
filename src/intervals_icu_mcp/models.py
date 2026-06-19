@@ -226,6 +226,9 @@ class Event(BaseModel):
     type: str | None = None
     distance: float | None = None
     distance_target: float | None = None
+    load_target: int | None = None
+    time_target: int | None = None
+    tags: list[str] | None = None
     moving_time: int | None = None
     icu_training_load: int | None = Field(None, alias="icu_training_load")
     icu_intensity: float | None = Field(None, alias="icu_intensity")
