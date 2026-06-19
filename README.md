@@ -56,7 +56,7 @@ Before installation, obtain your Intervals.icu API key:
 1. Go to https://intervals.icu/settings → **Developer** → **Create API Key**.
 2. Copy the key, and note your **Athlete ID** from your profile URL (format: `i123456`).
 
-## Installation
+## Installation & Setup
 
 **Nothing to install separately if you use the recommended setup.** `uvx` (which ships with `uv`) automatically downloads and caches the `intervals-icu-mcp` package the first time your MCP client launches it — just paste the config snippet from [Client Configuration](#client-configuration) into your client and you're done.
 
@@ -197,40 +197,6 @@ ChatGPT's custom MCP connector flow requires running the server over HTTP and ex
 
 </details>
 
-## Delete Safety Mode
-
-Destructive tools are gated by the optional `INTERVALS_ICU_DELETE_MODE` env var (`safe` / `full` / `none`, default `safe`). The gate is server-side and outside the model's reach — tools that aren't registered cannot be invoked. Safe mode refuses past-event deletion and gates `delete_activity` / `delete_sport_settings` / `delete_custom_item` entirely. See [docs/tools.md](https://github.com/hhopke/intervals-icu-mcp/blob/main/docs/tools.md#delete-safety-mode) for the full table, response envelope, and TZ-buffer rationale.
-
-## Remote Deployment (HTTP / SSE)
-
-By default the server runs over **stdio** — the right transport for local clients like Claude Desktop, Claude Code, and Cursor. For remote deployment (hosted MCP, reverse proxy, Docker-on-a-server, ChatGPT connector), pass `--transport`:
-
-```bash
-# Streamable HTTP (recommended — used by ChatGPT and modern remote clients)
-intervals-icu-mcp --transport http --host 127.0.0.1 --port 8000
-
-# Legacy SSE (for clients that haven't moved to streamable HTTP yet)
-intervals-icu-mcp --transport sse --host 127.0.0.1 --port 8000
-```
-
-| Flag | Default | Description |
-|---|---|---|
-| `--transport` | `stdio` | One of `stdio`, `http`, `sse`, `streamable-http` |
-| `--host` | `127.0.0.1` | Interface to bind. Use `0.0.0.0` only inside a container where Docker controls the exposure. |
-| `--port` | `8000` | TCP port |
-| `--path` | (framework default) | URL path to mount the server under |
-
-> ⚠️ **Security: do not expose an HTTP-mode server to untrusted networks.**
->
-> The MCP protocol has **no built-in authentication**. Anyone who can reach the URL can exercise every tool with your credentials — read every activity, delete activities, modify your FTP, create calendar events, etc. Binding to `0.0.0.0` on a direct-exposed host (VPS, LAN with open port) is equivalent to publishing your Intervals.icu API key.
->
-> For remote access, prefer one of the following:
-> - **Tailscale / Cloudflare Tunnel / ZeroTier** — only your authenticated devices can reach the endpoint. Zero code changes, simplest option.
-> - **Reverse proxy with auth** (nginx + basic auth, Cloudflare Access, etc.) — terminates TLS and gates access.
-> - **SSH tunnel** — `ssh -L 8000:localhost:8000 host` if you just need occasional access from one machine.
->
-> Credentials are always read from `INTERVALS_ICU_API_KEY` and `INTERVALS_ICU_ATHLETE_ID` — use env vars (not a committed `.env`) when deploying to a shared host.
-
 ## Usage
 
 Ask Claude to interact with your Intervals.icu data in natural language. A few starter prompts:
@@ -263,11 +229,24 @@ For the full catalogue of example prompts by category, see [docs/examples.md](ht
 | [Sport Settings](https://github.com/hhopke/intervals-icu-mcp/blob/main/docs/tools.md#sport-settings-5-tools) | 5 | FTP, FTHR, pace thresholds, and zones |
 | [Custom Items](https://github.com/hhopke/intervals-icu-mcp/blob/main/docs/tools.md#custom-items-5-tools) | 5 | User customizations: custom charts, fields, zones, dashboard panels |
 
+## Delete Safety Mode
+
+Destructive tools are gated by the optional `INTERVALS_ICU_DELETE_MODE` env var (`safe` / `full` / `none`, default `safe`) — a server-side gate outside the model's reach, so unregistered tools can't be invoked. See [docs/tools.md](https://github.com/hhopke/intervals-icu-mcp/blob/main/docs/tools.md#delete-safety-mode) for the full mode table, response envelope, and TZ-buffer rationale.
+
+## Remote Deployment (HTTP / SSE)
+
+The server runs over **stdio** by default — the right transport for local clients like Claude Desktop, Claude Code, and Cursor. HTTP and SSE transports are available for remote or hosted use.
+
+> ⚠️ MCP has **no built-in authentication** — never expose an HTTP-mode server to an untrusted network without a tunnel (Tailscale, Cloudflare Tunnel) or an authenticating reverse proxy.
+
+See [docs/remote-deployment.md](https://github.com/hhopke/intervals-icu-mcp/blob/main/docs/remote-deployment.md) for transport flags and the full security model.
+
 ## Documentation
 
 - [Example prompts](https://github.com/hhopke/intervals-icu-mcp/blob/main/docs/examples.md) — full catalogue of natural-language prompts by category
 - [Tool reference](https://github.com/hhopke/intervals-icu-mcp/blob/main/docs/tools.md) — complete tool, resource, and prompt inventory
 - [Architecture overview](https://github.com/hhopke/intervals-icu-mcp/blob/main/docs/architecture.md) — how the server, middleware, client, and tools fit together
+- [Remote deployment (HTTP/SSE)](https://github.com/hhopke/intervals-icu-mcp/blob/main/docs/remote-deployment.md) — transports, flags, and the security model for hosted/remote setups
 - [Testing guide](https://github.com/hhopke/intervals-icu-mcp/blob/main/docs/testing.md) — conventions for pytest + respx, fixtures, and running the suite
 - [Changelog](CHANGELOG.md) — release history
 - [Adding a new tool](https://github.com/hhopke/intervals-icu-mcp/blob/main/.claude/skills/add-tool/SKILL.md) — step-by-step workflow for contributors
