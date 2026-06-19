@@ -26,19 +26,29 @@ def _phase_for_week(
     week_start: date,
     phases: list[dict[str, Any]],
 ) -> tuple[str | None, str | None]:
-    """Return (plan_name, phase) for a week start date."""
+    """Return (plan_name, phase) for a week start date.
+
+    When phase blocks share a boundary date (e.g. Base ends Aug 10, Build starts
+    Aug 10), prefer the phase that starts latest — the week belongs to the new phase.
+    """
+    matches: list[tuple[date, dict[str, Any]]] = []
     for phase in phases:
         start = _event_date(phase["start_date"])
         end_raw = phase.get("end_date")
         end = _event_date(end_raw) if end_raw else start
         if start <= week_start <= end:
-            plan_name = phase.get("plan_name")
-            phase_label = phase.get("phase")
-            return (
-                str(plan_name) if plan_name else None,
-                str(phase_label) if phase_label else None,
-            )
-    return None, None
+            matches.append((start, phase))
+
+    if not matches:
+        return None, None
+
+    _, best = max(matches, key=lambda item: item[0])
+    plan_name = best.get("plan_name")
+    phase_label = best.get("phase")
+    return (
+        str(plan_name) if plan_name else None,
+        str(phase_label) if phase_label else None,
+    )
 
 
 def _note_overlaps_week(note: Event, week_start: date, week_end: date) -> bool:
@@ -163,7 +173,10 @@ async def get_annual_training_plan(
                     },
                 )
 
-            plan_events = [e for e in atp_events if e.category == "PLAN"]
+            plan_events = sorted(
+                (e for e in atp_events if e.category == "PLAN"),
+                key=lambda e: e.start_date_local,
+            )
             target_events = sorted(
                 (e for e in atp_events if e.category == "TARGET"),
                 key=lambda e: e.start_date_local,

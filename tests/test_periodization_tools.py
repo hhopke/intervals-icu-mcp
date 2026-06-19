@@ -162,3 +162,44 @@ class TestGetAnnualTrainingPlan:
         response = json.loads(result)
         assert response["data"]["weeks"][0]["load_target_tss"] == 200
         assert route.called
+
+    async def test_transition_week_gets_new_phase(self, mock_config, respx_mock):
+        """Week starting on a shared phase boundary belongs to the newer phase."""
+        boundary = _date_offset(60)
+        respx_mock.get("/athlete/i123456/events").mock(
+            return_value=Response(
+                200,
+                json=[
+                    {
+                        "id": 9001,
+                        "start_date_local": _date_offset(30),
+                        "end_date_local": boundary,
+                        "category": "PLAN",
+                        "name": "Race Plan",
+                        "tags": ["Base"],
+                    },
+                    {
+                        "id": 9002,
+                        "start_date_local": boundary,
+                        "end_date_local": _date_offset(90),
+                        "category": "PLAN",
+                        "name": "Race Plan",
+                        "tags": ["Build"],
+                    },
+                    {
+                        "id": 9003,
+                        "start_date_local": boundary,
+                        "end_date_local": _date_offset(66),
+                        "category": "TARGET",
+                        "load_target": 373,
+                    },
+                ],
+            )
+        )
+
+        result = await get_annual_training_plan(ctx=_make_ctx(mock_config))
+        response = json.loads(result)
+        week = response["data"]["weeks"][0]
+
+        assert week["load_target_tss"] == 373
+        assert week["phase"] == "Build"
