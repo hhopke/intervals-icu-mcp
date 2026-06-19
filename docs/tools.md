@@ -1,6 +1,6 @@
 # Tool, Resource, and Prompt Reference
 
-Complete inventory of everything the Intervals.icu MCP server exposes: up to 58 tools across 11 categories, 4 MCP Resources, and 7 MCP Prompts.
+Complete inventory of everything the Intervals.icu MCP server exposes: up to 59 tools across 11 categories, 4 MCP Resources, and 7 MCP Prompts.
 
 ## Delete Safety Mode
 
@@ -8,9 +8,9 @@ Destructive tools are gated by the optional `INTERVALS_ICU_DELETE_MODE` env var.
 
 | Mode | Registered tools | Events | Activities | Gear | Sport settings | Custom items |
 |---|---|---|---|---|---|---|
-| `safe` (default) | 55 | tomorrow or later | ✗ | ✓ | ✗ | ✗ |
-| `full` | 58 | any date | ✓ | ✓ | ✓ | ✓ |
-| `none` | 52 | ✗ | ✗ | ✗ | ✗ | ✗ |
+| `safe` (default) | 56 | tomorrow or later | ✗ | ✓ | ✗ | ✗ |
+| `full` | 59 | any date | ✓ | ✓ | ✓ | ✓ |
+| `none` | 53 | ✗ | ✗ | ✗ | ✗ | ✗ |
 
 In `safe` mode, `icu_delete_event` and `icu_bulk_delete_events` return a uniform envelope showing what was deleted and what was skipped:
 
@@ -102,12 +102,13 @@ The threaded notes/comments shown under an activity — the user's own training 
 | `icu_get_wellness_for_date` | Get complete wellness data for a specific date                      |
 | `icu_update_wellness`       | Update or create wellness data for a date                           |
 
-### Events / Calendar (10 tools)
+### Events / Calendar (11 tools)
 
 | Tool                    | Description                                                |
 | ----------------------- | ---------------------------------------------------------- |
 | `icu_get_calendar_events`   | Get planned events and workouts from calendar              |
 | `icu_get_upcoming_workouts` | Get upcoming planned workouts only                         |
+| `icu_get_annual_training_plan` | Read ATP periodization — weekly TSS targets, phases, recovery weeks (default: 365 days ahead; narrow with `days_ahead`/`days_back` for a specific month) |
 | `icu_get_event`             | Get details for a specific event                           |
 | `icu_create_event`          | Create new calendar events (workouts, races, notes, goals) |
 | `icu_update_event`          | Modify existing calendar events                            |

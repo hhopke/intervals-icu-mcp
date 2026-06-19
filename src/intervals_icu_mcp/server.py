@@ -78,6 +78,7 @@ from .tools.gear import (
     update_gear_reminder,
 )
 from .tools.performance import get_power_curves
+from .tools.periodization import get_annual_training_plan
 from .tools.sport_settings import (
     apply_sport_settings,
     create_sport_settings,
@@ -350,6 +351,15 @@ mcp.tool(
         "openWorldHint": True,
     },
 )(get_event)
+mcp.tool(
+    name="icu_get_annual_training_plan",
+    annotations={
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+)(get_annual_training_plan)
 mcp.tool(
     name="icu_create_event",
     annotations={
