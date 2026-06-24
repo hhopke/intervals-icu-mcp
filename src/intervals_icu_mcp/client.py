@@ -259,7 +259,9 @@ class ICUClient:
             List of Activity objects around the reference activity
         """
         athlete_id = athlete_id or self.config.intervals_icu_athlete_id
-        params = {"id": activity_id, "count": count}
+        # The API expects query params `activity_id` and `limit` (not `id`/`count`);
+        # sending the wrong names yields HTTP 422 "Required request parameter 'activity_id'".
+        params = {"activity_id": activity_id, "limit": count}
 
         response = await self._request(
             "GET", f"/athlete/{athlete_id}/activities-around", params=params
