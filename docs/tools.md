@@ -1,6 +1,6 @@
 # Tool, Resource, and Prompt Reference
 
-Complete inventory of everything the Intervals.icu MCP server exposes: up to 59 tools across 11 categories, 4 MCP Resources, and 7 MCP Prompts.
+Complete inventory of everything the Intervals.icu MCP server exposes: up to 60 tools across 11 categories, 4 MCP Resources, and 7 MCP Prompts.
 
 ## Delete Safety Mode
 
@@ -8,9 +8,9 @@ Destructive tools are gated by the optional `INTERVALS_ICU_DELETE_MODE` env var.
 
 | Mode | Registered tools | Events | Activities | Gear | Sport settings | Custom items |
 |---|---|---|---|---|---|---|
-| `safe` (default) | 56 | tomorrow or later | ✗ | ✓ | ✗ | ✗ |
-| `full` | 59 | any date | ✓ | ✓ | ✓ | ✓ |
-| `none` | 53 | ✗ | ✗ | ✗ | ✗ | ✗ |
+| `safe` (default) | 57 | tomorrow or later | ✗ | ✓ | ✗ | ✗ |
+| `full` | 60 | any date | ✓ | ✓ | ✓ | ✓ |
+| `none` | 54 | ✗ | ✗ | ✗ | ✗ | ✗ |
 
 In `safe` mode, `icu_delete_event` and `icu_bulk_delete_events` return a uniform envelope showing what was deleted and what was skipped:
 
@@ -48,11 +48,12 @@ Set the mode in your client config alongside the credentials:
 
 ## Tools
 
-### Activities (12 tools)
+### Activities (13 tools)
 
 | Tool                     | Description                                       |
 | ------------------------ | ------------------------------------------------- |
 | `icu_get_recent_activities`  | List recent activities with summary metrics       |
+| `icu_get_activities_by_date` | List activities in an explicit date window (oldest..newest) |
 | `icu_get_activity_details`   | Get comprehensive details for a specific activity |
 | `icu_search_activities`      | Search activities by name or tag                  |
 | `icu_search_activities_full` | Search activities with full details               |

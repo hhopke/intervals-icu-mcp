@@ -32,6 +32,7 @@ from .tools.activities import (
     download_fit_file,
     download_gpx_file,
     get_activities_around,
+    get_activities_by_date,
     get_activity_details,
     get_recent_activities,
     search_activities,
@@ -99,6 +100,15 @@ mcp.tool(
         "openWorldHint": True,
     },
 )(get_recent_activities)
+mcp.tool(
+    name="icu_get_activities_by_date",
+    annotations={
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+)(get_activities_by_date)
 mcp.tool(
     name="icu_get_activity_details",
     annotations={

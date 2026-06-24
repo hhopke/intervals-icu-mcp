@@ -11,6 +11,47 @@ from ..response_builder import ResponseBuilder
 from ._strava import strava_limitation_note
 
 
+def _summarize_activity(activity: Any) -> dict[str, Any]:
+    """Build a LIGHT summary dict for one activity.
+
+    Shared by the recent-activities and date-range listing tools so both
+    emit an identical item shape.
+    """
+    item: dict[str, Any] = {
+        "id": activity.id,
+        "name": activity.name or "Untitled",
+        "start_date": activity.start_date_local,
+        "type": activity.type,
+    }
+
+    if activity.distance:
+        item["distance_meters"] = activity.distance
+
+    if activity.moving_time:
+        item["moving_time_seconds"] = activity.moving_time
+
+    if activity.total_elevation_gain:
+        item["elevation_gain_meters"] = activity.total_elevation_gain
+
+    # Performance metrics
+    if activity.average_watts:
+        item["average_watts"] = activity.average_watts
+    if activity.normalized_power:
+        item["normalized_power"] = activity.normalized_power
+    if activity.average_heartrate:
+        item["average_heartrate"] = activity.average_heartrate
+    if activity.average_cadence:
+        item["average_cadence"] = activity.average_cadence
+
+    # Training load
+    if activity.icu_training_load:
+        item["training_load"] = activity.icu_training_load
+    if activity.icu_intensity:
+        item["intensity_factor"] = activity.icu_intensity
+
+    return item
+
+
 async def get_recent_activities(
     limit: Annotated[int, "Number of activities to fetch"] = 30,
     days_back: Annotated[int, "Number of days to look back"] = 30,
@@ -44,45 +85,65 @@ async def get_recent_activities(
                     metadata={"message": "No activities found"},
                 )
 
-            activities_data: list[dict[str, Any]] = []
-            for activity in activities:
-                activity_item: dict[str, Any] = {
-                    "id": activity.id,
-                    "name": activity.name or "Untitled",
-                    "start_date": activity.start_date_local,
-                    "type": activity.type,
-                }
-
-                if activity.distance:
-                    activity_item["distance_meters"] = activity.distance
-
-                if activity.moving_time:
-                    activity_item["moving_time_seconds"] = activity.moving_time
-
-                if activity.total_elevation_gain:
-                    activity_item["elevation_gain_meters"] = activity.total_elevation_gain
-
-                # Performance metrics
-                if activity.average_watts:
-                    activity_item["average_watts"] = activity.average_watts
-                if activity.normalized_power:
-                    activity_item["normalized_power"] = activity.normalized_power
-                if activity.average_heartrate:
-                    activity_item["average_heartrate"] = activity.average_heartrate
-                if activity.average_cadence:
-                    activity_item["average_cadence"] = activity.average_cadence
-
-                # Training load
-                if activity.icu_training_load:
-                    activity_item["training_load"] = activity.icu_training_load
-                if activity.icu_intensity:
-                    activity_item["intensity_factor"] = activity.icu_intensity
-
-                activities_data.append(activity_item)
+            activities_data = [_summarize_activity(a) for a in activities]
 
             return ResponseBuilder.build_response(
                 data={"activities": activities_data, "count": len(activities_data)},
                 query_type="recent_activities",
+            )
+
+    except ICUAPIError as e:
+        return ResponseBuilder.build_error_response(e.message, error_type="api_error")
+    except Exception as e:
+        return ResponseBuilder.build_error_response(
+            f"Unexpected error: {str(e)}", error_type="internal_error"
+        )
+
+
+async def get_activities_by_date(
+    oldest: Annotated[str, "Oldest date to include, YYYY-MM-DD (inclusive)"],
+    newest: Annotated[
+        str | None, "Newest date to include, YYYY-MM-DD (inclusive). Defaults to today."
+    ] = None,
+    limit: Annotated[
+        int, "Max activities to return (newest-first within the window)"
+    ] = 500,
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
+    ctx: Context | None = None,
+) -> str:
+    """List activities within an EXPLICIT date window (oldest..newest) — LIGHT summary per item.
+
+    Unlike icu_get_recent_activities (anchored to today and capped at 100), this
+    targets an arbitrary historical window and is bounded only by `limit`. Use for
+    "all my runs from June to November 2025", reconstructing training history, or
+    finding the oldest activity in a period. Dates are YYYY-MM-DD. Results are
+    newest-first; if a window holds more than `limit` items, the oldest are
+    dropped first, so widen `limit` (or narrow the window) to reach the very
+    oldest.
+    """
+    assert ctx is not None
+    config: ICUConfig = await ctx.get_state("config")
+
+    try:
+        async with ICUClient(config) as client:
+            activities = await client.get_activities(
+                athlete_id=athlete_id,
+                oldest=oldest,
+                newest=newest,
+                limit=limit,
+            )
+
+            if not activities:
+                return ResponseBuilder.build_response(
+                    data={"activities": [], "count": 0},
+                    metadata={"message": "No activities found in the given date range"},
+                )
+
+            activities_data = [_summarize_activity(a) for a in activities]
+
+            return ResponseBuilder.build_response(
+                data={"activities": activities_data, "count": len(activities_data)},
+                query_type="activities_by_date",
             )
 
     except ICUAPIError as e:
