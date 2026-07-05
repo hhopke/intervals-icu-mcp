@@ -71,3 +71,16 @@ jobs:
           test -f docs/architecture.md
           test -f docs/testing.md
           test -f .claude/skills/add-tool/SKILL.md
+
+  all-green:
+    # Single stable context for branch protection — survives matrix changes.
+    # `if: always()` because a skipped job would satisfy a required check.
+    name: All checks green
+    runs-on: ubuntu-latest
+    needs: [test, package]
+    if: always()
+    steps:
+      - name: Verify all jobs succeeded
+        run: |
+          test "${{ needs.test.result }}" = "success"
+          test "${{ needs.package.result }}" = "success"
