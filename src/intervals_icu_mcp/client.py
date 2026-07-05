@@ -160,7 +160,7 @@ class ICUClient:
             List of ActivitySummary objects
         """
         athlete_id = athlete_id or self.config.intervals_icu_athlete_id
-        params = {}
+        params: dict[str, str | int] = {"limit": limit}
 
         if oldest:
             params["oldest"] = oldest
@@ -171,7 +171,8 @@ class ICUClient:
         adapter = TypeAdapter(list[ActivitySummary])
         activities = adapter.validate_python(response.json())
 
-        # Limit results
+        # The server applies `limit` to the desc-ordered result (newest N kept, same as
+        # this slice); the slice stays as a safety net in case the server returns more.
         return activities[:limit]
 
     async def get_activity(self, athlete_id: str | None = None, activity_id: str = "") -> Activity:

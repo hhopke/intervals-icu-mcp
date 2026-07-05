@@ -77,9 +77,20 @@ class TestGetRecentActivities:
         assert response["data"]["count"] == 0
         assert "No activities found" in response["metadata"]["message"]
 
+    async def test_sends_limit_and_date_params(self, mock_config, respx_mock):
+        """The API's native limit param is sent, so the server truncates — not the client."""
+        respx_mock.get("/athlete/i123456/activities").mock(return_value=Response(200, json=[]))
+
+        await get_recent_activities(limit=10, days_back=7, ctx=_make_ctx(mock_config))
+
+        params = respx_mock.calls.last.request.url.params
+        assert params["limit"] == "10"
+        assert "oldest" in params
+
     async def test_limit_capped_at_100(self, mock_config, respx_mock):
-        """Tool caps limit at 100 even if user asks for more — slicing is client-side."""
-        # Server returns 150 results; client.get_activities slices to 100
+        """Tool caps limit at 100 even if user asks for more."""
+        # Server-side limit does the real truncation; the client-side slice is a
+        # safety net, exercised here by a mock that ignores the limit param.
         many = [
             {
                 "id": f"a{i}",
