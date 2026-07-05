@@ -118,7 +118,7 @@ To cut a release:
 2. Commit (e.g., `chore(release): X.Y.Z`)
 3. Tag and push: `git tag vX.Y.Z && git push origin main vX.Y.Z`
 
-Follow strict SemVer — breaking changes (response shape changes, default-behavior changes that remove tools, removed parameters) require a major bump. The CHANGELOG header explicitly commits to SemVer.
+Follow SemVer with the narrowed contract defined in the CHANGELOG header. **Major** (breaking): removing or renaming a tool or tool parameter, changing config env var semantics, changing which tools register by default, or removing information from a response. **Minor**: response-shape changes that preserve the information (key renames, restructuring, added fields) — MCP responses are read dynamically by LLMs, not parsed by typed clients. Releases ≤ 4.0.0 predate this policy and treated any response-shape change as breaking.
 
 ## Important Files
 

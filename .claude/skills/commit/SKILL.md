@@ -47,7 +47,7 @@ For `feat`, `fix`, or anything user-visible, check whether docs need updating in
   - `CLAUDE.md` (project overview line stating tool counts)
   - `docs/tools.md` if the registered set changed
 - **README discipline** — keep `README.md` under 300 lines. If a new section would push past ~30 lines and isn't core onboarding, extract it to `docs/` and link from the README.
-- **SemVer flag** — if the change alters a response shape, removes a tool/parameter, or changes a default that drops tools (e.g. `INTERVALS_ICU_DELETE_MODE`), call it out in the PR body — this requires a major version bump per CLAUDE.md.
+- **SemVer flag** — if the change removes or renames a tool/parameter, changes config env var semantics, changes default tool registration (e.g. `INTERVALS_ICU_DELETE_MODE`), or removes information from a response, call it out in the PR body — this requires a major version bump per CLAUDE.md. Response-shape changes that preserve the information (key renames, restructuring, added fields) are minor, not breaking.
 - **Do not reference upstream/comparison repos** in commit messages, PR bodies, CHANGELOG, or README.
 
 ## Pre-PR gate — MANDATORY before opening a PR

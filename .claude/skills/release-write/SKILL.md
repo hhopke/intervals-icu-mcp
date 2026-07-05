@@ -65,12 +65,12 @@ Adopt these conventions:
 
 **MCP-specific framing for response-shape changes:**
 
-This project's CLAUDE.md treats response-shape changes as breaking → major bump. Honor that. But the *user impact* in MCP context is smaller than in SDK context:
+Per the narrowed SemVer contract (CHANGELOG header, adopted after 4.0.0), information-preserving response-shape changes (key renames, restructuring, added fields) are **minor**, not breaking. Only tool/parameter removals or renames, config env var semantic changes, default-registration changes, and removal of information from responses force a major. The reasoning:
 - MCP responses are consumed by LLMs that rephrase into natural language.
 - Programmatic parsers (`response["data"]["field"]`) are rare in MCP usage.
 - A field rename usually doesn't break user-visible behavior; the LLM adapts.
 
-So when a release breaks response shape, the release-notes treatment should be proportional to the actual user impact: **one paragraph of inline upgrade prose, not an SDK-style Migration section with before/after diff blocks**. Diff blocks are for projects where consumers write typed parsing code; they're overkill here.
+When a release does include a breaking change — or a notable shape change worth flagging — keep the release-notes treatment proportional to the actual user impact: **one paragraph of inline upgrade prose, not an SDK-style Migration section with before/after diff blocks**. Diff blocks are for projects where consumers write typed parsing code; they're overkill here.
 
 Don't:
 - Rewrite the CHANGELOG verbatim. The CHANGELOG is comprehensive; the release notes are curated.

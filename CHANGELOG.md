@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+**The versioned contract covers what breaks integrations:** removing or renaming a
+tool, removing or renaming a tool parameter, changing the meaning of a config env
+var, changing which tools register by default, or removing information from a
+response. Any of these requires a **major** bump. Response payload *shape* changes
+that preserve the information (key renames, restructuring, added fields) ship in
+**minor** releases — MCP responses are read dynamically by LLMs, not parsed by typed
+clients. (Releases up to and including 4.0.0 treated any response-shape change as
+breaking; this narrower contract applies from the next release onward.)
+
 ## [Unreleased]
 
 ### Added
@@ -12,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The `Event` model now retains `load_target`, `time_target`, and `tags` from the API (previously dropped during validation).
 
 ### Changed
+- Versioning policy: the SemVer contract is narrowed to what breaks integrations — tool names, tool parameters, config env var semantics, default tool registration, and removal of information from responses. Response-shape changes that preserve information (key renames, restructuring, added fields) are now **minor**, not major. See the header above. Previously any response-shape change forced a major bump.
 - `client.get_activities()` now passes `limit` to the API as a query param instead of fetching the entire date range and truncating client-side. Verified against the live API that server-side `limit` keeps the newest N in descending order — identical results, far less data over the wire for wide date windows (#80).
 
 ### Fixed
