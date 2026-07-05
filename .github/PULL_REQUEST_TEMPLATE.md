@@ -17,6 +17,9 @@
 - [ ] New MCP tools follow the `icu_` prefix convention and include `destructiveHint` where appropriate
 - [ ] No API keys, athlete IDs, or other credentials are committed
 
+> [!NOTE]
+> No need to touch `CHANGELOG.md` — the maintainer adds entries at merge time.
+
 ## Test plan
 
 <!-- How did you verify the change? e.g. unit tests added, tested live against a Claude Desktop session, etc. -->

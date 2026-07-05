@@ -26,12 +26,17 @@ This executes, in order:
 - `pytest` — the full test suite (see [docs/testing.md](docs/testing.md))
 - `ruff check` — lint
 - `pyright` — strict type-check on `src/`
+- `make lint/package` — PyPI packaging metadata and README rendering (twine + pyroma)
 
-All three must be green before a PR can merge. If you're adding a tool, please also add a respx-mocked test alongside it — the existing tests in `tests/test_activity_tools.py` and `tests/test_event_tools.py` are good templates.
+Everything must be green before a PR can merge. Note that CI additionally enforces 80% test coverage (`pytest --cov-fail-under=80`) — run `make test/coverage` to see where you stand. If you're adding a tool, please also add a respx-mocked test alongside it — the existing tests in `tests/test_activity_tools.py` and `tests/test_event_tools.py` are good templates.
+
+## Changelog
+
+Don't edit `CHANGELOG.md` in your PR. It is maintained by hand, and the maintainer adds entries at merge time — this avoids merge conflicts on the `[Unreleased]` section and keeps the SemVer classification (breaking vs. minor) in one place. Your PR description is the raw material for the entry, so a clear "what & why" summary is the best way to help.
 
 ## Adding a new MCP tool
 
-The repo ships a step-by-step guide: [.claude/skills/add-tool/SKILL.md](.claude/skills/add-tool/SKILL.md). It walks through the canonical pattern — client method → tool function → registration in `server.py` → tests — and keeps new tools consistent with the existing 51.
+The repo ships a step-by-step guide: [.claude/skills/add-tool/SKILL.md](.claude/skills/add-tool/SKILL.md). It walks through the canonical pattern — client method → tool function → registration in `server.py` → tests — and keeps new tools consistent with the existing ones.
 
 ## Reporting bugs / requesting features
 

@@ -108,7 +108,7 @@ The following skills are available in `.claude/skills/`:
 
 ## Releases
 
-CHANGELOG.md is **manual** — there is no automated changelog generation. The only release-related automation:
+CHANGELOG.md is **manual** — there is no automated changelog generation. Entries are the **maintainer's responsibility**: community PRs deliberately do not include them (CONTRIBUTING.md and the PR template say so, to avoid `[Unreleased]` merge conflicts and keep SemVer classification in one place). Add the `[Unreleased]` bullet at merge time, while the PR context is fresh; `/release-check` verifies every user-facing commit since the last tag has an entry before a release is cut. The only release-related automation:
 - Package version comes from the git tag via `hatch-vcs` (no `pyproject.toml` bump needed)
 - `publish.yml` syncs `server.json` version from the tag and publishes to PyPI + MCP Registry
 - `release.yml` builds and pushes the Docker image
