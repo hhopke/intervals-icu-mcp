@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- New `icu_get_annual_training_plan` tool — reads Annual Training Plan (ATP) periodization from the calendar: weekly load targets (TSS), Base/Build/Peak phase blocks, and recovery-week notes, shaped from `PLAN`/`TARGET`/`NOTE` events. Defaults to a 365-day forward window; narrow with `days_ahead`/`days_back`. Safe-mode tool count goes 55 → 56 (58 → 59 in full mode). Contributed by @jorge-huxley (#73).
+- The `Event` model now retains `load_target`, `time_target`, and `tags` from the API (previously dropped during validation).
+
+### Fixed
+- ATP weeks starting on a shared phase-boundary date (e.g. Base ends and Build starts on the same day) are now assigned to the newer phase (#73).
+
 ## [4.0.0] — 2026-06-18
 
 ### Added
