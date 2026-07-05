@@ -54,8 +54,8 @@ Or standalone repeat:
 
 ```
 Intervals 5x
-- 400m 110% pace
-- 400m Z1
+- 400mtr 110% pace
+- 400mtr Z1
 ```
 
 **Important**: Leave a blank line before and after repeat blocks.
@@ -76,10 +76,13 @@ Intervals 5x
 ### Distance-Based
 | Format | Example | Description |
 |--------|---------|-------------|
-| `Xm` | `400m` | Meters (context-dependent, >200 = meters) |
+| `Xmtr` | `400mtr` | Meters (swimming/running) |
 | `Xkm` | `5km` | Kilometers |
 | `Xmi` | `3mi` | Miles |
-| `Xyd` | `100yd` | Yards (swimming) |
+| `Xyrd` | `100yrd` | Yards (swimming) |
+
+**Important**: Plain `m` always means **minutes**, never meters. For a distance
+in meters use `mtr` (e.g. `400mtr`) — writing `400m` is parsed as 400 minutes.
 
 ### Lap Press
 ```
@@ -154,8 +157,8 @@ Text before the duration becomes a device prompt or instruction:
 ## Rest Intervals
 Rest can be specified after the main target:
 ```
-- 200m 95% pace 30s rest
-- 100m Z4 20s rest
+- 200mtr 95% pace 30s rest
+- 100mtr Z4 20s rest
 ```
 
 ## Complete Examples
@@ -204,11 +207,11 @@ Cooldown
 ```
 Warmup
 - 15m Z2 HR
-- 4x 100m strides
+- 4x 100mtr strides
 
 Main Set 5x
-- 800m 105-110% pace
-- 400m Z1 HR
+- 800mtr 105-110% pace
+- 400mtr Z1 HR
 
 Cooldown
 - 10m Z1 HR
@@ -217,14 +220,14 @@ Cooldown
 ### Swimming - CSS Training
 ```
 Warmup
-- 400m Z2 pace
-- 4x 50m 85% pace
+- 400mtr Z2 pace
+- 4x 50mtr 85% pace
 
 Main Set 5x
-- 200m 95% pace 30s rest
+- 200mtr 95% pace 30s rest
 
 Cooldown
-- 200m Z1 pace
+- 200mtr Z1 pace
 ```
 
 ## Zone Reference
