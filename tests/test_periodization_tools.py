@@ -19,6 +19,11 @@ def _date_offset(days: int) -> str:
     return (datetime.now() + timedelta(days=days)).date().isoformat() + "T00:00:00"
 
 
+def _week_end_date(days_from_now: int) -> str:
+    """Expected week_end (Sunday) for a TARGET anchored at days_from_now."""
+    return (datetime.now() + timedelta(days=days_from_now + 6)).date().isoformat()
+
+
 ATP_FIXTURE = [
     {
         "id": 9001,
@@ -30,31 +35,34 @@ ATP_FIXTURE = [
         "tags": ["Base"],
         "color": "#4CAF50",
         "type": "Ride",
+        "plan_applied": "2026-01-15T10:00:00+00:00",
     },
     {
         "id": 9002,
         "start_date_local": _date_offset(30),
-        "end_date_local": _date_offset(36),
+        "end_date_local": _date_offset(31),
         "category": "TARGET",
         "name": "Weekly",
         "load_target": 320,
         "time_target": 36000,
         "distance_target": 85000,
         "type": "Ride",
+        "plan_applied": "2026-01-15T10:00:00+00:00",
     },
     {
         "id": 9003,
         "start_date_local": _date_offset(37),
-        "end_date_local": _date_offset(43),
+        "end_date_local": _date_offset(38),
         "category": "TARGET",
         "name": "Weekly",
         "load_target": 280,
         "type": "Ride",
+        "plan_applied": "2026-01-15T10:00:00+00:00",
     },
     {
         "id": 9004,
         "start_date_local": _date_offset(37),
-        "end_date_local": _date_offset(43),
+        "end_date_local": _date_offset(38),
         "category": "NOTE",
         "name": "Recovery week",
         "description": "Reduce volume 30%",
@@ -87,12 +95,14 @@ class TestGetAnnualTrainingPlan:
         assert week1["load_target_tss"] == 320
         assert week1["time_target_seconds"] == 36000
         assert week1["distance_target_meters"] == 85000
+        assert week1["week_end"] == _week_end_date(30)
         assert week1["plan_name"] == "Race Plan"
         assert week1["phase"] == "Base"
         assert week1.get("week_note") is None
 
         week2 = data["weeks"][1]
         assert week2["load_target_tss"] == 280
+        assert week2["week_end"] == _week_end_date(37)
         assert week2["week_note"] == {
             "event_id": 9004,
             "name": "Recovery week",
@@ -155,9 +165,10 @@ class TestGetAnnualTrainingPlan:
                     {
                         "id": 1,
                         "start_date_local": _date_offset(1),
-                        "end_date_local": _date_offset(7),
+                        "end_date_local": _date_offset(2),
                         "category": "TARGET",
                         "load_target": 200,
+                        "plan_applied": "2026-01-15T10:00:00+00:00",
                     }
                 ],
             )
@@ -166,6 +177,7 @@ class TestGetAnnualTrainingPlan:
         result = await get_annual_training_plan(athlete_id="i999999", ctx=_make_ctx(mock_config))
         response = json.loads(result)
         assert response["data"]["weeks"][0]["load_target_tss"] == 200
+        assert response["data"]["weeks"][0]["week_end"] == _week_end_date(1)
         assert route.called
 
     async def test_transition_week_gets_new_phase(self, mock_config, respx_mock):
@@ -194,9 +206,10 @@ class TestGetAnnualTrainingPlan:
                     {
                         "id": 9003,
                         "start_date_local": boundary,
-                        "end_date_local": _date_offset(66),
+                        "end_date_local": _date_offset(61),
                         "category": "TARGET",
                         "load_target": 373,
+                        "plan_applied": "2026-01-15T10:00:00+00:00",
                     },
                 ],
             )
@@ -208,6 +221,7 @@ class TestGetAnnualTrainingPlan:
 
         assert week["load_target_tss"] == 373
         assert week["phase"] == "Build"
+        assert week["week_end"] == _week_end_date(60)
 
     async def test_personal_day_note_not_attached(self, mock_config, respx_mock):
         """Overlapping day notes without plan_applied are not attached to ATP weeks."""
@@ -227,14 +241,15 @@ class TestGetAnnualTrainingPlan:
                     {
                         "id": 9002,
                         "start_date_local": week_start,
-                        "end_date_local": _date_offset(43),
+                        "end_date_local": _date_offset(38),
                         "category": "TARGET",
                         "load_target": 280,
+                        "plan_applied": "2026-01-15T10:00:00+00:00",
                     },
                     {
                         "id": 9003,
                         "start_date_local": week_start,
-                        "end_date_local": _date_offset(43),
+                        "end_date_local": _date_offset(38),
                         "category": "NOTE",
                         "name": "Coach check-in",
                         "description": "Send weekly feedback to coach",

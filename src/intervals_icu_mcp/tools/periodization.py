@@ -22,6 +22,15 @@ def _event_date(value: str) -> date:
     return datetime.fromisoformat(value).date()
 
 
+def _atp_week_end(week_start: date) -> date:
+    """Return the Sunday ending a Mon-anchored ATP training week.
+
+    Intervals.icu TARGET events are 1-day calendar anchors (Mon→Tue in the API);
+    the UI treats them as full weeks. We mirror that here.
+    """
+    return week_start + timedelta(days=6)
+
+
 def _phase_for_week(
     week_start: date,
     phases: list[dict[str, Any]],
@@ -99,7 +108,7 @@ def _week_to_dict(
     notes: list[Event],
 ) -> dict[str, Any]:
     week_start = _event_date(event.start_date_local)
-    week_end = _event_date(event.end_date_local or event.start_date_local)
+    week_end = _atp_week_end(week_start)
     plan_name, phase = _phase_for_week(week_start, phases)
 
     item: dict[str, Any] = {
