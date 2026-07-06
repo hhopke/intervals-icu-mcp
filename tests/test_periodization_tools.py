@@ -265,3 +265,93 @@ class TestGetAnnualTrainingPlan:
         assert week["load_target_tss"] == 280
         assert week.get("week_note") is None
         assert response["data"]["summary"]["week_note_count"] == 0
+
+    async def test_name_only_note_uses_name_field(self, mock_config, respx_mock):
+        """When NOTE has no description, week_note carries name only (API description is absent)."""
+        week_start = _date_offset(37)
+        respx_mock.get("/athlete/i123456/events").mock(
+            return_value=Response(
+                200,
+                json=[
+                    {
+                        "id": 9001,
+                        "start_date_local": _date_offset(30),
+                        "end_date_local": _date_offset(60),
+                        "category": "PLAN",
+                        "name": "Race Plan",
+                        "tags": ["Base"],
+                        "plan_applied": "2026-01-15T10:00:00+00:00",
+                    },
+                    {
+                        "id": 9002,
+                        "start_date_local": week_start,
+                        "end_date_local": _date_offset(38),
+                        "category": "TARGET",
+                        "load_target": 280,
+                        "plan_applied": "2026-01-15T10:00:00+00:00",
+                    },
+                    {
+                        "id": 9003,
+                        "start_date_local": week_start,
+                        "end_date_local": _date_offset(38),
+                        "category": "NOTE",
+                        "name": "Recovery week",
+                        "plan_applied": "2026-01-15T10:00:00+00:00",
+                    },
+                ],
+            )
+        )
+
+        result = await get_annual_training_plan(ctx=_make_ctx(mock_config))
+        response = json.loads(result)
+        week_note = response["data"]["weeks"][0]["week_note"]
+
+        assert week_note == {"event_id": 9003, "name": "Recovery week"}
+        assert "text" not in week_note
+
+    async def test_note_keeps_name_and_text_when_both_present(self, mock_config, respx_mock):
+        """When NOTE has name and description (even if identical), expose both fields."""
+        week_start = _date_offset(37)
+        respx_mock.get("/athlete/i123456/events").mock(
+            return_value=Response(
+                200,
+                json=[
+                    {
+                        "id": 9001,
+                        "start_date_local": _date_offset(30),
+                        "end_date_local": _date_offset(60),
+                        "category": "PLAN",
+                        "name": "Race Plan",
+                        "tags": ["Base"],
+                        "plan_applied": "2026-01-15T10:00:00+00:00",
+                    },
+                    {
+                        "id": 9002,
+                        "start_date_local": week_start,
+                        "end_date_local": _date_offset(38),
+                        "category": "TARGET",
+                        "load_target": 280,
+                        "plan_applied": "2026-01-15T10:00:00+00:00",
+                    },
+                    {
+                        "id": 9003,
+                        "start_date_local": week_start,
+                        "end_date_local": _date_offset(38),
+                        "category": "NOTE",
+                        "name": "Recovery week",
+                        "description": "Recovery week",
+                        "plan_applied": "2026-01-15T10:00:00+00:00",
+                    },
+                ],
+            )
+        )
+
+        result = await get_annual_training_plan(ctx=_make_ctx(mock_config))
+        response = json.loads(result)
+        week_note = response["data"]["weeks"][0]["week_note"]
+
+        assert week_note == {
+            "event_id": 9003,
+            "name": "Recovery week",
+            "text": "Recovery week",
+        }
