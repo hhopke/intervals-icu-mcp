@@ -245,6 +245,7 @@ class Event(BaseModel):
     athlete_cannot_edit: bool | None = Field(None, alias="athlete_cannot_edit")
     external_id: str | None = Field(None, alias="external_id")
     created_by_id: str | None = Field(None, alias="created_by_id")
+    plan_applied: str | None = Field(None, alias="plan_applied")
 
     model_config = ConfigDict(populate_by_name=True)
 
