@@ -70,15 +70,15 @@ def _note_overlaps_week(note: Event, week_start: date, week_end: date) -> bool:
 
 def _note_to_week_dict(note: Event) -> dict[str, Any] | None:
     """Build structured week_note payload from an ATP-generated NOTE event."""
-    note_text = note.description or note.name
-    if not note_text:
-        return None
-    item: dict[str, Any] = {
-        "event_id": note.id,
-        "text": note_text.strip(),
-    }
-    if note.name:
+    item: dict[str, Any] = {"event_id": note.id}
+    if note.description:
+        item["text"] = note.description.strip()
+        if note.name:
+            item["name"] = note.name.strip()
+    elif note.name:
         item["name"] = note.name.strip()
+    else:
+        return None
     return item
 
 
