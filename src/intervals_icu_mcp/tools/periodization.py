@@ -59,6 +59,20 @@ def _note_overlaps_week(note: Event, week_start: date, week_end: date) -> bool:
     return note_start <= week_end and note_end >= week_start
 
 
+def _note_to_week_dict(note: Event) -> dict[str, Any] | None:
+    """Build structured week_note payload from an ATP-generated NOTE event."""
+    note_text = note.description or note.name
+    if not note_text:
+        return None
+    item: dict[str, Any] = {
+        "event_id": note.id,
+        "text": note_text.strip(),
+    }
+    if note.name:
+        item["name"] = note.name.strip()
+    return item
+
+
 def _phase_to_dict(event: Event) -> dict[str, Any]:
     phase_label = _primary_tag(event.tags)
     item: dict[str, Any] = {
@@ -108,9 +122,9 @@ def _week_to_dict(
 
     for note in notes:
         if _note_overlaps_week(note, week_start, week_end):
-            note_text = note.description or note.name
-            if note_text:
-                item["recovery_note"] = note_text.strip()
+            week_note = _note_to_week_dict(note)
+            if week_note:
+                item["week_note"] = week_note
             break
 
     return item
@@ -125,10 +139,11 @@ async def get_annual_training_plan(
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
-    """Read the Annual Training Plan (ATP) on the calendar — weekly load targets (TSS), Base/Build/Peak phases, and recovery-week notes.
+    """Read the Annual Training Plan (ATP) on the calendar — weekly load targets (TSS), Base/Build/Peak phases, and ATP week notes.
 
     Use when the user asks: "what's my weekly TSS target?", "what training phase
-    am I in?", "show my periodization plan", "when are my recovery weeks?".
+    am I in?", "show my periodization plan", "when are my recovery weeks?",
+    "what's the note on this training week?".
     Defaults to a 365-day forward window so the full ATP is returned; pass a
     smaller days_ahead/days_back when the user asks about a specific month or week.
     NOT individual planned workouts (icu_get_upcoming_workouts), NOT all calendar
@@ -161,7 +176,7 @@ async def get_annual_training_plan(
                         "summary": {
                             "phase_count": 0,
                             "week_count": 0,
-                            "recovery_week_count": 0,
+                            "week_note_count": 0,
                             "total_load_target_tss": None,
                         },
                     },
@@ -181,19 +196,21 @@ async def get_annual_training_plan(
                 (e for e in atp_events if e.category == "TARGET"),
                 key=lambda e: e.start_date_local,
             )
-            note_events = [e for e in atp_events if e.category == "NOTE"]
+            note_events = [
+                e for e in atp_events if e.category == "NOTE" and e.plan_applied is not None
+            ]
 
             phases = [_phase_to_dict(e) for e in plan_events]
             weeks = [_week_to_dict(e, phases, note_events) for e in target_events]
 
             total_tss = sum(e.load_target for e in target_events if e.load_target is not None)
-            recovery_week_count = sum(1 for week in weeks if week.get("recovery_note") is not None)
+            week_note_count = sum(1 for week in weeks if week.get("week_note") is not None)
 
             plan_names = {p["plan_name"] for p in phases if p.get("plan_name")}
             summary: dict[str, Any] = {
                 "phase_count": len(phases),
                 "week_count": len(weeks),
-                "recovery_week_count": recovery_week_count,
+                "week_note_count": week_note_count,
                 "total_load_target_tss": total_tss if total_tss > 0 else None,
             }
             if len(plan_names) == 1:

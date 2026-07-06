@@ -58,6 +58,7 @@ ATP_FIXTURE = [
         "category": "NOTE",
         "name": "Recovery week",
         "description": "Reduce volume 30%",
+        "plan_applied": "2026-01-15T10:00:00+00:00",
     },
     {
         "id": 9005,
@@ -88,18 +89,22 @@ class TestGetAnnualTrainingPlan:
         assert week1["distance_target_meters"] == 85000
         assert week1["plan_name"] == "Race Plan"
         assert week1["phase"] == "Base"
-        assert week1.get("recovery_note") is None
+        assert week1.get("week_note") is None
 
         week2 = data["weeks"][1]
         assert week2["load_target_tss"] == 280
-        assert week2["recovery_note"] == "Reduce volume 30%"
+        assert week2["week_note"] == {
+            "event_id": 9004,
+            "name": "Recovery week",
+            "text": "Reduce volume 30%",
+        }
         assert week2["plan_name"] == "Race Plan"
         assert week2["phase"] == "Base"
 
         assert data["summary"]["phase_count"] == 1
         assert data["summary"]["plan_name"] == "Race Plan"
         assert data["summary"]["week_count"] == 2
-        assert data["summary"]["recovery_week_count"] == 1
+        assert data["summary"]["week_note_count"] == 1
         assert data["summary"]["total_load_target_tss"] == 600
 
     async def test_empty(self, mock_config, respx_mock):
@@ -203,3 +208,45 @@ class TestGetAnnualTrainingPlan:
 
         assert week["load_target_tss"] == 373
         assert week["phase"] == "Build"
+
+    async def test_personal_day_note_not_attached(self, mock_config, respx_mock):
+        """Overlapping day notes without plan_applied are not attached to ATP weeks."""
+        week_start = _date_offset(37)
+        respx_mock.get("/athlete/i123456/events").mock(
+            return_value=Response(
+                200,
+                json=[
+                    {
+                        "id": 9001,
+                        "start_date_local": _date_offset(30),
+                        "end_date_local": _date_offset(60),
+                        "category": "PLAN",
+                        "name": "Race Plan",
+                        "tags": ["Base"],
+                    },
+                    {
+                        "id": 9002,
+                        "start_date_local": week_start,
+                        "end_date_local": _date_offset(43),
+                        "category": "TARGET",
+                        "load_target": 280,
+                    },
+                    {
+                        "id": 9003,
+                        "start_date_local": week_start,
+                        "end_date_local": _date_offset(43),
+                        "category": "NOTE",
+                        "name": "Coach check-in",
+                        "description": "Send weekly feedback to coach",
+                    },
+                ],
+            )
+        )
+
+        result = await get_annual_training_plan(ctx=_make_ctx(mock_config))
+        response = json.loads(result)
+        week = response["data"]["weeks"][0]
+
+        assert week["load_target_tss"] == 280
+        assert week.get("week_note") is None
+        assert response["data"]["summary"]["week_note_count"] == 0
