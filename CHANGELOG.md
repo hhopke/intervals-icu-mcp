@@ -17,9 +17,9 @@ breaking; this narrower contract applies from the next release onward.)
 ## [Unreleased]
 
 ### Added
-- New `icu_get_annual_training_plan` tool — reads Annual Training Plan (ATP) periodization from the calendar: weekly load targets (TSS), Base/Build/Peak phase blocks, and recovery-week notes, shaped from `PLAN`/`TARGET`/`NOTE` events. Defaults to a 365-day forward window; narrow with `days_ahead`/`days_back`. Safe-mode tool count goes 55 → 56 (58 → 59 in full mode). Contributed by @jorge-huxley (#73).
+- New `icu_get_annual_training_plan` tool — reads Annual Training Plan (ATP) periodization from the calendar: weekly load targets (TSS), Base/Build/Peak phase blocks, and per-week notes as structured `week_note` objects (ATP-generated `plan_applied` notes only — overlapping personal calendar notes are excluded), shaped from `PLAN`/`TARGET`/`NOTE` events. Defaults to a 365-day forward window; narrow with `days_ahead`/`days_back`. Safe-mode tool count goes 55 → 56 (58 → 59 in full mode). Contributed by @jorge-huxley (#73, #84).
 - New `icu_get_activities_by_date` tool — lists activities in an explicit date window (`oldest`/`newest`, YYYY-MM-DD, both inclusive; `newest` defaults to today), bounded only by `limit` (default 500, newest-first). Reaches arbitrary historical windows that `icu_get_recent_activities` (anchored to today, capped at 100) cannot. Safe-mode tool count goes 56 → 57 (59 → 60 in full mode). Contributed by @rfrancica (#74).
-- The `Event` model now retains `load_target`, `time_target`, and `tags` from the API (previously dropped during validation).
+- The `Event` model now retains `load_target`, `time_target`, `tags`, and `plan_applied` from the API (previously dropped during validation).
 
 ### Changed
 - Versioning policy: the SemVer contract is narrowed to what breaks integrations — tool names, tool parameters, config env var semantics, default tool registration, and removal of information from responses. Response-shape changes that preserve information (key renames, restructuring, added fields) are now **minor**, not major. See the header above. Previously any response-shape change forced a major bump.
@@ -27,7 +27,6 @@ breaking; this narrower contract applies from the next release onward.)
 
 ### Fixed
 - Corrected the distance units in the `intervals-icu://workout-syntax` resource: meters are `mtr` (e.g. `400mtr`) and yards are `yrd`, not the ambiguous `m`/`yd`. Intervals.icu parses a bare `m` as **minutes**, so the previous docs led LLMs to write `400m` for a 400 m swim step — parsed as 400 minutes, producing wildly inflated durations and distances (a 2500 m swim came out as ~417 km / ~41 h). All swim/run examples now use `mtr`, and a note spells out the `m`-means-minutes rule (#75).
-- ATP weeks starting on a shared phase-boundary date (e.g. Base ends and Build starts on the same day) are now assigned to the newer phase (#73).
 - `icu_get_activities_around` failed with HTTP 422 on every call: the client sent query params `id`/`count`, but the API requires `activity_id`/`limit`. New regression tests assert the outgoing query params, not just the URL path — the gap that let this slip through (#74).
 
 ## [4.0.0] — 2026-06-18
