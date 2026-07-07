@@ -14,7 +14,7 @@ that preserve the information (key renames, restructuring, added fields) ship in
 clients. (Releases up to and including 4.0.0 treated any response-shape change as
 breaking; this narrower contract applies from the next release onward.)
 
-## [Unreleased]
+## [4.1.0] — 2026-07-07
 
 ### Added
 - New `icu_get_annual_training_plan` tool — reads Annual Training Plan (ATP) periodization from the calendar: weekly load targets (TSS), Base/Build/Peak phase blocks, and per-week notes as structured `week_note` objects (ATP-generated `plan_applied` notes only — overlapping personal calendar notes are excluded), shaped from `PLAN`/`TARGET`/`NOTE` events. Defaults to a 365-day forward window; narrow with `days_ahead`/`days_back`. Safe-mode tool count goes 55 → 56 (58 → 59 in full mode). Contributed by @jorge-huxley (#73, #84).
