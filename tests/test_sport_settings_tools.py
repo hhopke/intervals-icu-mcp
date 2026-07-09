@@ -122,6 +122,7 @@ class TestSportSettingsTools:
             "ftp": 275,
             "indoor_ftp": 265,
         }
+        assert route.calls.last.request.url.params["recalcHrZones"] == "true"
         assert response["metadata"]["message"] == "Sport settings updated successfully"
 
     async def test_update_sport_settings_sends_lthr(self, patch_config, respx_mock):
@@ -171,13 +172,23 @@ class TestSportSettingsTools:
         assert "error" in response
         assert "Resource not found" in response["error"]["message"]
 
+    async def test_update_sport_settings_recalc_hr_zones_false(self, patch_config, respx_mock):
+        """recalc_hr_zones=false is forwarded as recalcHrZones query param."""
+        route = respx_mock.put("/athlete/i123456/sport-settings/2").mock(
+            return_value=Response(200, json={"id": 2, "types": ["Run"], "lthr": 170})
+        )
+
+        await update_sport_settings(sport_id=2, fthr=170, recalc_hr_zones=False)
+
+        assert route.calls.last.request.url.params["recalcHrZones"] == "false"
+
     async def test_apply_sport_settings_success(self, patch_config, respx_mock):
-        """Apply settings returns the API payload verbatim with metadata."""
-        respx_mock.post("/athlete/i123456/sport-settings/1/apply").mock(
+        """Apply settings uses PUT and returns the API payload with metadata."""
+        respx_mock.put("/athlete/i123456/sport-settings/1/apply").mock(
             return_value=Response(200, json={"applied": 42})
         )
 
-        result = await apply_sport_settings(sport_id=1, oldest_date="2026-01-01")
+        result = await apply_sport_settings(sport_id=1)
 
         response = json.loads(result)
         assert response["data"]["applied"] == 42

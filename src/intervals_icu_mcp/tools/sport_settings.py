@@ -55,6 +55,9 @@ async def update_sport_settings(
     swim_threshold: Annotated[
         float | None, "Swim threshold in min/100m (e.g., 1.5 for 1:30/100m)"
     ] = None,
+    recalc_hr_zones: Annotated[
+        bool, "Recalculate HR zones from the updated threshold heart rate"
+    ] = True,
     ctx: Context | None = None,
 ) -> str:
     """Update an existing per-sport threshold record (outdoor/indoor FTP, FTHR, pace, swim)."""
@@ -79,7 +82,11 @@ async def update_sport_settings(
                     "No fields provided to update", error_type="validation_error"
                 )
 
-            settings = await client.update_sport_settings(sport_id, settings_data)
+            settings = await client.update_sport_settings(
+                sport_id,
+                settings_data,
+                recalc_hr_zones=recalc_hr_zones,
+            )
 
             return ResponseBuilder.build_response(
                 format_sport_settings_entry(settings),
@@ -97,9 +104,6 @@ async def update_sport_settings(
 
 async def apply_sport_settings(
     sport_id: Annotated[int, "ID of the sport settings to apply"],
-    oldest_date: Annotated[
-        str | None, "Oldest date to apply settings to (YYYY-MM-DD format)"
-    ] = None,
     ctx: Context | None = None,
 ) -> str:
     """Recompute training load, zones, and derived metrics on HISTORICAL activities using the current sport settings.
@@ -115,7 +119,7 @@ async def apply_sport_settings(
 
     try:
         async with ICUClient(config) as client:
-            result = await client.apply_sport_settings(sport_id, oldest=oldest_date)
+            result = await client.apply_sport_settings(sport_id)
 
             return ResponseBuilder.build_response(
                 result,

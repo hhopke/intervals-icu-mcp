@@ -1101,6 +1101,8 @@ class ICUClient:
         sport_id: int,
         settings_data: dict[str, Any],
         athlete_id: str | None = None,
+        *,
+        recalc_hr_zones: bool = True,
     ) -> SportSettings:
         """Update sport-specific settings (FTP, FTHR, pace threshold, etc.).
 
@@ -1108,39 +1110,37 @@ class ICUClient:
             sport_id: Sport settings ID
             settings_data: Updated settings data dictionary
             athlete_id: Athlete ID (uses config default if not provided)
+            recalc_hr_zones: Whether Intervals.icu should recalculate HR zones
 
         Returns:
             Updated SportSettings object
         """
         athlete_id = athlete_id or self.config.intervals_icu_athlete_id
         response = await self._request(
-            "PUT", f"/athlete/{athlete_id}/sport-settings/{sport_id}", json=settings_data
+            "PUT",
+            f"/athlete/{athlete_id}/sport-settings/{sport_id}",
+            params={"recalcHrZones": recalc_hr_zones},
+            json=settings_data,
         )
         return SportSettings(**response.json())
 
     async def apply_sport_settings(
         self,
         sport_id: int,
-        oldest: str | None = None,
         athlete_id: str | None = None,
     ) -> dict[str, Any]:
         """Apply sport settings (zones, thresholds) to historical activities.
 
         Args:
             sport_id: Sport settings ID
-            oldest: Oldest date to apply settings to (ISO-8601 format)
             athlete_id: Athlete ID (uses config default if not provided)
 
         Returns:
             Result of applying settings
         """
         athlete_id = athlete_id or self.config.intervals_icu_athlete_id
-        params = {}
-        if oldest:
-            params["oldest"] = oldest
-
         response = await self._request(
-            "POST", f"/athlete/{athlete_id}/sport-settings/{sport_id}/apply", params=params
+            "PUT", f"/athlete/{athlete_id}/sport-settings/{sport_id}/apply"
         )
         return response.json()
 
