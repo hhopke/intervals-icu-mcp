@@ -1,6 +1,6 @@
 """Sport-specific settings tools for FTP, FTHR, pace thresholds, and zones."""
 
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastmcp import Context
 

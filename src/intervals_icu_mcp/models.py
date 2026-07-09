@@ -1,7 +1,7 @@
 """Pydantic models for Intervals.icu API responses."""
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
@@ -56,22 +56,25 @@ class SportSettings(BaseModel):
         if not isinstance(data, dict):
             return data
 
-        normalized = dict(data)
-        types = normalized.get("types")
-        if isinstance(types, list) and types and not normalized.get("type"):
+        raw = cast(dict[str, Any], data)
+        normalized: dict[str, Any] = dict(raw)
+        types = raw.get("types")
+        if isinstance(types, list) and types and normalized.get("type") is None:
             normalized["type"] = types[0]
 
-        if normalized.get("lthr") is not None and normalized.get("fthr") is None:
-            normalized["fthr"] = normalized["lthr"]
+        if raw.get("lthr") is not None and normalized.get("fthr") is None:
+            normalized["fthr"] = raw["lthr"]
 
-        threshold_pace = normalized.get("threshold_pace")
+        threshold_pace = raw.get("threshold_pace")
         if threshold_pace is not None:
-            pace_load_type = normalized.get("pace_load_type")
-            pace_units = normalized.get("pace_units") or ""
-            sport_types = types if isinstance(types, list) else []
-            is_swim = pace_load_type == "SWIM" or any(t in _SWIM_SPORT_TYPES for t in sport_types)
+            pace_load_type = raw.get("pace_load_type")
+            pace_units = raw.get("pace_units") or ""
+            sport_types = cast(list[Any], types) if isinstance(types, list) else []
+            is_swim = pace_load_type == "SWIM" or any(
+                isinstance(t, str) and t in _SWIM_SPORT_TYPES for t in sport_types
+            )
             if is_swim:
-                if pace_units in _SWIM_PACE_UNITS_SECONDS:
+                if isinstance(pace_units, str) and pace_units in _SWIM_PACE_UNITS_SECONDS:
                     normalized["swim_threshold"] = threshold_pace / 60.0
                 elif normalized.get("swim_threshold") is None:
                     normalized["swim_threshold"] = threshold_pace

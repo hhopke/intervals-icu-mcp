@@ -61,12 +61,12 @@ def mock_athlete_data():
         "atl": 35.0,
         "tsb": 15.0,
         "ramp_rate": 3.5,
-        "sport_settings": [
+        "sportSettings": [
             {
                 "id": 1,
-                "type": "Ride",
+                "types": ["Ride"],
                 "ftp": 250,
-                "fthr": 165,
+                "lthr": 165,
             }
         ],
     }

@@ -250,6 +250,69 @@ class TestMultiAthleteEventManagement:
 # ==================== Pydantic Aliases (watts fields) ====================
 
 
+class TestSportSettingsModelMapping:
+    """SportSettings and Athlete parse Intervals.icu API field names."""
+
+    def test_sport_settings_maps_lthr_types_and_threshold_pace(self):
+        from intervals_icu_mcp.models import SportSettings
+
+        settings = SportSettings.model_validate(
+            {
+                "id": 1,
+                "types": ["Ride", "VirtualRide"],
+                "ftp": 242,
+                "indoor_ftp": 232,
+                "lthr": 176,
+            }
+        )
+
+        assert settings.type == "Ride"
+        assert settings.ftp == 242
+        assert settings.indoor_ftp == 232
+        assert settings.fthr == 176
+
+    def test_sport_settings_maps_swim_threshold_from_seconds(self):
+        from intervals_icu_mcp.models import SportSettings
+
+        settings = SportSettings.model_validate(
+            {
+                "id": 3,
+                "types": ["Swim"],
+                "threshold_pace": 90,
+                "pace_units": "SECS_100M",
+                "pace_load_type": "SWIM",
+            }
+        )
+
+        assert settings.type == "Swim"
+        assert settings.swim_threshold == 1.5
+        assert settings.pace_threshold is None
+
+    def test_athlete_maps_sport_settings_camel_case(self):
+        from intervals_icu_mcp.models import Athlete
+
+        athlete = Athlete.model_validate(
+            {
+                "id": "i123456",
+                "name": "Test",
+                "sportSettings": [
+                    {
+                        "id": 1,
+                        "types": ["Ride"],
+                        "ftp": 250,
+                        "indoor_ftp": 235,
+                        "lthr": 165,
+                    }
+                ],
+            }
+        )
+
+        assert len(athlete.sport_settings) == 1
+        assert athlete.sport_settings[0].type == "Ride"
+        assert athlete.sport_settings[0].indoor_ftp == 235
+        assert athlete.sport_settings[0].fthr == 165
+
+
 class TestPydanticAliases:
     """Test that icu_average_watts / icu_weighted_avg_watts map correctly."""
 
