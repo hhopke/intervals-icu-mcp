@@ -666,6 +666,7 @@ async def athlete_profile_resource() -> str:
     from .auth import load_config
     from .client import ICUAPIError, ICUClient
     from .response_builder import ResponseBuilder
+    from .sport_settings_format import format_sport_settings_entry
 
     # Load config directly since resources don't go through middleware
     config = load_config()
@@ -692,21 +693,10 @@ async def athlete_profile_resource() -> str:
 
             # Add sport settings if available
             if athlete.sport_settings:
-                sport_data: list[dict[str, str | int | float | None]] = []
-                for sport in athlete.sport_settings:
-                    sport_info: dict[str, str | int | float | None] = {
-                        "type": sport.type,
-                    }
-                    if sport.ftp:
-                        sport_info["ftp"] = sport.ftp
-                    if sport.indoor_ftp is not None:
-                        sport_info["indoor_ftp"] = sport.indoor_ftp
-                    if sport.fthr:
-                        sport_info["fthr"] = sport.fthr
-                    if sport.pace_threshold:
-                        sport_info["threshold_pace"] = sport.pace_threshold
-                    sport_data.append(sport_info)
-                data["sports"] = sport_data
+                data["sports"] = [
+                    format_sport_settings_entry(sport, include_id=False)
+                    for sport in athlete.sport_settings
+                ]
 
             return ResponseBuilder.build_response(data, metadata={"type": "athlete_profile"})
     except ICUAPIError as e:
