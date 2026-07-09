@@ -12,7 +12,7 @@ from ..response_builder import ResponseBuilder
 async def get_sport_settings(
     ctx: Context | None = None,
 ) -> str:
-    """Get all per-sport thresholds — FTP (cycling watts), FTHR (heart rate), pace threshold (running), swim threshold."""
+    """Get all per-sport thresholds — outdoor/indoor FTP, FTHR, running pace, and swim threshold."""
     config = load_config()
     if not validate_credentials(config):
         return (
@@ -39,6 +39,8 @@ async def get_sport_settings(
                 # Power settings (cycling)
                 if settings.ftp is not None:
                     sport_info["ftp_watts"] = settings.ftp
+                if settings.indoor_ftp is not None:
+                    sport_info["indoor_ftp_watts"] = settings.indoor_ftp
 
                 # Heart rate settings
                 if settings.fthr is not None:
@@ -75,6 +77,9 @@ async def get_sport_settings(
 async def update_sport_settings(
     sport_id: Annotated[int, "ID of the sport settings to update"],
     ftp: Annotated[int | None, "Functional Threshold Power in watts (for cycling)"] = None,
+    indoor_ftp: Annotated[
+        int | None, "Indoor Functional Threshold Power in watts (for cycling)"
+    ] = None,
     fthr: Annotated[int | None, "Functional Threshold Heart Rate in bpm"] = None,
     pace_threshold: Annotated[
         float | None, "Threshold pace in min/km (e.g., 4.5 for 4:30/km)"
@@ -84,7 +89,7 @@ async def update_sport_settings(
     ] = None,
     ctx: Context | None = None,
 ) -> str:
-    """Update an existing per-sport threshold record (FTP/FTHR/pace/swim). Only fields you pass are sent."""
+    """Update an existing per-sport threshold record (outdoor/indoor FTP, FTHR, pace, swim)."""
     config = load_config()
     if not validate_credentials(config):
         return (
@@ -97,6 +102,8 @@ async def update_sport_settings(
 
             if ftp is not None:
                 settings_data["ftp"] = ftp
+            if indoor_ftp is not None:
+                settings_data["indoor_ftp"] = indoor_ftp
             if fthr is not None:
                 settings_data["fthr"] = fthr
             if pace_threshold is not None:
@@ -118,6 +125,8 @@ async def update_sport_settings(
 
             if settings.ftp is not None:
                 result["ftp_watts"] = settings.ftp
+            if settings.indoor_ftp is not None:
+                result["indoor_ftp_watts"] = settings.indoor_ftp
             if settings.fthr is not None:
                 result["fthr_bpm"] = settings.fthr
             if settings.pace_threshold is not None:
@@ -184,6 +193,9 @@ async def apply_sport_settings(
 async def create_sport_settings(
     sport_type: Annotated[str, "Type of sport (e.g., 'Ride', 'Run', 'Swim')"],
     ftp: Annotated[int | None, "Functional Threshold Power in watts (for cycling)"] = None,
+    indoor_ftp: Annotated[
+        int | None, "Indoor Functional Threshold Power in watts (for cycling)"
+    ] = None,
     fthr: Annotated[int | None, "Functional Threshold Heart Rate in bpm"] = None,
     pace_threshold: Annotated[
         float | None, "Threshold pace in min/km (e.g., 4.5 for 4:30/km)"
@@ -193,7 +205,7 @@ async def create_sport_settings(
     ] = None,
     ctx: Context | None = None,
 ) -> str:
-    """Create new per-sport threshold record (FTP/FTHR/pace/swim) for a sport that doesn't have one yet."""
+    """Create a per-sport threshold record with outdoor/indoor FTP, FTHR, pace, or swim settings."""
     config = load_config()
     if not validate_credentials(config):
         return (
@@ -206,6 +218,8 @@ async def create_sport_settings(
 
             if ftp is not None:
                 settings_data["ftp"] = ftp
+            if indoor_ftp is not None:
+                settings_data["indoor_ftp"] = indoor_ftp
             if fthr is not None:
                 settings_data["fthr"] = fthr
             if pace_threshold is not None:
@@ -222,6 +236,8 @@ async def create_sport_settings(
 
             if settings.ftp is not None:
                 result["ftp_watts"] = settings.ftp
+            if settings.indoor_ftp is not None:
+                result["indoor_ftp_watts"] = settings.indoor_ftp
             if settings.fthr is not None:
                 result["fthr_bpm"] = settings.fthr
             if settings.pace_threshold is not None:

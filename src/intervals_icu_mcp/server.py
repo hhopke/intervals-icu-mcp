@@ -699,6 +699,8 @@ async def athlete_profile_resource() -> str:
                     }
                     if sport.ftp:
                         sport_info["ftp"] = sport.ftp
+                    if sport.indoor_ftp is not None:
+                        sport_info["indoor_ftp"] = sport.indoor_ftp
                     if sport.fthr:
                         sport_info["fthr"] = sport.fthr
                     if sport.pace_threshold:

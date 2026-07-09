@@ -57,9 +57,7 @@ class TestAthleteProfileFormBuckets:
             (-10.0, "declining_significantly"),
         ],
     )
-    async def test_ramp_rate_buckets(
-        self, ramp_rate, expected_status, mock_config, respx_mock
-    ):
+    async def test_ramp_rate_buckets(self, ramp_rate, expected_status, mock_config, respx_mock):
         respx_mock.get("/athlete/i123456").mock(
             return_value=Response(
                 200,
@@ -87,7 +85,13 @@ class TestAthleteProfileSportSettings:
                     "name": "Test",
                     "sport_settings": [
                         {"id": 1, "type": "Run", "fthr": 170, "pace_threshold": 240.0},
-                        {"id": 2, "type": "Ride", "ftp": 260, "fthr": 165},
+                        {
+                            "id": 2,
+                            "type": "Ride",
+                            "ftp": 260,
+                            "indoor_ftp": 250,
+                            "fthr": 165,
+                        },
                         {"id": 3, "type": "Swim", "swim_threshold": 95.0},
                     ],
                 },
@@ -102,6 +106,7 @@ class TestAthleteProfileSportSettings:
         assert run["pace_threshold_formatted"] == "4:00 /km"
         ride = next(s for s in sports if s["type"] == "Ride")
         assert ride["ftp"] == 260
+        assert ride["indoor_ftp"] == 250
         swim = next(s for s in sports if s["type"] == "Swim")
         assert swim["swim_threshold"] == 95.0
 

@@ -99,6 +99,7 @@ _Note: The athlete profile resource (`intervals-icu://athlete/profile`) automati
 
 ```
 "Update my FTP to 275 watts"
+"Set my indoor FTP to 260 watts"
 "Show my current zone settings for cycling"
 "Set my running threshold pace to 4:30 per kilometer"
 "Apply my new threshold settings to historical activities"
