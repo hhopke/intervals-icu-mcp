@@ -37,6 +37,7 @@ class SportSettings(BaseModel):
     id: int
     type: str | None = None
     ftp: int | None = None
+    indoor_ftp: int | None = None
     fthr: int | None = None
     pace_threshold: float | None = None
     swim_threshold: float | None = None

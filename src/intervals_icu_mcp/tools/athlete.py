@@ -13,7 +13,7 @@ from ..response_builder import ResponseBuilder
 async def get_athlete_profile(
     ctx: Context | None = None,
 ) -> str:
-    """Get the authenticated athlete's profile — personal details, sport settings (FTP/FTHR/pace thresholds per sport), and current CTL/ATL/TSB with form interpretation."""
+    """Get the authenticated athlete's profile — sport settings (outdoor/indoor FTP, FTHR, pace) and current CTL/ATL/TSB."""
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
 
@@ -56,6 +56,8 @@ async def get_athlete_profile(
                         sport_data["type"] = sport.type
                     if sport.ftp:
                         sport_data["ftp"] = sport.ftp
+                    if sport.indoor_ftp is not None:
+                        sport_data["indoor_ftp"] = sport.indoor_ftp
                     if sport.fthr:
                         sport_data["fthr"] = sport.fthr
                     if sport.pace_threshold:

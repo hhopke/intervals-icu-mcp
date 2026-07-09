@@ -92,7 +92,7 @@ The threaded notes/comments shown under an activity — the user's own training 
 
 | Tool                  | Description                                                     |
 | --------------------- | --------------------------------------------------------------- |
-| `icu_get_athlete_profile` | Get athlete profile with fitness metrics and sport settings     |
+| `icu_get_athlete_profile` | Get athlete profile, fitness metrics, and outdoor/indoor FTP   |
 | `icu_get_fitness_summary` | Get detailed CTL/ATL/TSB analysis with training recommendations |
 
 ### Wellness (3 tools)
@@ -150,7 +150,7 @@ The threaded notes/comments shown under an activity — the user's own training 
 | Tool                    | Description                                             |
 | ----------------------- | ------------------------------------------------------- |
 | `icu_get_sport_settings`    | Get sport-specific settings and thresholds              |
-| `icu_update_sport_settings` | Update FTP, FTHR, pace threshold, or zone configuration |
+| `icu_update_sport_settings` | Update outdoor/indoor FTP, FTHR, pace threshold, or zone configuration |
 | `icu_apply_sport_settings`  | Apply updated settings to historical activities         |
 | `icu_create_sport_settings` | Create new sport-specific settings                      |
 | `icu_delete_sport_settings` | Delete sport-specific settings *(only registered when `INTERVALS_ICU_DELETE_MODE=full`; deletion shifts retroactive chart math)* |

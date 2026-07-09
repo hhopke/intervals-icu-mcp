@@ -45,6 +45,13 @@ class TestInMemoryTransport:
             assert "icu_get_custom_items" in names  # Custom items
             assert "icu_update_sport_settings" in names
 
+    async def test_sport_settings_tools_expose_indoor_ftp(self):
+        """Create and update schemas accept the separate indoor power threshold."""
+        async with Client(mcp) as client:
+            tools = {tool.name: tool for tool in await client.list_tools()}
+            for name in {"icu_create_sport_settings", "icu_update_sport_settings"}:
+                assert "indoor_ftp" in tools[name].inputSchema["properties"]
+
     async def test_tools_use_icu_prefix(self):
         """Every tool follows the naming convention documented in the README."""
         async with Client(mcp) as client:

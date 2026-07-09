@@ -31,7 +31,13 @@ class TestSportSettingsTools:
             return_value=Response(
                 200,
                 json=[
-                    {"id": 1, "type": "Ride", "ftp": 250, "fthr": 165},
+                    {
+                        "id": 1,
+                        "type": "Ride",
+                        "ftp": 250,
+                        "indoor_ftp": 235,
+                        "fthr": 165,
+                    },
                     {
                         "id": 2,
                         "type": "Run",
@@ -54,6 +60,7 @@ class TestSportSettingsTools:
         settings = response["data"]["sport_settings"]
         assert len(settings) == 3
         assert settings[0]["ftp_watts"] == 250
+        assert settings[0]["indoor_ftp_watts"] == 235
         assert settings[0]["fthr_bpm"] == 165
         assert settings[1]["pace_threshold"] == "4:30 /km"
         assert settings[2]["swim_threshold"] == "1:30 /100m"
@@ -89,19 +96,21 @@ class TestSportSettingsTools:
         assert "credentials not configured" in result
 
     async def test_update_sport_settings_success(self, patch_config, respx_mock):
-        """Successful FTP update returns formatted settings."""
-        respx_mock.put("/athlete/i123456/sport-settings/1").mock(
+        """Successful outdoor and indoor FTP update returns formatted settings."""
+        route = respx_mock.put("/athlete/i123456/sport-settings/1").mock(
             return_value=Response(
                 200,
-                json={"id": 1, "type": "Ride", "ftp": 275, "fthr": 165},
+                json={"id": 1, "type": "Ride", "ftp": 275, "indoor_ftp": 265, "fthr": 165},
             )
         )
 
-        result = await update_sport_settings(sport_id=1, ftp=275)
+        result = await update_sport_settings(sport_id=1, ftp=275, indoor_ftp=265)
 
         response = json.loads(result)
         assert "data" in response
         assert response["data"]["ftp_watts"] == 275
+        assert response["data"]["indoor_ftp_watts"] == 265
+        assert json.loads(route.calls.last.request.content) == {"ftp": 275, "indoor_ftp": 265}
         assert response["metadata"]["message"] == "Sport settings updated successfully"
 
     async def test_update_sport_settings_requires_a_field(self, patch_config):
@@ -163,6 +172,25 @@ class TestSportSettingsTools:
         assert response["data"]["type"] == "Run"
         assert response["data"]["pace_threshold"] == "4:30 /km"
         assert response["metadata"]["message"] == "Sport settings created successfully"
+
+    async def test_create_sport_settings_with_indoor_ftp(self, patch_config, respx_mock):
+        """Indoor FTP is sent to the API and returned in the created settings."""
+        route = respx_mock.post("/athlete/i123456/sport-settings").mock(
+            return_value=Response(
+                200,
+                json={"id": 8, "type": "Ride", "ftp": 275, "indoor_ftp": 265},
+            )
+        )
+
+        result = await create_sport_settings(sport_type="Ride", ftp=275, indoor_ftp=265)
+
+        response = json.loads(result)
+        assert response["data"]["indoor_ftp_watts"] == 265
+        assert json.loads(route.calls.last.request.content) == {
+            "type": "Ride",
+            "ftp": 275,
+            "indoor_ftp": 265,
+        }
 
     async def test_delete_sport_settings_success(self, patch_config, respx_mock):
         """Delete returns a confirmation payload."""
