@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 # Type aliases for common enums
 ActivityType = Literal["Ride", "Run", "Swim", "Walk", "Hike", "VirtualRide", "VirtualRun", "Other"]
@@ -30,9 +30,16 @@ TrainingAvailability = Literal["NORMAL", "LIMITED", "UNAVAILABLE"]
 
 # ==================== Athlete Models ====================
 
+_SWIM_SPORT_TYPES = frozenset({"Swim", "OpenWaterSwim"})
+_SWIM_PACE_UNITS_SECONDS = frozenset(
+    {"SECS_100M", "SECS_100Y", "SECS_500M", "SECS_400M", "SECS_250M"}
+)
+
 
 class SportSettings(BaseModel):
     """Sport-specific settings for an athlete."""
+
+    model_config = ConfigDict(populate_by_name=True)
 
     id: int
     type: str | None = None
@@ -42,9 +49,42 @@ class SportSettings(BaseModel):
     pace_threshold: float | None = None
     swim_threshold: float | None = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_api_fields(cls, data: Any) -> Any:
+        """Map Intervals.icu SportSettings JSON to MCP field names."""
+        if not isinstance(data, dict):
+            return data
+
+        normalized = dict(data)
+        types = normalized.get("types")
+        if isinstance(types, list) and types and not normalized.get("type"):
+            normalized["type"] = types[0]
+
+        if normalized.get("lthr") is not None and normalized.get("fthr") is None:
+            normalized["fthr"] = normalized["lthr"]
+
+        threshold_pace = normalized.get("threshold_pace")
+        if threshold_pace is not None:
+            pace_load_type = normalized.get("pace_load_type")
+            pace_units = normalized.get("pace_units") or ""
+            sport_types = types if isinstance(types, list) else []
+            is_swim = pace_load_type == "SWIM" or any(t in _SWIM_SPORT_TYPES for t in sport_types)
+            if is_swim:
+                if pace_units in _SWIM_PACE_UNITS_SECONDS:
+                    normalized["swim_threshold"] = threshold_pace / 60.0
+                elif normalized.get("swim_threshold") is None:
+                    normalized["swim_threshold"] = threshold_pace
+            elif normalized.get("pace_threshold") is None:
+                normalized["pace_threshold"] = threshold_pace
+
+        return normalized
+
 
 class Athlete(BaseModel):
     """Full athlete profile information."""
+
+    model_config = ConfigDict(populate_by_name=True)
 
     id: str
     name: str
@@ -57,7 +97,10 @@ class Athlete(BaseModel):
     atl: float | None = None
     tsb: float | None = None
     ramp_rate: float | None = None
-    sport_settings: list[SportSettings] = Field(default_factory=list[SportSettings])
+    sport_settings: list[SportSettings] = Field(
+        default_factory=list[SportSettings],
+        validation_alias=AliasChoices("sport_settings", "sportSettings"),
+    )
 
 
 class AthleteProfile(BaseModel):
