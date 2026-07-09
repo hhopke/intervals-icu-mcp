@@ -51,6 +51,8 @@ class TestInMemoryTransport:
             tools = {tool.name: tool for tool in await client.list_tools()}
             for name in {"icu_create_sport_settings", "icu_update_sport_settings"}:
                 assert "indoor_ftp" in tools[name].inputSchema["properties"]
+            assert "recalc_hr_zones" in tools["icu_update_sport_settings"].inputSchema["properties"]
+            assert "oldest_date" not in tools["icu_apply_sport_settings"].inputSchema["properties"]
 
     async def test_tools_use_icu_prefix(self):
         """Every tool follows the naming convention documented in the README."""
