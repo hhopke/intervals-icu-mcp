@@ -76,23 +76,36 @@ class TestAthleteProfileFormBuckets:
 
 class TestAthleteProfileSportSettings:
     async def test_pace_threshold_formatted(self, mock_config, respx_mock):
-        """Run pace_threshold is rendered as 'M:SS /km' alongside the raw seconds value."""
+        """Run threshold_pace is rendered with the same unit suffixes as sport settings tools."""
         respx_mock.get("/athlete/i123456").mock(
             return_value=Response(
                 200,
                 json={
                     "id": "i123456",
                     "name": "Test",
-                    "sport_settings": [
-                        {"id": 1, "type": "Run", "fthr": 170, "pace_threshold": 240.0},
+                    "sportSettings": [
+                        {
+                            "id": 1,
+                            "types": ["Run"],
+                            "lthr": 170,
+                            "threshold_pace": 4.0,
+                            "pace_units": "MINS_KM",
+                            "pace_load_type": "RUN",
+                        },
                         {
                             "id": 2,
-                            "type": "Ride",
+                            "types": ["Ride"],
                             "ftp": 260,
                             "indoor_ftp": 250,
-                            "fthr": 165,
+                            "lthr": 165,
                         },
-                        {"id": 3, "type": "Swim", "swim_threshold": 95.0},
+                        {
+                            "id": 3,
+                            "types": ["Swim"],
+                            "threshold_pace": 95,
+                            "pace_units": "SECS_100M",
+                            "pace_load_type": "SWIM",
+                        },
                     ],
                 },
             )
@@ -102,13 +115,13 @@ class TestAthleteProfileSportSettings:
         response = json.loads(result)
         sports = response["data"]["sports"]
         run = next(s for s in sports if s["type"] == "Run")
-        assert run["pace_threshold_seconds"] == 240.0
-        assert run["pace_threshold_formatted"] == "4:00 /km"
+        assert run["fthr_bpm"] == 170
+        assert run["pace_threshold"] == "4:00 /km"
         ride = next(s for s in sports if s["type"] == "Ride")
-        assert ride["ftp"] == 260
-        assert ride["indoor_ftp"] == 250
+        assert ride["ftp_watts"] == 260
+        assert ride["indoor_ftp_watts"] == 250
         swim = next(s for s in sports if s["type"] == "Swim")
-        assert swim["swim_threshold"] == 95.0
+        assert swim["swim_threshold"] == "1:35 /100m"
 
 
 class TestAthleteProfileErrors:

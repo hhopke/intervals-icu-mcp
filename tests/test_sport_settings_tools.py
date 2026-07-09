@@ -14,6 +14,29 @@ from intervals_icu_mcp.tools.sport_settings import (
     update_sport_settings,
 )
 
+RIDE_SETTINGS = {
+    "id": 1,
+    "types": ["Ride", "VirtualRide"],
+    "ftp": 250,
+    "indoor_ftp": 235,
+    "lthr": 165,
+}
+RUN_SETTINGS = {
+    "id": 2,
+    "types": ["Run"],
+    "lthr": 170,
+    "threshold_pace": 4.5,
+    "pace_units": "MINS_KM",
+    "pace_load_type": "RUN",
+}
+SWIM_SETTINGS = {
+    "id": 3,
+    "types": ["Swim"],
+    "threshold_pace": 90,
+    "pace_units": "SECS_100M",
+    "pace_load_type": "SWIM",
+}
+
 
 @pytest.fixture
 def patch_config(monkeypatch, mock_config):
@@ -28,29 +51,7 @@ class TestSportSettingsTools:
     async def test_get_sport_settings_success(self, patch_config, respx_mock):
         """Returns a list of sport settings with formatted pace/swim thresholds."""
         respx_mock.get("/athlete/i123456/sport-settings").mock(
-            return_value=Response(
-                200,
-                json=[
-                    {
-                        "id": 1,
-                        "type": "Ride",
-                        "ftp": 250,
-                        "indoor_ftp": 235,
-                        "fthr": 165,
-                    },
-                    {
-                        "id": 2,
-                        "type": "Run",
-                        "fthr": 170,
-                        "pace_threshold": 4.5,
-                    },
-                    {
-                        "id": 3,
-                        "type": "Swim",
-                        "swim_threshold": 1.5,
-                    },
-                ],
-            )
+            return_value=Response(200, json=[RIDE_SETTINGS, RUN_SETTINGS, SWIM_SETTINGS])
         )
 
         result = await get_sport_settings()
@@ -59,6 +60,7 @@ class TestSportSettingsTools:
         assert "data" in response
         settings = response["data"]["sport_settings"]
         assert len(settings) == 3
+        assert settings[0]["type"] == "Ride"
         assert settings[0]["ftp_watts"] == 250
         assert settings[0]["indoor_ftp_watts"] == 235
         assert settings[0]["fthr_bpm"] == 165
@@ -100,7 +102,13 @@ class TestSportSettingsTools:
         route = respx_mock.put("/athlete/i123456/sport-settings/1").mock(
             return_value=Response(
                 200,
-                json={"id": 1, "type": "Ride", "ftp": 275, "indoor_ftp": 265, "fthr": 165},
+                json={
+                    "id": 1,
+                    "types": ["Ride"],
+                    "ftp": 275,
+                    "indoor_ftp": 265,
+                    "lthr": 165,
+                },
             )
         )
 
@@ -110,8 +118,38 @@ class TestSportSettingsTools:
         assert "data" in response
         assert response["data"]["ftp_watts"] == 275
         assert response["data"]["indoor_ftp_watts"] == 265
-        assert json.loads(route.calls.last.request.content) == {"ftp": 275, "indoor_ftp": 265}
+        assert json.loads(route.calls.last.request.content) == {
+            "ftp": 275,
+            "indoor_ftp": 265,
+        }
         assert response["metadata"]["message"] == "Sport settings updated successfully"
+
+    async def test_update_sport_settings_sends_lthr(self, patch_config, respx_mock):
+        """FTHR updates are sent to the API as lthr."""
+        route = respx_mock.put("/athlete/i123456/sport-settings/2").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 2,
+                    "types": ["Run"],
+                    "lthr": 172,
+                    "threshold_pace": 4.5,
+                    "pace_units": "MINS_KM",
+                    "pace_load_type": "RUN",
+                },
+            )
+        )
+
+        result = await update_sport_settings(sport_id=2, fthr=172, pace_threshold=4.5)
+
+        response = json.loads(result)
+        assert response["data"]["fthr_bpm"] == 172
+        assert json.loads(route.calls.last.request.content) == {
+            "lthr": 172,
+            "threshold_pace": 4.5,
+            "pace_units": "MINS_KM",
+            "pace_load_type": "RUN",
+        }
 
     async def test_update_sport_settings_requires_a_field(self, patch_config):
         """Validation: update with no thresholds returns a validation error."""
@@ -149,14 +187,16 @@ class TestSportSettingsTools:
 
     async def test_create_sport_settings_success(self, patch_config, respx_mock):
         """Successfully creating a new Run settings object."""
-        respx_mock.post("/athlete/i123456/sport-settings").mock(
+        route = respx_mock.post("/athlete/i123456/sport-settings").mock(
             return_value=Response(
                 200,
                 json={
                     "id": 7,
-                    "type": "Run",
-                    "fthr": 170,
-                    "pace_threshold": 4.5,
+                    "types": ["Run"],
+                    "lthr": 170,
+                    "threshold_pace": 4.5,
+                    "pace_units": "MINS_KM",
+                    "pace_load_type": "RUN",
                 },
             )
         )
@@ -171,6 +211,13 @@ class TestSportSettingsTools:
         assert response["data"]["id"] == 7
         assert response["data"]["type"] == "Run"
         assert response["data"]["pace_threshold"] == "4:30 /km"
+        assert json.loads(route.calls.last.request.content) == {
+            "types": ["Run"],
+            "lthr": 170,
+            "threshold_pace": 4.5,
+            "pace_units": "MINS_KM",
+            "pace_load_type": "RUN",
+        }
         assert response["metadata"]["message"] == "Sport settings created successfully"
 
     async def test_create_sport_settings_with_indoor_ftp(self, patch_config, respx_mock):
@@ -178,7 +225,7 @@ class TestSportSettingsTools:
         route = respx_mock.post("/athlete/i123456/sport-settings").mock(
             return_value=Response(
                 200,
-                json={"id": 8, "type": "Ride", "ftp": 275, "indoor_ftp": 265},
+                json={"id": 8, "types": ["Ride"], "ftp": 275, "indoor_ftp": 265},
             )
         )
 
@@ -187,7 +234,7 @@ class TestSportSettingsTools:
         response = json.loads(result)
         assert response["data"]["indoor_ftp_watts"] == 265
         assert json.loads(route.calls.last.request.content) == {
-            "type": "Ride",
+            "types": ["Ride"],
             "ftp": 275,
             "indoor_ftp": 265,
         }
