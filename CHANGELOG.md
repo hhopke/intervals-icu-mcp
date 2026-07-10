@@ -14,6 +14,21 @@ that preserve the information (key renames, restructuring, added fields) ship in
 clients. (Releases up to and including 4.0.0 treated any response-shape change as
 breaking; this narrower contract applies from the next release onward.)
 
+## [Unreleased]
+
+### Added
+- `indoor_ftp` is now exposed end-to-end: new field on the `SportSettings` model, surfaced in `icu_get_sport_settings`, writable via `icu_update_sport_settings` / `icu_create_sport_settings`, and included in `icu_get_athlete_profile` and the `intervals-icu://athlete/profile` resource. Contributed by @jorge-huxley (#85).
+- New `recalc_hr_zones` parameter (default `true`) on `icu_update_sport_settings` — the API's update endpoint requires the `recalcHrZones` query param, which the client previously never sent (#85).
+
+### Changed
+- Sport settings tool responses now use unified threshold field names from a shared formatter: `ftp_watts`, `indoor_ftp_watts`, `fthr_bpm`, and human-readable running/swim pace strings — the same shape across `icu_get_sport_settings`, update/create, the athlete profile tool, and the profile resource. Response-shape change that preserves the information (minor under the versioning contract) (#85).
+- Docs: removed the misleading "zone configuration" claim from the sport settings tool descriptions and clarified what `icu_apply_sport_settings` vs `icu_update_sport_settings` actually do (#85).
+
+### Fixed
+- Sport settings data was silently dropped when parsing live API responses: the model expected legacy field names, but the API returns `sportSettings` (embedded in the athlete), `lthr`, `threshold_pace`, `types[]`, and swim pace as `SECS_100M`. Before the fix, `icu_get_athlete_profile` parsed zero embedded sport settings and threshold fields came back empty. Writes had the mirror-image bug — MCP parameters are now translated to the documented API field names (`types`, `lthr`, `threshold_pace` plus pace-unit metadata). Verified against the live API. Contributed by @jorge-huxley (#85).
+- `icu_apply_sport_settings` failed with HTTP 405 on every call: the client sent `POST`, but the live API only accepts `PUT`. The non-functional `oldest_date` parameter was removed — normally a parameter removal is breaking, but the tool never worked, so this ships as a bug fix (#85).
+- `icu_update_sport_settings` / `icu_create_sport_settings` now reject `pace_threshold` and `swim_threshold` in the same call with a validation error — the API stores one pace triple per sport settings record, so passing both silently lost one of them (#85).
+
 ## [4.1.0] — 2026-07-07
 
 ### Added
