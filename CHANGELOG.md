@@ -14,7 +14,7 @@ that preserve the information (key renames, restructuring, added fields) ship in
 clients. (Releases up to and including 4.0.0 treated any response-shape change as
 breaking; this narrower contract applies from the next release onward.)
 
-## [Unreleased]
+## [4.2.0] — 2026-07-10
 
 ### Added
 - `indoor_ftp` is now exposed end-to-end: new field on the `SportSettings` model, surfaced in `icu_get_sport_settings`, writable via `icu_update_sport_settings` / `icu_create_sport_settings`, and included in `icu_get_athlete_profile` and the `intervals-icu://athlete/profile` resource. Contributed by @jorge-huxley (#85).
