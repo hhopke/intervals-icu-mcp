@@ -3,6 +3,7 @@
 import json
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from httpx import Response
 
 from intervals_icu_mcp.tools.activities import get_recent_activities, search_activities
@@ -287,6 +288,12 @@ class TestSportSettingsModelMapping:
         assert settings.type == "Swim"
         assert settings.swim_threshold == 1.5
         assert settings.pace_threshold is None
+
+    def test_build_sport_settings_api_payload_rejects_both_pace_params(self):
+        from intervals_icu_mcp.sport_settings_format import build_sport_settings_api_payload
+
+        with pytest.raises(ValueError, match="pace_threshold and swim_threshold"):
+            build_sport_settings_api_payload(pace_threshold=4.5, swim_threshold=1.5)
 
     def test_athlete_maps_sport_settings_camel_case(self):
         from intervals_icu_mcp.models import Athlete

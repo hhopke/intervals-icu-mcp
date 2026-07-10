@@ -96,6 +96,8 @@ async def update_sport_settings(
                 },
             )
 
+    except ValueError as e:
+        return ResponseBuilder.build_error_response(str(e), error_type="validation_error")
     except ICUAPIError as e:
         return ResponseBuilder.build_error_response(e.message, error_type="api_error")
     except Exception as e:
@@ -178,6 +180,8 @@ async def create_sport_settings(
                 },
             )
 
+    except ValueError as e:
+        return ResponseBuilder.build_error_response(str(e), error_type="validation_error")
     except ICUAPIError as e:
         return ResponseBuilder.build_error_response(e.message, error_type="api_error")
     except Exception as e:
