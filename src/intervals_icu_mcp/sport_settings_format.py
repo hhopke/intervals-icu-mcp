@@ -45,6 +45,13 @@ def build_sport_settings_api_payload(
     swim_threshold: float | None = None,
 ) -> dict[str, Any]:
     """Convert MCP tool parameters to Intervals.icu SportSettings JSON field names."""
+    if pace_threshold is not None and swim_threshold is not None:
+        raise ValueError(
+            "Cannot set pace_threshold and swim_threshold in the same call; "
+            "the API stores one pace threshold per sport settings record. "
+            "Use separate calls for Run and Swim settings."
+        )
+
     payload: dict[str, Any] = {}
     if sport_type is not None:
         payload["types"] = [sport_type]

@@ -160,6 +160,21 @@ class TestSportSettingsTools:
         assert "error" in response
         assert "No fields provided" in response["error"]["message"]
 
+    async def test_update_sport_settings_rejects_both_pace_params(self, patch_config, respx_mock):
+        """Validation: pace_threshold and swim_threshold cannot be set in the same call."""
+        route = respx_mock.put("/athlete/i123456/sport-settings/2").mock(
+            return_value=Response(200, json={"id": 2, "types": ["Run"]})
+        )
+
+        result = await update_sport_settings(sport_id=2, pace_threshold=4.5, swim_threshold=1.5)
+
+        response = json.loads(result)
+        assert "error" in response
+        assert response["error"]["type"] == "validation_error"
+        assert "pace_threshold" in response["error"]["message"]
+        assert "swim_threshold" in response["error"]["message"]
+        assert not route.called
+
     async def test_update_sport_settings_api_error(self, patch_config, respx_mock):
         """404 from the API surfaces as an error response."""
         respx_mock.put("/athlete/i123456/sport-settings/999").mock(
@@ -230,6 +245,25 @@ class TestSportSettingsTools:
             "pace_load_type": "RUN",
         }
         assert response["metadata"]["message"] == "Sport settings created successfully"
+
+    async def test_create_sport_settings_rejects_both_pace_params(self, patch_config, respx_mock):
+        """Validation: pace_threshold and swim_threshold cannot be set in the same call."""
+        route = respx_mock.post("/athlete/i123456/sport-settings").mock(
+            return_value=Response(200, json={"id": 7, "types": ["Run"]})
+        )
+
+        result = await create_sport_settings(
+            sport_type="Run",
+            pace_threshold=4.5,
+            swim_threshold=1.5,
+        )
+
+        response = json.loads(result)
+        assert "error" in response
+        assert response["error"]["type"] == "validation_error"
+        assert "pace_threshold" in response["error"]["message"]
+        assert "swim_threshold" in response["error"]["message"]
+        assert not route.called
 
     async def test_create_sport_settings_with_indoor_ftp(self, patch_config, respx_mock):
         """Indoor FTP is sent to the API and returned in the created settings."""
