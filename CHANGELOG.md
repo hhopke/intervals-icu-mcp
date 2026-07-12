@@ -14,6 +14,17 @@ that preserve the information (key renames, restructuring, added fields) ship in
 clients. (Releases up to and including 4.0.0 treated any response-shape change as
 breaking; this narrower contract applies from the next release onward.)
 
+## [Unreleased]
+
+### Fixed
+- `icu_bulk_create_events` now accepts `event_type` as an alias for the API's `type` field on each event object, matching the parameter name `icu_create_event` / `icu_update_event` already expose. Previously the singular tools took `event_type` while the bulk tool only read raw `type`, so a model reusing the singular interface in a bulk payload silently created events with no sport discipline (and RACE events failed validation). `event_type` is now the documented field for all three tools; raw `type` is still accepted and wins if both are supplied.
+
+### Added
+- WORKOUT event responses from `icu_create_event`, `icu_update_event`, and `icu_bulk_create_events` now echo whether the `description` actually parsed into a structured workout: `workout_parsed` (bool), plus `workout_steps` (step count with repeats expanded) when it did, or a `workout_parse_hint` pointing at the correct syntax when it didn't. Previously these tools returned a silent success even when a description was stored as unparsed prose — producing no steps, no zones, and no training load — leaving the caller no signal that the workout was not structured. Backed by the `workout_doc` field now retained on the `Event` model. For `Swim` workouts that parse but compute no training load, an extra `workout_load_hint` explains why — swim load needs a pace target with a swim CSS/threshold set (commonly unset), or an HR target (which loads off swim FTHR without a CSS) — so the caller can fix it instead of shipping a silent zero-load swim.
+
+### Changed
+- The `description` parameter of `icu_create_event` / `icu_update_event` and the `events` parameter of `icu_bulk_create_events` now carry a compact inline Intervals.icu workout-syntax cheat-sheet instead of only pointing at the `intervals-icu://workout-syntax` resource. Many MCP hosts (e.g. Claude Desktop) never surface resources to the model, so a model on those hosts could not read the spec and fell back to inventing non-native formats that silently fail to parse; the in-context cheat-sheet targets the specific failure modes observed in testing (bracket DSLs, nested bullets, target-before-duration, bare run zones with no load, dropped cadence targets, missing rest-interval syntax, and `m`-vs-`mtr` distance-unit confusion). The resource is retained for hosts that can read it.
+
 ## [4.2.0] — 2026-07-10
 
 ### Added
