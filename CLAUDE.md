@@ -120,6 +120,14 @@ To cut a release:
 
 Follow SemVer with the narrowed contract defined in the CHANGELOG header. **Major** (breaking): removing or renaming a tool or tool parameter, changing config env var semantics, changing which tools register by default, or removing information from a response. **Minor**: response-shape changes that preserve the information (key renames, restructuring, added fields) — MCP responses are read dynamically by LLMs, not parsed by typed clients. Releases ≤ 4.0.0 predate this policy and treated any response-shape change as breaking.
 
+### Deferred breaking changes (batch into the next major)
+
+**Prefer non-breaking fixes and ship them continuously** — add fields, or accept aliases (e.g. `icu_bulk_create_events` accepts `event_type` as an alias for the API's `type`). Most interface inconsistencies can be fixed this way; don't defer a fix that can be non-breaking. Only when a change *must* break the contract (renaming/removing a tool or parameter with no alias path, dropping an accepted alias, changing env-var semantics or default registration) do we **defer it and batch all such changes into one planned major** — so consumers migrate once and the cleaned-up interface is designed holistically, not dribbled out across majors.
+
+Running list of deferred breaking cleanups (do together in the next major; keep this list current as more are found):
+
+- **Unify create vs. bulk field names.** `icu_create_event` exposes friendly params (`event_type`, `duration_seconds`, `distance_meters`, `training_load`); `icu_bulk_create_events` takes the raw API names in its JSON (`type`, `moving_time`, `distance`, `icu_training_load`). Bulk now accepts `event_type` as a non-breaking alias, but the others still silently drop when a model reuses the singular interface. Non-breaking interim: add the remaining aliases to bulk. Breaking cleanup to batch: settle on one naming scheme across both tools and drop the aliases.
+
 ## Important Files
 
 - `.env` — Local credentials (not in git)
