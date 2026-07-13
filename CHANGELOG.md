@@ -16,6 +16,9 @@ breaking; this narrower contract applies from the next release onward.)
 
 ## [Unreleased]
 
+### Added
+- New `icu_get_fitness_chart` tool — a read-only CTL/ATL/TSB time-series (Performance Management Chart) over a configurable window via required `days_back` / `days_ahead` (365-day cap each). Future points sourced from planned calendar workouts are tagged `is_projected: true`, and the response includes a summary block. Backed by a new optional `fields` param on the client's wellness fetch so only the fitness columns are pulled. Safe-mode tool count goes 57 → 58 (60 → 61 in full mode). Contributed by @jorge-huxley (#87).
+
 ### Fixed
 - `icu_update_sport_settings` / `icu_create_sport_settings` could not set a swim CSS/threshold pace: the write path multiplied the pace by 60 and sent seconds (e.g. `240` for 4:00/100m), which the API rejects with HTTP 422 "Invalid threshold pace". Intervals.icu stores the swim threshold as **speed in m/s** (unlike run, which is min/km) — confirmed against the live API and UI, where a stored `4.0` renders as `0:25/100m` (= 4 m/s). The swim path now converts min/100m ↔ m/s on both write and read (`100 / (min × 60)`). Verified live end-to-end: setting 4:00/100m stores `0.4167` and renders as `4:00/100m` in Intervals.icu (#88).
 
