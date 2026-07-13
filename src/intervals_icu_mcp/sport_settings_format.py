@@ -23,15 +23,12 @@ def format_sport_settings_entry(
     if settings.fthr is not None:
         sport_info["fthr_bpm"] = settings.fthr
     if settings.pace_threshold is not None:
-        pace_secs = settings.pace_threshold * 60
-        minutes = int(pace_secs // 60)
-        seconds = int(pace_secs % 60)
-        sport_info["pace_threshold"] = f"{minutes}:{seconds:02d} /km"
+        total = round(settings.pace_threshold * 60)
+        sport_info["pace_threshold"] = f"{total // 60}:{total % 60:02d} /km"
     if settings.swim_threshold is not None:
-        swim_secs = settings.swim_threshold * 60
-        minutes = int(swim_secs // 60)
-        seconds = int(swim_secs % 60)
-        sport_info["swim_threshold"] = f"{minutes}:{seconds:02d} /100m"
+        # round, not truncate — the m/s <-> min/100m conversion adds tiny float error
+        total = round(settings.swim_threshold * 60)
+        sport_info["swim_threshold"] = f"{total // 60}:{total % 60:02d} /100m"
     return sport_info
 
 
@@ -66,7 +63,11 @@ def build_sport_settings_api_payload(
         payload["pace_units"] = "MINS_KM"
         payload["pace_load_type"] = "RUN"
     if swim_threshold is not None:
-        payload["threshold_pace"] = swim_threshold * 60
+        # Intervals.icu stores swim threshold as SPEED in m/s (unlike run, which is
+        # min/km). Convert min/100m -> m/s: 100 m / (minutes * 60) s. Sending the
+        # pace value directly stored a bogus speed (4.0 -> 4 m/s -> 0:25/100m); the
+        # old `* 60` sent seconds the API rejects with HTTP 422 (see #88).
+        payload["threshold_pace"] = 100.0 / (swim_threshold * 60) if swim_threshold else 0.0
         payload["pace_units"] = "SECS_100M"
         payload["pace_load_type"] = "SWIM"
     return payload

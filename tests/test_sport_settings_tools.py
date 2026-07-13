@@ -32,7 +32,7 @@ RUN_SETTINGS = {
 SWIM_SETTINGS = {
     "id": 3,
     "types": ["Swim"],
-    "threshold_pace": 90,
+    "threshold_pace": 100 / 90,  # m/s for 1:30/100m
     "pace_units": "SECS_100M",
     "pace_load_type": "SWIM",
 }
