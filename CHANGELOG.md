@@ -14,6 +14,11 @@ that preserve the information (key renames, restructuring, added fields) ship in
 clients. (Releases up to and including 4.0.0 treated any response-shape change as
 breaking; this narrower contract applies from the next release onward.)
 
+## [Unreleased]
+
+### Fixed
+- `icu_update_sport_settings` / `icu_create_sport_settings` could not set a swim CSS/threshold pace: the write path multiplied the pace by 60 and sent seconds (e.g. `240` for 4:00/100m), which the API rejects with HTTP 422 "Invalid threshold pace". Intervals.icu stores the swim threshold as **speed in m/s** (unlike run, which is min/km) — confirmed against the live API and UI, where a stored `4.0` renders as `0:25/100m` (= 4 m/s). The swim path now converts min/100m ↔ m/s on both write and read (`100 / (min × 60)`). Verified live end-to-end: setting 4:00/100m stores `0.4167` and renders as `4:00/100m` in Intervals.icu (#88).
+
 ## [4.2.0] — 2026-07-10
 
 ### Added

@@ -272,22 +272,32 @@ class TestSportSettingsModelMapping:
         assert settings.indoor_ftp == 232
         assert settings.fthr == 176
 
-    def test_sport_settings_maps_swim_threshold_from_seconds(self):
+    def test_sport_settings_maps_swim_threshold_from_mps(self):
         from intervals_icu_mcp.models import SportSettings
 
+        # API stores swim threshold as SPEED (m/s); 1:30/100m == 100/90 m/s -> 1.5 min.
         settings = SportSettings.model_validate(
             {
                 "id": 3,
                 "types": ["Swim"],
-                "threshold_pace": 90,
+                "threshold_pace": 100 / 90,
                 "pace_units": "SECS_100M",
                 "pace_load_type": "SWIM",
             }
         )
 
         assert settings.type == "Swim"
-        assert settings.swim_threshold == 1.5
+        assert settings.swim_threshold == pytest.approx(1.5)
         assert settings.pace_threshold is None
+
+    def test_build_sport_settings_api_payload_swim_sends_mps(self):
+        from intervals_icu_mcp.sport_settings_format import build_sport_settings_api_payload
+
+        # 1:30/100m (1.5 min) is stored as SPEED: 100 m / 90 s = 100/90 m/s.
+        payload = build_sport_settings_api_payload(swim_threshold=1.5)
+        assert payload["threshold_pace"] == pytest.approx(100 / 90)
+        assert payload["pace_units"] == "SECS_100M"
+        assert payload["pace_load_type"] == "SWIM"
 
     def test_build_sport_settings_api_payload_rejects_both_pace_params(self):
         from intervals_icu_mcp.sport_settings_format import build_sport_settings_api_payload

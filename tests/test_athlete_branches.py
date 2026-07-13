@@ -102,7 +102,7 @@ class TestAthleteProfileSportSettings:
                         {
                             "id": 3,
                             "types": ["Swim"],
-                            "threshold_pace": 95,
+                            "threshold_pace": 100 / 120,  # m/s for 2:00/100m
                             "pace_units": "SECS_100M",
                             "pace_load_type": "SWIM",
                         },
@@ -121,7 +121,7 @@ class TestAthleteProfileSportSettings:
         assert ride["ftp_watts"] == 260
         assert ride["indoor_ftp_watts"] == 250
         swim = next(s for s in sports if s["type"] == "Swim")
-        assert swim["swim_threshold"] == "1:35 /100m"
+        assert swim["swim_threshold"] == "2:00 /100m"
 
 
 class TestAthleteProfileErrors:
