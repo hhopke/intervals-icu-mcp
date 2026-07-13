@@ -192,8 +192,9 @@ async def get_wellness_data(
     """Fetch wellness records over a RANGE of recent days (default last 7).
 
     Use for trends, weekly summaries, "how has my sleep been this week?",
-    recovery curves. For a single specific date use icu_get_wellness_for_date
-    instead — this tool always returns a multi-day list.
+    recovery curves. For PMC/fitness chart CTL/ATL/TSB series use
+    icu_get_fitness_chart. For a single specific date use
+    icu_get_wellness_for_date instead — this tool always returns a multi-day list.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
@@ -353,8 +354,12 @@ async def update_wellness(
     respiration: Annotated[float | None, "Respiration rate in breaths per minute"] = None,
     blood_glucose: Annotated[float | None, "Blood glucose in mmol/L"] = None,
     lactate: Annotated[float | None, "Blood lactate in mmol/L — lab result"] = None,
-    menstrual_phase: Annotated[str | None, "Menstrual phase (e.g. FOLLICULAR, OVULATING, LUTEAL, MENSTRUAL)"] = None,
-    locked: Annotated[bool | None, "Lock record to prevent device sync from overwriting manual entries"] = None,
+    menstrual_phase: Annotated[
+        str | None, "Menstrual phase (e.g. FOLLICULAR, OVULATING, LUTEAL, MENSTRUAL)"
+    ] = None,
+    locked: Annotated[
+        bool | None, "Lock record to prevent device sync from overwriting manual entries"
+    ] = None,
     calories_consumed: Annotated[int | None, "Calories consumed (kcal)"] = None,
     carbohydrates: Annotated[float | None, "Carbohydrates consumed (grams)"] = None,
     protein: Annotated[float | None, "Protein consumed (grams)"] = None,

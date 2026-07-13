@@ -1,6 +1,6 @@
 # Tool, Resource, and Prompt Reference
 
-Complete inventory of everything the Intervals.icu MCP server exposes: up to 60 tools across 11 categories, 4 MCP Resources, and 7 MCP Prompts.
+Complete inventory of everything the Intervals.icu MCP server exposes: up to 61 tools across 11 categories, 4 MCP Resources, and 7 MCP Prompts.
 
 ## Delete Safety Mode
 
@@ -88,12 +88,13 @@ The threaded notes/comments shown under an activity — the user's own training 
 | `icu_get_activity_messages`    | Read notes/comments/coach feedback on a specific activity  |
 | `icu_add_activity_message`     | Post a note or comment on a specific activity              |
 
-### Athlete (2 tools)
+### Athlete (3 tools)
 
 | Tool                  | Description                                                     |
 | --------------------- | --------------------------------------------------------------- |
 | `icu_get_athlete_profile` | Get athlete profile, fitness metrics, and outdoor/indoor FTP   |
 | `icu_get_fitness_summary` | Get detailed CTL/ATL/TSB analysis with training recommendations |
+| `icu_get_fitness_chart` | Get PMC time-series (CTL/ATL/TSB) over a date window, including future projections from planned workouts |
 
 ### Wellness (3 tools)
 
