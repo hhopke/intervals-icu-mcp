@@ -1,14 +1,65 @@
 """Athlete profile and fitness tools for Intervals.icu MCP server."""
 
-from datetime import date
-from typing import Any
+from datetime import date, timedelta
+from typing import Annotated, Any
 
 from fastmcp import Context
 
 from ..auth import ICUConfig
 from ..client import ICUAPIError, ICUClient
+from ..models import Wellness
 from ..response_builder import ResponseBuilder
 from ..sport_settings_format import format_sport_settings_entry
+
+MAX_FITNESS_CHART_DAYS = 365
+_FITNESS_CHART_FIELDS = ["id", "ctl", "atl", "rampRate", "ctlLoad", "atlLoad"]
+
+
+def _fitness_metrics_point(record: Wellness, today: date) -> dict[str, Any] | None:
+    """Shape one wellness record into a lean PMC data point, or None if no fitness data."""
+    if record.ctl is None and record.atl is None:
+        return None
+
+    record_date = date.fromisoformat(record.id)
+    point: dict[str, Any] = {
+        "date": record.id,
+        "is_projected": record_date > today,
+    }
+    if record.ctl is not None:
+        point["ctl"] = round(record.ctl, 1)
+    if record.atl is not None:
+        point["atl"] = round(record.atl, 1)
+
+    tsb = record.tsb
+    if tsb is None and record.ctl is not None and record.atl is not None:
+        tsb = record.ctl - record.atl
+    if tsb is not None:
+        point["tsb"] = round(tsb, 1)
+    if record.ramp_rate is not None:
+        point["ramp_rate"] = round(record.ramp_rate, 1)
+    if record.ctl_load is not None:
+        point["ctl_load"] = round(record.ctl_load, 1)
+    if record.atl_load is not None:
+        point["atl_load"] = round(record.atl_load, 1)
+
+    return point
+
+
+def _fitness_chart_summary(series: list[dict[str, Any]], today: date) -> dict[str, Any]:
+    """Build start/today/end summary from an ascending fitness chart series."""
+    summary: dict[str, Any] = {}
+    today_str = today.isoformat()
+
+    if series:
+        summary["start"] = {k: v for k, v in series[0].items() if k != "date"}
+        summary["end"] = {k: v for k, v in series[-1].items() if k != "date"}
+
+    for point in series:
+        if point["date"] == today_str:
+            summary["today"] = {k: v for k, v in point.items() if k != "date"}
+            break
+
+    return summary
 
 
 async def get_athlete_profile(
@@ -252,6 +303,110 @@ async def get_fitness_summary(
                 data,
                 analysis=analysis,
                 query_type="fitness_summary",
+            )
+
+    except ICUAPIError as e:
+        return ResponseBuilder.build_error_response(
+            e.message,
+            error_type="api_error",
+        )
+    except Exception as e:
+        return ResponseBuilder.build_error_response(
+            f"Unexpected error: {str(e)}",
+            error_type="internal_error",
+        )
+
+
+async def get_fitness_chart(
+    days_back: Annotated[int, "Number of days before today to include (inclusive)"],
+    days_ahead: Annotated[
+        int, "Number of days after today to include (inclusive); use 0 for history only"
+    ],
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
+    ctx: Context | None = None,
+) -> str:
+    """Fetch the Performance Management Chart time-series — daily CTL, ATL, and TSB.
+
+    Returns past history plus future projections from planned calendar workouts.
+    Use for: "show my fitness chart", "CTL trend last 90 days", "projected form
+    at end of my block", "what will my TSB be in 3 weeks".
+    NOT for: today's training recommendations (icu_get_fitness_summary), HRV/sleep/
+    recovery trends (icu_get_wellness_data), or one day's full wellness record
+    (icu_get_wellness_for_date).
+    """
+    assert ctx is not None
+    config: ICUConfig = await ctx.get_state("config")
+
+    if days_back < 0 or days_ahead < 0:
+        return ResponseBuilder.build_error_response(
+            "days_back and days_ahead must be zero or positive.",
+            error_type="validation_error",
+        )
+
+    if days_back + days_ahead > MAX_FITNESS_CHART_DAYS:
+        return ResponseBuilder.build_error_response(
+            f"Total date window cannot exceed {MAX_FITNESS_CHART_DAYS} days "
+            f"(days_back + days_ahead = {days_back + days_ahead}). "
+            "Use a smaller range.",
+            error_type="validation_error",
+        )
+
+    today = date.today()
+    oldest = (today - timedelta(days=days_back)).isoformat()
+    newest = (today + timedelta(days=days_ahead)).isoformat()
+
+    try:
+        async with ICUClient(config) as client:
+            records = await client.get_wellness(
+                athlete_id=athlete_id,
+                oldest=oldest,
+                newest=newest,
+                fields=_FITNESS_CHART_FIELDS,
+            )
+
+            series: list[dict[str, Any]] = []
+            for record in records:
+                point = _fitness_metrics_point(record, today)
+                if point is not None:
+                    series.append(point)
+
+            series.sort(key=lambda p: p["date"])
+
+            metadata: dict[str, Any] = {
+                "projections_note": (
+                    "Future values include planned calendar workouts when the athlete's "
+                    "Intervals.icu setting 'Include planned workouts in fitness' is enabled."
+                ),
+                "sparse_series_note": (
+                    "Days without a wellness record are omitted (not zero-filled)."
+                ),
+            }
+
+            if not series:
+                return ResponseBuilder.build_response(
+                    data={
+                        "date_range": {"oldest": oldest, "newest": newest},
+                        "count": 0,
+                        "series": [],
+                    },
+                    metadata={
+                        **metadata,
+                        "message": "No fitness chart data found for the specified date range.",
+                    },
+                    query_type="fitness_chart",
+                )
+
+            data: dict[str, Any] = {
+                "date_range": {"oldest": oldest, "newest": newest},
+                "count": len(series),
+                "series": series,
+                "summary": _fitness_chart_summary(series, today),
+            }
+
+            return ResponseBuilder.build_response(
+                data=data,
+                metadata=metadata,
+                query_type="fitness_chart",
             )
 
     except ICUAPIError as e:

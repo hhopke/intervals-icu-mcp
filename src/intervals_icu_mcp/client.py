@@ -423,6 +423,7 @@ class ICUClient:
         athlete_id: str | None = None,
         oldest: str | None = None,
         newest: str | None = None,
+        fields: list[str] | None = None,
     ) -> list[Wellness]:
         """Get wellness records for a date range.
 
@@ -430,17 +431,20 @@ class ICUClient:
             athlete_id: Athlete ID (uses config default if not provided)
             oldest: Oldest date to fetch (ISO-8601 format)
             newest: Newest date to fetch (ISO-8601 format)
+            fields: Optional list of field names to include in each record
 
         Returns:
             List of Wellness records
         """
         athlete_id = athlete_id or self.config.intervals_icu_athlete_id
-        params = {}
+        params: dict[str, str] = {}
 
         if oldest:
             params["oldest"] = oldest
         if newest:
             params["newest"] = newest
+        if fields:
+            params["fields"] = ",".join(fields)
 
         response = await self._request("GET", f"/athlete/{athlete_id}/wellness", params=params)
         adapter = TypeAdapter(list[Wellness])
