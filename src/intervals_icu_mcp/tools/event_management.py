@@ -140,6 +140,36 @@ def _count_workout_steps(steps: list[Any]) -> int:
     return total
 
 
+def _swim_work_lacks_intensity(steps: list[Any]) -> bool:
+    """True if a swim's work steps carry no pace/HR target.
+
+    Swim load comes from a pace target (needs a swim CSS/threshold) or an HR target
+    (needs swim FTHR). Warmup/cooldown steps are excluded so a warmup pace zone
+    can't mask a main set with no intensity, and repeat blocks are flattened to
+    their steps. Returns False when there are no work steps to judge. Keying the
+    swim load hint on this (rather than total load) catches a main set that parsed
+    structurally but dropped its target — e.g. an unrecognized `CSS` token — even
+    when a stray misapplied zone leaves a token training load behind.
+    """
+    work: list[dict[str, Any]] = []
+
+    def _collect(items: list[Any]) -> None:
+        for step in items:
+            if not isinstance(step, dict):
+                continue
+            step_dict = cast(dict[str, Any], step)
+            nested = step_dict.get("steps")
+            if isinstance(nested, list):
+                _collect(cast(list[Any], nested))
+            elif not step_dict.get("warmup") and not step_dict.get("cooldown"):
+                work.append(step_dict)
+
+    _collect(steps)
+    if not work:
+        return False
+    return not any(s.get("pace") or s.get("hr") for s in work)
+
+
 def _workout_parse_info(event: Event) -> dict[str, Any] | None:
     """Echo whether a WORKOUT `description` parsed into a structured workout.
 
@@ -159,12 +189,15 @@ def _workout_parse_info(event: Event) -> dict[str, Any] | None:
             "workout_parsed": True,
             "workout_steps": _count_workout_steps(steps),
         }
-        # Swim-specific: a swim can parse into steps yet compute no training load,
+        # Swim-specific: a swim can parse into steps yet get no usable training load,
         # because pace targets need a swim CSS/threshold (commonly unset) while HR
-        # targets load fine off swim FTHR. Surface the fix instead of a silent zero.
-        if event.type == "Swim" and not event.icu_training_load:
+        # targets load fine off swim FTHR. Key on whether the *work* steps carry an
+        # intensity target rather than on total load — a warmup pace zone or a stray
+        # misapplied zone can leave a token load on an otherwise intensity-less set.
+        if event.type == "Swim" and _swim_work_lacks_intensity(steps):
             info["workout_load_hint"] = (
-                "Swim parsed but has no training load. Swim load needs an intensity "
+                "Swim parsed but its work steps have no pace or HR target, so it "
+                "won't get a meaningful training load. Swim load needs an intensity "
                 "target: pace ('- 200mtr Z3 Pace' / '- 200mtr 95% pace') requires a "
                 "swim CSS/threshold to be set; HR targets ('- 200mtr Z2 HR') compute "
                 "load from swim FTHR without a CSS. Distance steps also can't be timed "

@@ -1144,7 +1144,7 @@ class TestSwimLoadHint:
                     "category": "WORKOUT",
                     "type": "Swim",
                     "description": "Main\n- 200mtr Z2 HR",
-                    "workout_doc": {"steps": [{"duration": 72}]},
+                    "workout_doc": {"steps": [{"duration": 72, "hr": {"value": 75}}]},
                     "icu_training_load": 5,
                 },
             )
@@ -1187,3 +1187,61 @@ class TestSwimLoadHint:
         )
         data = json.loads(result)["data"]
         assert "workout_load_hint" not in data
+
+    async def test_swim_untargeted_work_gets_hint_despite_stray_load(self, mock_config, respx_mock):
+        # Real case: work reps carry no target (model wrote "- 200mtr CSS"), the
+        # warmup has a pace zone, and a stray load of 1 slips in. The hint must
+        # still fire because the *work* steps have no intensity.
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+        desc = (
+            "Warmup\n- 400mtr Z2 Pace\n\nMain 5x\n- 200mtr CSS\n- 20s rest\n\nCooldown\n- 200mtr Z1"
+        )
+        respx_mock.post("/athlete/i123456/events").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 4004,
+                    "name": "Swim",
+                    "start_date_local": "2026-03-20",
+                    "category": "WORKOUT",
+                    "type": "Swim",
+                    "description": desc,
+                    "workout_doc": {
+                        "steps": [
+                            {
+                                "duration": 12,
+                                "distance": 400,
+                                "warmup": True,
+                                "pace": {"value": 2, "units": "pace_zone"},
+                            },
+                            {
+                                "reps": 5,
+                                "steps": [
+                                    {"duration": 6, "distance": 200},
+                                    {"duration": 20},
+                                ],
+                            },
+                            {
+                                "duration": 6,
+                                "distance": 200,
+                                "cooldown": True,
+                                "power": {"value": 1, "units": "%ftp"},
+                            },
+                        ]
+                    },
+                    "icu_training_load": 1,
+                },
+            )
+        )
+        result = await create_event(
+            start_date="2026-03-20",
+            name="Swim",
+            category="WORKOUT",
+            event_type="Swim",
+            description=desc,
+            ctx=mock_ctx,
+        )
+        data = json.loads(result)["data"]
+        assert data["workout_parsed"] is True
+        assert "workout_load_hint" in data
