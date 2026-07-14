@@ -106,8 +106,12 @@ WORKOUT_SYNTAX_HINT = (
     "steps with zones and a training load. Use Intervals.icu workout syntax: one "
     "step per line as '- <duration> <target>' (duration FIRST), grouped under "
     "Warmup / Main / Cooldown headers. Targets: bike '- 5m 85%', '- 5m Z4', or "
-    "absolute '- 5m 210w'; HR '- 10m 70-80% HR' or '- 10m 145bpm'; run pace "
-    "'- 5m 5:00/km' or '- 5m Z2 Pace'. Add cadence to any step: '- 3m Z2 90rpm'. "
+    "absolute '- 5m 210w'; HR '- 10m 70-80% HR' or '- 10m 145bpm'; run/swim pace "
+    "'- 5m Z2 Pace', absolute only with a trailing 'pace' word: '- 5m 4:45/km pace', "
+    "'- 200mtr 1:45/100m pace' (bare '5:00/km' or '1:45/100m' silently drops); "
+    "threshold is relative — run '- 25m 100% pace', swim CSS '- 200mtr 100% pace' — "
+    "the words 'threshold'/'CSS'/'5K pace' are NOT parsed as targets. "
+    "Add cadence to any step: '- 3m Z2 90rpm'. "
     "No target: '- 20m free'. Repeats: put "
     "'Nx' after a section name with steps flat beneath, and leave a blank line "
     "before and after the repeat block (without it the repeat silently runs only "
@@ -208,13 +212,15 @@ def _workout_parse_info(event: Event) -> dict[str, Any] | None:
         # misapplied zone can leave a token load on an otherwise intensity-less set.
         if event.type == "Swim" and _swim_work_lacks_intensity(steps):
             info["workout_load_hint"] = (
-                "Swim parsed but its work steps have no pace or HR target, so it "
-                "won't get a meaningful training load. Swim load needs an intensity "
-                "target: pace ('- 200mtr Z3 Pace' / '- 200mtr 95% pace') requires a "
-                "swim CSS/threshold to be set; HR targets ('- 200mtr Z2 HR') compute "
-                "load from swim FTHR without a CSS. Distance steps also can't be timed "
-                "without a CSS (duration is a placeholder) — prefer HR or time-based "
-                "steps, or set a CSS via icu_update_sport_settings."
+                "Swim parsed but its work steps have no recognized pace or HR target, "
+                "so it gets no meaningful training load. Common causes: the words "
+                "'CSS'/'threshold' are NOT parsed as targets, and absolute pace needs "
+                "a trailing 'pace' word ('- 200mtr 1:45/100m pace'). Write threshold "
+                "as '- 200mtr 100% pace' or a zone ('- 200mtr Z3 Pace'), which load "
+                "off the swim CSS/threshold in sport settings, or HR ('- 200mtr Z2 "
+                "HR'), which loads off swim FTHR without a CSS. Check "
+                "icu_get_sport_settings before reporting the CSS unset; without a "
+                "CSS, distance-step durations are placeholders."
             )
         return info
     return {

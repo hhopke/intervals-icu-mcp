@@ -116,10 +116,23 @@ Step ends when user presses lap button on device.
 |--------|---------|-------------|
 | `X% pace` | `90% pace` | Percentage of threshold pace |
 | `X-Y% pace` | `85-90% pace` | Pace range |
-| `X:XX/km` | `5:00/km` | Minutes per kilometer |
-| `X:XX/mi` | `8:00/mi` | Minutes per mile |
-| `X:XX/100m` | `1:45/100m` | Per 100m (swimming) |
+| `X:XX/km pace` | `5:00/km pace` | Absolute pace per kilometer |
+| `X:XX/mi pace` | `8:00/mi pace` | Absolute pace per mile |
+| `X:XX/100m pace` | `1:45/100m pace` | Absolute swim pace per 100 meters |
+| `X:XX/100y pace` | `1:40/100y pace` | Absolute swim pace per 100 yards |
 | `ZX pace` | `Z3 pace` | Pace zone |
+
+The trailing word `pace` is **required** for absolute pace targets — bare
+`5:00/km` or `1:45/100m` is silently dropped (live-verified). Absolute swim
+pace denominators are `/100m` and `/100y` only — note the asymmetry with
+distance tokens: step distances use `mtr`/`yrd`, but pace denominators use
+`m`/`y` (`/100mtr` and `/100yrd` are silently dropped).
+Threshold pace is expressed *relative* to the sport-settings threshold:
+`100% pace` = run threshold pace / swim CSS (e.g. `- 25m 100% pace`,
+`- 200mtr 100% pace`, range `95-100% pace`). The words `CSS` / `threshold`
+and race-pace vocabulary (`5K pace`, `marathon pace`) are **not** parsed —
+a step written that way silently loses its target and contributes no
+training load.
 
 ### Cadence
 | Format | Example | Description |
