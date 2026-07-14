@@ -25,10 +25,11 @@ allowed-tools: Bash(make can-release), Bash(make test:*), Bash(make lint:*)
    ```
    Every **user-facing** change (feat, fix, breaking change — including merged community
    PRs) must have a bullet under `## [Unreleased]`. Internal-only commits (ci, chore,
-   docs about the repo itself, release/publish plumbing) don't need entries. For each
+   docs about the repo itself, release/publish plumbing) don't need entries. PRs are
+   squash-merged, so each `main` commit maps 1:1 to a PR via its ` (#N)` suffix. For each
    user-facing commit with no matching bullet, report it as a failure and draft a
-   suggested entry (source it from the commit's PR description via `gh pr view` if one
-   exists).
+   suggested entry (source it from the PR description via `gh pr view N`, taking N from
+   the commit subject's suffix).
 
 3. Parse the output and report a clear summary:
 
