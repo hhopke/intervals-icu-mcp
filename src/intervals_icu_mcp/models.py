@@ -292,6 +292,10 @@ class Event(BaseModel):
     external_id: str | None = Field(None, alias="external_id")
     created_by_id: str | None = Field(None, alias="created_by_id")
     plan_applied: str | None = Field(None, alias="plan_applied")
+    # Parsed structured-workout doc. Always present for WORKOUT events, but its
+    # `steps` list is empty when the description did not parse (prose / non-native
+    # format). Used to echo a parse signal back to the caller.
+    workout_doc: dict[str, Any] | None = None
 
     model_config = ConfigDict(populate_by_name=True)
 

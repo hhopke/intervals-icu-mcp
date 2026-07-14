@@ -72,6 +72,7 @@ def _skipped_entry_for(event_id: int, event: Event | None) -> dict[str, Any]:
         "hint": MISSING_DATE_HINT,
     }
 
+
 VALID_CATEGORIES = {
     "WORKOUT",
     "NOTE",
@@ -94,6 +95,144 @@ RACE_CATEGORIES = {"RACE_A", "RACE_B", "RACE_C"}
 # Canonical Intervals.icu activity disciplines accepted by the API for the
 # `type` field. Must match models.ActivityType.
 ACTIVITY_TYPES_HINT = "Ride, Run, Swim, Walk, Hike, VirtualRide, VirtualRun, Other"
+
+# Compact, in-context workout-syntax cheat-sheet for the `description` field.
+# Inlined (not only pointed at via the intervals-icu://workout-syntax resource)
+# because many hosts — notably Claude Desktop — never surface MCP resources to the
+# model, so weaker models fall back to inventing non-native formats. Each "NOT"
+# clause targets a failure mode observed in real model output.
+WORKOUT_SYNTAX_HINT = (
+    "For WORKOUT events the server parses this into structured, device-syncable "
+    "steps with zones and a training load. Use Intervals.icu workout syntax: one "
+    "step per line as '- <duration> <target>' (duration FIRST), grouped under "
+    "Warmup / Main / Cooldown headers. Targets: bike '- 5m 85%', '- 5m Z4', or "
+    "absolute '- 5m 210w'; HR '- 10m 70-80% HR' or '- 10m 145bpm'; run/swim pace "
+    "'- 5m Z2 Pace', absolute only with a trailing 'pace' word: '- 5m 4:45/km pace', "
+    "'- 200mtr 1:45/100m pace' (bare '5:00/km' or '1:45/100m' silently drops); "
+    "threshold is relative — run '- 25m 100% pace', swim CSS '- 200mtr 100% pace' — "
+    "the words 'threshold'/'CSS'/'5K pace' are NOT parsed as targets. "
+    "Add cadence to any step: '- 3m Z2 90rpm'. "
+    "No target: '- 20m free'. Repeats: put "
+    "'Nx' after a section name with steps flat beneath, and leave a blank line "
+    "before and after the repeat block (without it the repeat silently runs only "
+    "once) — e.g. 'Main 5x' then '- 3m 110%' / '- 3m 50%'. Ramps: '- 10m ramp "
+    "50-70%'. Rest: append 'Ns rest' "
+    "to a step ('- 200mtr Z2 20s rest') or use a separate '- 20s intensity=rest' "
+    "step (only intensity=rest exports as a device rest step) — never a bare "
+    "'- 20s' step (that becomes work, not rest). Durations: 'm'=minutes, 's'=seconds; "
+    "distance steps use 'mtr'=meters / 'km' / 'yrd' (e.g. swim '- 400mtr Z2 Pace'). "
+    "Do NOT write '[repeat 5x ...]', nested bullets, or 'Z5 3m' (target before "
+    "duration). Runs need a pace or HR target — a bare 'Z2' gives no load. Full "
+    "reference: intervals-icu://workout-syntax resource."
+)
+
+
+def _count_workout_steps(steps: list[Any]) -> int:
+    """Count total steps in a parsed workout_doc, expanding repeat blocks.
+
+    Each entry in workout_doc["steps"] is either a plain step or a repeat block
+    (has `reps` plus a nested `steps` list). Repeats count as reps × nested count.
+    """
+    total = 0
+    for step in steps:
+        if isinstance(step, dict):
+            step_dict = cast(dict[str, Any], step)
+            nested = step_dict.get("steps")
+            if isinstance(nested, list):
+                total += int(step_dict.get("reps", 1)) * len(cast(list[Any], nested))
+                continue
+        total += 1
+    return total
+
+
+def _swim_work_lacks_intensity(steps: list[Any]) -> bool:
+    """True if a swim's work steps carry no pace/HR target.
+
+    Swim load comes from a pace target (needs a swim CSS/threshold) or an HR target
+    (needs swim FTHR). Warmup/cooldown steps are excluded so a warmup pace zone
+    can't mask a main set with no intensity, and repeat blocks are flattened to
+    their steps. Flat steps under a Warmup/Cooldown header carry a `warmup`/
+    `cooldown` flag — as do steps tagged `intensity=warmup`/`cooldown`, at any
+    nesting level — but a repeated header ("Warmup 4x") never does — the header
+    survives only in the block's `text` — so repeat blocks are matched on that
+    (same case-insensitive exact word the API recognizes; live-verified).
+    Returns False when there are no work steps to judge. Keying the
+    swim load hint on this (rather than total load) catches a main set that parsed
+    structurally but dropped its target — e.g. an unrecognized `CSS` token — even
+    when a stray misapplied zone leaves a token training load behind.
+    """
+    work: list[dict[str, Any]] = []
+
+    def _collect(items: list[Any], excluded: bool) -> None:
+        for step in items:
+            if not isinstance(step, dict):
+                continue
+            step_dict = cast(dict[str, Any], step)
+            nested = step_dict.get("steps")
+            if isinstance(nested, list):
+                text = str(step_dict.get("text") or "").lower()
+                _collect(
+                    cast(list[Any], nested),
+                    excluded or text.startswith(("warmup", "cooldown")),
+                )
+            elif (
+                not excluded and not step_dict.get("warmup") and not step_dict.get("cooldown")
+            ):
+                work.append(step_dict)
+
+    _collect(steps, False)
+    if not work:
+        return False
+    return not any(s.get("pace") or s.get("hr") for s in work)
+
+
+def _workout_parse_info(event: Event) -> dict[str, Any] | None:
+    """Echo whether a WORKOUT `description` parsed into a structured workout.
+
+    Intervals.icu always returns a workout_doc object, but its `steps` list is
+    empty when the description could not be parsed (prose, or a non-native format
+    a model invented). Surfacing this lets the caller tell a real structured
+    workout — one that syncs to devices and gets a computed load — from free text
+    stored verbatim, instead of a silent "success". Returns None for non-WORKOUT
+    events or WORKOUT events with no description (nothing to parse).
+    """
+    if event.category != "WORKOUT" or not event.description:
+        return None
+    doc: dict[str, Any] = event.workout_doc or {}
+    steps: list[Any] = doc.get("steps") or []
+    if steps:
+        info: dict[str, Any] = {
+            "workout_parsed": True,
+            "workout_steps": _count_workout_steps(steps),
+        }
+        # Swim-specific: a swim can parse into steps yet get no usable training load,
+        # because pace targets need a swim CSS/threshold (commonly unset) while HR
+        # targets load fine off swim FTHR. Key on whether the *work* steps carry an
+        # intensity target rather than on total load — a warmup pace zone or a stray
+        # misapplied zone can leave a token load on an otherwise intensity-less set.
+        if event.type == "Swim" and _swim_work_lacks_intensity(steps):
+            info["workout_load_hint"] = (
+                "Swim parsed but its work steps have no recognized pace or HR target, "
+                "so it gets no meaningful training load. Common causes: the words "
+                "'CSS'/'threshold' are NOT parsed as targets, and absolute pace needs "
+                "a trailing 'pace' word ('- 200mtr 1:45/100m pace'). Write threshold "
+                "as '- 200mtr 100% pace' or a zone ('- 200mtr Z3 Pace'), which load "
+                "off the swim CSS/threshold in sport settings, or HR ('- 200mtr Z2 "
+                "HR'), which loads off swim FTHR without a CSS. Check "
+                "icu_get_sport_settings before reporting the CSS unset; without a "
+                "CSS, distance-step durations are placeholders."
+            )
+        return info
+    return {
+        "workout_parsed": False,
+        "workout_parse_hint": (
+            "Description saved as plain text, not a structured workout (no steps "
+            "parsed, no training load). For device-syncable steps/zones use "
+            "Intervals.icu workout syntax: '- 5m 85%' / '- 3m Z5' lines under "
+            "Warmup/Main/Cooldown headers, 'Nx' after a section name for repeats. "
+            "See intervals-icu://workout-syntax."
+        ),
+    }
 
 
 def _normalize_category(category: str) -> tuple[str | None, str | None]:
@@ -150,6 +289,10 @@ def _event_to_dict(event: Event) -> dict[str, Any]:
     if event.show_on_ctl_line is not None:
         result["show_on_ctl_line"] = event.show_on_ctl_line
 
+    parse_info = _workout_parse_info(event)
+    if parse_info:
+        result.update(parse_info)
+
     return result
 
 
@@ -165,9 +308,7 @@ async def create_event(
     ],
     description: Annotated[
         str | None,
-        "Event description. For WORKOUT events, use Intervals.icu structured "
-        "workout syntax (see intervals-icu://workout-syntax resource) — the "
-        "server parses it into a structured workout with training load and zones.",
+        "Event description (plain text for non-workouts). " + WORKOUT_SYNTAX_HINT,
     ] = None,
     event_type: Annotated[
         str | None,
@@ -302,7 +443,7 @@ async def create_event(
 async def update_event(
     event_id: Annotated[int, "Event ID to update"],
     name: Annotated[str | None, "Updated event name"] = None,
-    description: Annotated[str | None, "Updated description"] = None,
+    description: Annotated[str | None, "Updated description. " + WORKOUT_SYNTAX_HINT] = None,
     start_date: Annotated[str | None, "Updated start date (YYYY-MM-DD)"] = None,
     event_type: Annotated[str | None, "Updated activity type"] = None,
     duration_seconds: Annotated[int | None, "Updated duration in seconds"] = None,
@@ -462,11 +603,11 @@ async def bulk_create_events(
     events: Annotated[
         str,
         "JSON array of event objects. Required per event: start_date_local, "
-        "name, category. Optional: description, type, moving_time, distance, "
+        "name, category. Optional: description, event_type (activity discipline "
+        "Ride/Run/Swim/…; raw `type` also accepted), moving_time, distance, "
         "icu_training_load, end_date_local, training_availability, color, "
         "show_as_note, not_on_fitness_chart, show_on_ctl_line. See "
-        "intervals-icu://event-categories for the category enum and "
-        "intervals-icu://workout-syntax for WORKOUT `description` syntax.",
+        "intervals-icu://event-categories for the category enum. " + WORKOUT_SYNTAX_HINT,
     ],
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
@@ -523,9 +664,15 @@ async def bulk_create_events(
                 )
             event_data["category"] = normalized_category
 
+            # Accept `event_type` (the icu_create_event / icu_update_event parameter
+            # name) as an alias for the API's `type` field, so bulk payloads can mirror
+            # the singular tools. Raw `type` still works and wins if both are present.
+            if "event_type" in event_data:
+                event_data.setdefault("type", event_data.pop("event_type"))
+
             if normalized_category in RACE_CATEGORIES and not event_data.get("type"):
                 return ResponseBuilder.build_error_response(
-                    f"Event {i}: 'type' is required for {normalized_category} events. "
+                    f"Event {i}: 'event_type' is required for {normalized_category} events. "
                     f"Provide the activity discipline: {ACTIVITY_TYPES_HINT}.",
                     error_type="validation_error",
                 )

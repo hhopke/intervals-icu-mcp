@@ -9,6 +9,8 @@ from httpx import Response
 
 from intervals_icu_mcp.auth import ICUConfig
 from intervals_icu_mcp.tools.event_management import (
+    _count_workout_steps,
+    _swim_work_lacks_intensity,
     apply_training_plan,
     bulk_create_events,
     bulk_delete_events,
@@ -860,3 +862,452 @@ class TestEventTools:
         response = json.loads(result)
         assert "error" in response
         assert "num_copies must be at least 1" in response["error"]["message"]
+
+
+# workout_doc as Intervals.icu returns it: `steps` populated when the description
+# parses (repeat blocks carry `reps` + nested `steps`), empty list when it doesn't.
+WORKOUT_DOC_STRUCTURED = {
+    "duration": 4560,
+    "steps": [
+        {"duration": 900, "warmup": True, "power": {"start": 45, "end": 65, "units": "%ftp"}},
+        {
+            "reps": 5,
+            "text": "Main 5x",
+            "duration": 1800,
+            "steps": [
+                {"duration": 180, "power": {"value": 110, "units": "%ftp"}},
+                {"duration": 180, "power": {"value": 50, "units": "%ftp"}},
+            ],
+        },
+        {"duration": 600, "cooldown": True, "power": {"value": 45, "units": "%ftp"}},
+    ],
+}
+WORKOUT_DOC_EMPTY = {"duration": 0, "steps": []}
+
+
+class TestWorkoutParseEcho:
+    """Parse-status echo for WORKOUT events (workout_doc -> workout_parsed)."""
+
+    def test_count_workout_steps_expands_repeats(self):
+        # warmup(1) + 5x[2] (10) + cooldown(1) = 12
+        assert _count_workout_steps(WORKOUT_DOC_STRUCTURED["steps"]) == 12
+        assert _count_workout_steps([]) == 0
+        assert _count_workout_steps([{"duration": 300}]) == 1
+
+    async def test_create_workout_echoes_parsed(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+        respx_mock.post("/athlete/i123456/events").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 2001,
+                    "name": "Intervals",
+                    "start_date_local": "2026-03-20",
+                    "category": "WORKOUT",
+                    "description": "Main 5x\n- 3m 110%\n- 3m 50%",
+                    "workout_doc": WORKOUT_DOC_STRUCTURED,
+                },
+            )
+        )
+        result = await create_event(
+            start_date="2026-03-20",
+            name="Intervals",
+            category="WORKOUT",
+            description="Main 5x\n- 3m 110%\n- 3m 50%",
+            ctx=mock_ctx,
+        )
+        data = json.loads(result)["data"]
+        assert data["workout_parsed"] is True
+        assert data["workout_steps"] == 12
+        assert "workout_parse_hint" not in data
+
+    async def test_create_workout_echoes_unparsed_prose(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+        respx_mock.post("/athlete/i123456/events").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 2002,
+                    "name": "Easy run",
+                    "start_date_local": "2026-03-20",
+                    "category": "WORKOUT",
+                    "description": "Nice and easy run for half an hour.",
+                    "workout_doc": WORKOUT_DOC_EMPTY,
+                },
+            )
+        )
+        result = await create_event(
+            start_date="2026-03-20",
+            name="Easy run",
+            category="WORKOUT",
+            description="Nice and easy run for half an hour.",
+            ctx=mock_ctx,
+        )
+        data = json.loads(result)["data"]
+        assert data["workout_parsed"] is False
+        assert "workout_parse_hint" in data
+        assert "workout_steps" not in data
+
+    async def test_update_workout_echoes_parse_status(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+        respx_mock.put("/athlete/i123456/events/2003").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 2003,
+                    "name": "Intervals",
+                    "start_date_local": "2026-03-20",
+                    "category": "WORKOUT",
+                    "description": "Main 5x\n- 3m 110%\n- 3m 50%",
+                    "workout_doc": WORKOUT_DOC_STRUCTURED,
+                },
+            )
+        )
+        result = await update_event(
+            event_id=2003,
+            description="Main 5x\n- 3m 110%\n- 3m 50%",
+            ctx=mock_ctx,
+        )
+        data = json.loads(result)["data"]
+        assert data["workout_parsed"] is True
+        assert data["workout_steps"] == 12
+
+    async def test_note_has_no_parse_echo(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+        respx_mock.post("/athlete/i123456/events").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 2004,
+                    "name": "Hydrate",
+                    "start_date_local": "2026-03-20",
+                    "category": "NOTE",
+                    "description": "Remember to hydrate.",
+                },
+            )
+        )
+        result = await create_event(
+            start_date="2026-03-20",
+            name="Hydrate",
+            category="NOTE",
+            description="Remember to hydrate.",
+            ctx=mock_ctx,
+        )
+        data = json.loads(result)["data"]
+        assert "workout_parsed" not in data
+        assert "workout_parse_hint" not in data
+
+
+class TestBulkEventTypeAlias:
+    """bulk_create_events accepts `event_type` as an alias for the API `type` field."""
+
+    async def test_event_type_alias_mapped_to_api_type(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+        route = respx_mock.post("/athlete/i123456/events/bulk").mock(
+            return_value=Response(
+                200,
+                json=[
+                    {
+                        "id": 3001,
+                        "name": "Run",
+                        "start_date_local": "2026-03-20",
+                        "category": "WORKOUT",
+                        "type": "Run",
+                    }
+                ],
+            )
+        )
+        result = await bulk_create_events(
+            events=json.dumps(
+                [
+                    {
+                        "start_date_local": "2026-03-20",
+                        "name": "Run",
+                        "category": "WORKOUT",
+                        "event_type": "Run",
+                    }
+                ]
+            ),
+            ctx=mock_ctx,
+        )
+        assert "error" not in json.loads(result)
+        # The outgoing API payload must carry `type`, not the alias.
+        sent = json.loads(route.calls.last.request.content)
+        assert sent[0]["type"] == "Run"
+        assert "event_type" not in sent[0]
+
+    async def test_raw_type_wins_when_both_present(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+        route = respx_mock.post("/athlete/i123456/events/bulk").mock(
+            return_value=Response(200, json=[])
+        )
+        await bulk_create_events(
+            events=json.dumps(
+                [
+                    {
+                        "start_date_local": "2026-03-20",
+                        "name": "R",
+                        "category": "WORKOUT",
+                        "type": "Ride",
+                        "event_type": "Run",
+                    }
+                ]
+            ),
+            ctx=mock_ctx,
+        )
+        sent = json.loads(route.calls.last.request.content)
+        assert sent[0]["type"] == "Ride"
+        assert "event_type" not in sent[0]
+
+    async def test_race_accepts_event_type_alias(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+        respx_mock.post("/athlete/i123456/events/bulk").mock(
+            return_value=Response(
+                200,
+                json=[
+                    {
+                        "id": 3002,
+                        "name": "Race",
+                        "start_date_local": "2026-03-20",
+                        "category": "RACE_A",
+                        "type": "Ride",
+                    }
+                ],
+            )
+        )
+        result = await bulk_create_events(
+            events=json.dumps(
+                [
+                    {
+                        "start_date_local": "2026-03-20",
+                        "name": "Race",
+                        "category": "RACE_A",
+                        "event_type": "Ride",
+                    }
+                ]
+            ),
+            ctx=mock_ctx,
+        )
+        # event_type must satisfy the RACE `type`-required validation.
+        assert "error" not in json.loads(result)
+
+
+class TestSwimLoadHint:
+    """Swim WORKOUTs that parse but get no load surface a swim-specific hint."""
+
+    async def test_swim_no_load_gets_hint(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+        respx_mock.post("/athlete/i123456/events").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 4001,
+                    "name": "Swim",
+                    "start_date_local": "2026-03-20",
+                    "category": "WORKOUT",
+                    "type": "Swim",
+                    "description": "Main\n- 200mtr\n- 200mtr",
+                    "workout_doc": {"steps": [{"duration": 72}, {"duration": 72}]},
+                },
+            )
+        )
+        result = await create_event(
+            start_date="2026-03-20",
+            name="Swim",
+            category="WORKOUT",
+            event_type="Swim",
+            description="Main\n- 200mtr\n- 200mtr",
+            ctx=mock_ctx,
+        )
+        data = json.loads(result)["data"]
+        assert data["workout_parsed"] is True
+        assert "workout_load_hint" in data
+        assert "CSS" in data["workout_load_hint"]
+
+    async def test_swim_with_load_no_hint(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+        respx_mock.post("/athlete/i123456/events").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 4002,
+                    "name": "Swim",
+                    "start_date_local": "2026-03-20",
+                    "category": "WORKOUT",
+                    "type": "Swim",
+                    "description": "Main\n- 200mtr Z2 HR",
+                    "workout_doc": {"steps": [{"duration": 72, "hr": {"value": 75}}]},
+                    "icu_training_load": 5,
+                },
+            )
+        )
+        result = await create_event(
+            start_date="2026-03-20",
+            name="Swim",
+            category="WORKOUT",
+            event_type="Swim",
+            description="Main\n- 200mtr Z2 HR",
+            ctx=mock_ctx,
+        )
+        data = json.loads(result)["data"]
+        assert "workout_load_hint" not in data
+
+    async def test_nonswim_no_load_gets_no_swim_hint(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+        respx_mock.post("/athlete/i123456/events").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 4003,
+                    "name": "Run",
+                    "start_date_local": "2026-03-20",
+                    "category": "WORKOUT",
+                    "type": "Run",
+                    "description": "Main\n- 40m Z2",
+                    "workout_doc": {"steps": [{"duration": 2400}]},
+                },
+            )
+        )
+        result = await create_event(
+            start_date="2026-03-20",
+            name="Run",
+            category="WORKOUT",
+            event_type="Run",
+            description="Main\n- 40m Z2",
+            ctx=mock_ctx,
+        )
+        data = json.loads(result)["data"]
+        assert "workout_load_hint" not in data
+
+    async def test_swim_untargeted_work_gets_hint_despite_stray_load(self, mock_config, respx_mock):
+        # Real case: work reps carry no target (model wrote "- 200mtr CSS"), the
+        # warmup has a pace zone, and a stray load of 1 slips in. The hint must
+        # still fire because the *work* steps have no intensity.
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+        desc = (
+            "Warmup\n- 400mtr Z2 Pace\n\nMain 5x\n- 200mtr CSS\n- 20s rest\n\nCooldown\n- 200mtr Z1"
+        )
+        respx_mock.post("/athlete/i123456/events").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 4004,
+                    "name": "Swim",
+                    "start_date_local": "2026-03-20",
+                    "category": "WORKOUT",
+                    "type": "Swim",
+                    "description": desc,
+                    "workout_doc": {
+                        "steps": [
+                            {
+                                "duration": 12,
+                                "distance": 400,
+                                "warmup": True,
+                                "pace": {"value": 2, "units": "pace_zone"},
+                            },
+                            {
+                                "reps": 5,
+                                "steps": [
+                                    {"duration": 6, "distance": 200},
+                                    {"duration": 20},
+                                ],
+                            },
+                            {
+                                "duration": 6,
+                                "distance": 200,
+                                "cooldown": True,
+                                "power": {"value": 1, "units": "%ftp"},
+                            },
+                        ]
+                    },
+                    "icu_training_load": 1,
+                },
+            )
+        )
+        result = await create_event(
+            start_date="2026-03-20",
+            name="Swim",
+            category="WORKOUT",
+            event_type="Swim",
+            description=desc,
+            ctx=mock_ctx,
+        )
+        data = json.loads(result)["data"]
+        assert data["workout_parsed"] is True
+        assert "workout_load_hint" in data
+
+    def test_repeated_warmup_cooldown_does_not_mask_untargeted_work(self):
+        # Live-verified doc shape: a repeated "Warmup 4x" / "COOLDOWN 2x" block is
+        # never flagged warmup/cooldown — the header survives only in the block's
+        # `text` — so its pace-targeted reps must not mask an untargeted main set.
+        steps = [
+            {
+                "reps": 4,
+                "text": "Warmup 4x",
+                "steps": [
+                    {"pace": {"units": "pace_zone", "value": 2}, "distance": 100},
+                    {"duration": 20},
+                ],
+            },
+            {"distance": 800, "duration": 2324},  # main set, no target
+            {
+                "reps": 2,
+                "text": "COOLDOWN 2x",  # header match is case-insensitive
+                "steps": [
+                    {"pace": {"units": "pace_zone", "value": 2}, "distance": 100},
+                    {"duration": 20},
+                ],
+            },
+        ]
+        assert _swim_work_lacks_intensity(steps) is True
+        # Only excluded blocks left -> no work steps to judge -> no hint.
+        assert _swim_work_lacks_intensity([steps[0], steps[2]]) is False
+
+    def test_intensity_attribute_flags_excluded_inside_repeats(self):
+        # `intensity=warmup` on a step sets the same `warmup` flag a header does —
+        # live-verified, including on children inside a repeat block — so an
+        # attribute-tagged warmup drill can't mask an untargeted main set either,
+        # even when the section name ("Drills 4x") matches no header keyword.
+        steps = [
+            {
+                "reps": 4,
+                "text": "Drills 4x",
+                "steps": [
+                    {
+                        "pace": {"units": "pace_zone", "value": 2},
+                        "warmup": True,
+                        "distance": 100,
+                        "intensity": "warmup",
+                    },
+                    {"duration": 20, "intensity": "rest"},
+                ],
+            },
+            {"distance": 800, "duration": 2324},  # main set, no target
+        ]
+        assert _swim_work_lacks_intensity(steps) is True
+
+    def test_targeted_repeat_main_set_counts_as_work(self):
+        # A repeat block under a plain section name stays work: its pace target
+        # means the hint must not fire.
+        steps = [
+            {
+                "reps": 5,
+                "text": "Main 5x",
+                "steps": [
+                    {"pace": {"units": "pace_zone", "value": 3}, "distance": 200},
+                    {"duration": 20},
+                ],
+            },
+        ]
+        assert _swim_work_lacks_intensity(steps) is False
