@@ -14,7 +14,7 @@ that preserve the information (key renames, restructuring, added fields) ship in
 clients. (Releases up to and including 4.0.0 treated any response-shape change as
 breaking; this narrower contract applies from the next release onward.)
 
-## [Unreleased]
+## [4.3.0] — 2026-07-14
 
 ### Added
 - New `icu_get_fitness_chart` tool — a read-only CTL/ATL/TSB time-series (Performance Management Chart) over a configurable window via required `days_back` / `days_ahead` (365-day cap each). Future points sourced from planned calendar workouts are tagged `is_projected: true`, and the response includes a summary block. Backed by a new optional `fields` param on the client's wellness fetch so only the fitness columns are pulled. Safe-mode tool count goes 57 → 58 (60 → 61 in full mode). Contributed by @jorge-huxley (#87).
