@@ -51,7 +51,7 @@ from .tools.activity_analysis import (
     search_intervals,
 )
 from .tools.activity_messages import add_activity_message, get_activity_messages
-from .tools.athlete import get_athlete_profile, get_fitness_summary
+from .tools.athlete import get_athlete_profile, get_fitness_chart, get_fitness_summary
 from .tools.curves import get_hr_curves, get_pace_curves
 from .tools.custom_items import (
     create_custom_item,
@@ -303,6 +303,15 @@ mcp.tool(
         "openWorldHint": True,
     },
 )(get_fitness_summary)
+mcp.tool(
+    name="icu_get_fitness_chart",
+    annotations={
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+)(get_fitness_chart)
 
 # Register wellness tools
 mcp.tool(
@@ -800,12 +809,13 @@ async def analyze_recent_training(days: str = "30") -> str:
 Focus on:
 1. Training volume (distance, time, elevation, training load)
 2. Training distribution by activity type
-3. Fitness trends (CTL/ATL/TSB)
+3. Fitness trends (CTL/ATL/TSB) — use icu_get_fitness_chart for the time-series
 4. Recovery metrics (HRV, sleep, wellness)
 5. Key insights and recommendations
 
-Use get_recent_activities with days_back={days}, get_fitness_summary for CTL/ATL/TSB analysis,
-and get_wellness_data to assess recovery. Present findings in a clear, actionable format."""
+Use get_recent_activities with days_back={days}, icu_get_fitness_chart for CTL/ATL/TSB trends,
+icu_get_fitness_summary for today's form, and get_wellness_data to assess recovery.
+Present findings in a clear, actionable format."""
 
 
 @mcp.prompt()

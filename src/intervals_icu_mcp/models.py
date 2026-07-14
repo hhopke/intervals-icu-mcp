@@ -31,9 +31,6 @@ TrainingAvailability = Literal["NORMAL", "LIMITED", "UNAVAILABLE"]
 # ==================== Athlete Models ====================
 
 _SWIM_SPORT_TYPES = frozenset({"Swim", "OpenWaterSwim"})
-_SWIM_PACE_UNITS_SECONDS = frozenset(
-    {"SECS_100M", "SECS_100Y", "SECS_500M", "SECS_400M", "SECS_250M"}
-)
 
 
 class SportSettings(BaseModel):
@@ -68,16 +65,18 @@ class SportSettings(BaseModel):
         threshold_pace = raw.get("threshold_pace")
         if threshold_pace is not None:
             pace_load_type = raw.get("pace_load_type")
-            pace_units = raw.get("pace_units") or ""
             sport_types = cast(list[Any], types) if isinstance(types, list) else []
             is_swim = pace_load_type == "SWIM" or any(
                 isinstance(t, str) and t in _SWIM_SPORT_TYPES for t in sport_types
             )
+            # The API stores RUN pace as min/km (5:45/km -> 5.75) but SWIM pace as
+            # SPEED in m/s (0:25/100m -> 4.0). Convert swim m/s -> min/100m; use the
+            # run pace directly. (Sending swim as min/100m stored a bogus speed, #88.)
             if is_swim:
-                if isinstance(pace_units, str) and pace_units in _SWIM_PACE_UNITS_SECONDS:
-                    normalized["swim_threshold"] = threshold_pace / 60.0
-                elif normalized.get("swim_threshold") is None:
-                    normalized["swim_threshold"] = threshold_pace
+                if normalized.get("swim_threshold") is None:
+                    normalized["swim_threshold"] = (
+                        (100.0 / threshold_pace) / 60.0 if threshold_pace else None
+                    )
             elif normalized.get("pace_threshold") is None:
                 normalized["pace_threshold"] = threshold_pace
 

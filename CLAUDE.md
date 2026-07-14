@@ -4,7 +4,7 @@ This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-MCP (Model Context Protocol) server for Intervals.icu — provides up to 60 tools, 4 resources, and 9 prompts for accessing training data, wellness metrics, and performance analysis through Claude and other LLMs. The default `INTERVALS_ICU_DELETE_MODE=safe` registers 57 tools; `full` registers all 60, `none` registers 54.
+MCP (Model Context Protocol) server for Intervals.icu — provides up to 61 tools, 4 resources, and 9 prompts for accessing training data, wellness metrics, and performance analysis through Claude and other LLMs. The default `INTERVALS_ICU_DELETE_MODE=safe` registers 58 tools; `full` registers all 61, `none` registers 55.
 
 - **Language**: Python 3.11+
 - **Framework**: FastMCP
