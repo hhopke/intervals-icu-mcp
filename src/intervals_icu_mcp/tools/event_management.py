@@ -147,7 +147,8 @@ def _swim_work_lacks_intensity(steps: list[Any]) -> bool:
     (needs swim FTHR). Warmup/cooldown steps are excluded so a warmup pace zone
     can't mask a main set with no intensity, and repeat blocks are flattened to
     their steps. Flat steps under a Warmup/Cooldown header carry a `warmup`/
-    `cooldown` flag, but a repeated header ("Warmup 4x") never does — the header
+    `cooldown` flag — as do steps tagged `intensity=warmup`/`cooldown`, at any
+    nesting level — but a repeated header ("Warmup 4x") never does — the header
     survives only in the block's `text` — so repeat blocks are matched on that
     (same case-insensitive exact word the API recognizes; live-verified).
     Returns False when there are no work steps to judge. Keying the

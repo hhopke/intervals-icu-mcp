@@ -1274,6 +1274,29 @@ class TestSwimLoadHint:
         # Only excluded blocks left -> no work steps to judge -> no hint.
         assert _swim_work_lacks_intensity([steps[0], steps[2]]) is False
 
+    def test_intensity_attribute_flags_excluded_inside_repeats(self):
+        # `intensity=warmup` on a step sets the same `warmup` flag a header does —
+        # live-verified, including on children inside a repeat block — so an
+        # attribute-tagged warmup drill can't mask an untargeted main set either,
+        # even when the section name ("Drills 4x") matches no header keyword.
+        steps = [
+            {
+                "reps": 4,
+                "text": "Drills 4x",
+                "steps": [
+                    {
+                        "pace": {"units": "pace_zone", "value": 2},
+                        "warmup": True,
+                        "distance": 100,
+                        "intensity": "warmup",
+                    },
+                    {"duration": 20, "intensity": "rest"},
+                ],
+            },
+            {"distance": 800, "duration": 2324},  # main set, no target
+        ]
+        assert _swim_work_lacks_intensity(steps) is True
+
     def test_targeted_repeat_main_set_counts_as_work(self):
         # A repeat block under a plain section name stays work: its pace target
         # means the hint must not fire.
