@@ -106,6 +106,10 @@ The following skills are available in `.claude/skills/`:
 
 **Always run `make can-release` before finishing any feature work.** This runs the full test and lint suite, matching what CI checks on every push.
 
+## Merging PRs
+
+PRs are **squash-merged only** (repo setting: commit title from `PR_TITLE`, body `BLANK`). The PR title becomes the single `main` commit subject with ` (#N)` appended — write PR titles as single-line conventional commits (≤ ~70 chars), and edit non-conforming community PR titles before merging.
+
 ## Releases
 
 CHANGELOG.md is **manual** — there is no automated changelog generation. Entries are the **maintainer's responsibility**: community PRs deliberately do not include them (CONTRIBUTING.md and the PR template say so, to avoid `[Unreleased]` merge conflicts and keep SemVer classification in one place). Add the `[Unreleased]` bullet at merge time, while the PR context is fresh; `/release-check` verifies every user-facing commit since the last tag has an entry before a release is cut. The only release-related automation:

@@ -35,7 +35,7 @@ No exceptions: trivial fixes, doc tweaks, one-liners — all go through a non-ma
 - Format: `type(scope): description` — [Conventional Commits](https://www.conventionalcommits.org).
 - Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `ci`, `build`, `perf`.
 - Scope is optional but encouraged. Conventional scopes here: `tools`, `client`, `middleware`, `models`, `wellness`, `events`, `ci`, `release`, or a specific tool module name.
-- Do not put issue refs (`Closes #N`) in the commit message — those live in the PR body so GitHub auto-closes correctly on merge.
+- Do not put issue refs (`Closes #N`) in the commit message — those live in the PR body so GitHub auto-closes correctly on merge (and squash merges use a blank commit body, so commit-message refs would be dropped anyway).
 
 ## Doc + count sync
 
@@ -76,7 +76,7 @@ When opening a PR (`gh pr create` or user asks for one), put a closing keyword i
 
 Find the issue # in the user's prompt, branch name, or recent conversation. If unclear, ask — don't guess. After creating, verify with `gh pr view <n> --json closingIssuesReferences`; if empty, fix with `gh pr edit <n> --body-file -`.
 
-PR title follows the same conventional-commit format as the commit message. Body uses the existing `.github/PULL_REQUEST_TEMPLATE.md` structure (Summary / Changes / Checklist / Test plan).
+**The PR title becomes the `main` commit.** The repo is squash-only (settings: commit title from `PR_TITLE`, body `BLANK`): on merge, `main` gets exactly one commit whose subject is the PR title plus an appended ` (#N)`, and the branch's individual commits fold away. So write the PR title as you would a commit subject — single line, conventional format, ideally ≤ 70 chars to leave room for the ` (#N)` suffix — and edit non-conforming community PR titles *before* merging. Body uses the existing `.github/PULL_REQUEST_TEMPLATE.md` structure (Summary / Changes / Checklist / Test plan).
 
 ## Instructions
 
