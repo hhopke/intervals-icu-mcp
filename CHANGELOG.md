@@ -24,6 +24,7 @@ breaking; this narrower contract applies from the next release onward.)
 
 ### Changed
 - The `description` parameter of `icu_create_event` / `icu_update_event` and the `events` parameter of `icu_bulk_create_events` now carry a compact inline Intervals.icu workout-syntax cheat-sheet instead of only pointing at the `intervals-icu://workout-syntax` resource. Many MCP hosts (e.g. Claude Desktop) never surface resources to the model, so a model on those hosts could not read the spec and fell back to inventing non-native formats that silently fail to parse; the in-context cheat-sheet targets the specific failure modes observed in testing (bracket DSLs, nested bullets, target-before-duration, bare run zones with no load, dropped cadence targets, missing rest-interval syntax, `m`-vs-`mtr` distance-unit confusion, and missing blank lines around repeat blocks — which silently collapse a repeat to a single rep). The resource is retained for hosts that can read it.
+- Documented the previously-undocumented `intensity=warmup|active|rest|cooldown` step attribute in the `intervals-icu://workout-syntax` resource — it sets the structured-workout step *type* (used when syncing to a device) and has no effect on duration, distance, zones, or training load.
 
 ## [4.2.0] — 2026-07-10
 

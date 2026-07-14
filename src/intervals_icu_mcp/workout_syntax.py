@@ -161,6 +161,24 @@ Rest can be specified after the main target:
 - 100mtr Z4 20s rest
 ```
 
+## Step Type / Intensity
+Tag a step's type with `intensity=<type>`, where `<type>` is one of `warmup`,
+`active`, `rest`, or `cooldown`. This sets the structured-workout step *type* —
+the standard warmup/active/rest/cooldown set that devices use to render phases —
+and is stored on the parsed step, but does **not** change its duration, distance,
+zones, or training load.
+
+```
+- 400mtr intensity=warmup free
+- 5m 90% intensity=active
+- 20s intensity=rest
+- 200mtr intensity=cooldown free
+```
+
+Optional: steps under a `Warmup` / `Cooldown` section header are already treated
+as warmup/cooldown, so use `intensity=` mainly to tag `active` vs `rest` steps
+explicitly. Works on any sport and step type.
+
 ## Complete Examples
 
 ### Cycling - Sweet Spot
