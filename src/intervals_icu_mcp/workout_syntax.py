@@ -176,8 +176,13 @@ zones, or training load.
 ```
 
 Optional: steps under a `Warmup` / `Cooldown` section header are already treated
-as warmup/cooldown, so use `intensity=` mainly to tag `active` vs `rest` steps
-explicitly. Works on any sport and step type.
+as warmup/cooldown — including on device export (FIT), so `intensity=warmup` /
+`intensity=cooldown` add nothing there. The tag that changes device behavior is
+`intensity=rest`: it is the only form that exports a true FIT rest step
+(Garmin/Wahoo render rest steps distinctly). An appended `Ns rest`
+(`- 200mtr Z2 20s rest`) adjusts the planned step duration and load math but
+does not export a rest step. Zwift export (.zwo) ignores step types entirely.
+Works on any sport and step type.
 
 ## Complete Examples
 
