@@ -146,25 +146,35 @@ def _swim_work_lacks_intensity(steps: list[Any]) -> bool:
     Swim load comes from a pace target (needs a swim CSS/threshold) or an HR target
     (needs swim FTHR). Warmup/cooldown steps are excluded so a warmup pace zone
     can't mask a main set with no intensity, and repeat blocks are flattened to
-    their steps. Returns False when there are no work steps to judge. Keying the
+    their steps. Flat steps under a Warmup/Cooldown header carry a `warmup`/
+    `cooldown` flag, but a repeated header ("Warmup 4x") never does — the header
+    survives only in the block's `text` — so repeat blocks are matched on that
+    (same case-insensitive exact word the API recognizes; live-verified).
+    Returns False when there are no work steps to judge. Keying the
     swim load hint on this (rather than total load) catches a main set that parsed
     structurally but dropped its target — e.g. an unrecognized `CSS` token — even
     when a stray misapplied zone leaves a token training load behind.
     """
     work: list[dict[str, Any]] = []
 
-    def _collect(items: list[Any]) -> None:
+    def _collect(items: list[Any], excluded: bool) -> None:
         for step in items:
             if not isinstance(step, dict):
                 continue
             step_dict = cast(dict[str, Any], step)
             nested = step_dict.get("steps")
             if isinstance(nested, list):
-                _collect(cast(list[Any], nested))
-            elif not step_dict.get("warmup") and not step_dict.get("cooldown"):
+                text = str(step_dict.get("text") or "").lower()
+                _collect(
+                    cast(list[Any], nested),
+                    excluded or text.startswith(("warmup", "cooldown")),
+                )
+            elif (
+                not excluded and not step_dict.get("warmup") and not step_dict.get("cooldown")
+            ):
                 work.append(step_dict)
 
-    _collect(steps)
+    _collect(steps, False)
     if not work:
         return False
     return not any(s.get("pace") or s.get("hr") for s in work)

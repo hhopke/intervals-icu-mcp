@@ -10,6 +10,7 @@ from httpx import Response
 from intervals_icu_mcp.auth import ICUConfig
 from intervals_icu_mcp.tools.event_management import (
     _count_workout_steps,
+    _swim_work_lacks_intensity,
     apply_training_plan,
     bulk_create_events,
     bulk_delete_events,
@@ -1245,3 +1246,45 @@ class TestSwimLoadHint:
         data = json.loads(result)["data"]
         assert data["workout_parsed"] is True
         assert "workout_load_hint" in data
+
+    def test_repeated_warmup_cooldown_does_not_mask_untargeted_work(self):
+        # Live-verified doc shape: a repeated "Warmup 4x" / "COOLDOWN 2x" block is
+        # never flagged warmup/cooldown — the header survives only in the block's
+        # `text` — so its pace-targeted reps must not mask an untargeted main set.
+        steps = [
+            {
+                "reps": 4,
+                "text": "Warmup 4x",
+                "steps": [
+                    {"pace": {"units": "pace_zone", "value": 2}, "distance": 100},
+                    {"duration": 20},
+                ],
+            },
+            {"distance": 800, "duration": 2324},  # main set, no target
+            {
+                "reps": 2,
+                "text": "COOLDOWN 2x",  # header match is case-insensitive
+                "steps": [
+                    {"pace": {"units": "pace_zone", "value": 2}, "distance": 100},
+                    {"duration": 20},
+                ],
+            },
+        ]
+        assert _swim_work_lacks_intensity(steps) is True
+        # Only excluded blocks left -> no work steps to judge -> no hint.
+        assert _swim_work_lacks_intensity([steps[0], steps[2]]) is False
+
+    def test_targeted_repeat_main_set_counts_as_work(self):
+        # A repeat block under a plain section name stays work: its pace target
+        # means the hint must not fire.
+        steps = [
+            {
+                "reps": 5,
+                "text": "Main 5x",
+                "steps": [
+                    {"pace": {"units": "pace_zone", "value": 3}, "distance": 200},
+                    {"duration": 20},
+                ],
+            },
+        ]
+        assert _swim_work_lacks_intensity(steps) is False
