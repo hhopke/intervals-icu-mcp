@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Literal, cast
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # Type aliases for common enums
 ActivityType = Literal["Ride", "Run", "Swim", "Walk", "Hike", "VirtualRide", "VirtualRun", "Other"]
@@ -103,6 +103,11 @@ class Athlete(BaseModel):
         default_factory=list[SportSettings],
         validation_alias=AliasChoices("sport_settings", "sportSettings"),
     )
+
+    @field_validator("sport_settings", mode="before")
+    @classmethod
+    def _coerce_sport_settings(cls, v: Any) -> list[Any]:
+        return v or []
 
 
 class AthleteProfile(BaseModel):
@@ -256,6 +261,11 @@ class Wellness(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
+    @field_validator("sport_info", mode="before")
+    @classmethod
+    def _coerce_sport_info(cls, v: Any) -> list[Any]:
+        return v or []
+
 
 # ==================== Event/Calendar Models ====================
 
@@ -357,6 +367,11 @@ class CurveData(BaseModel):
     days: int | None = None
     weight: float | None = None
 
+    @field_validator("secs", "values", "activity_id", "watts_per_kg", mode="before")
+    @classmethod
+    def _coerce_lists(cls, v: Any) -> list[Any]:
+        return v or []
+
 
 class CurveSet(BaseModel):
     """Wrapper returned by all curve API endpoints (power, HR, pace)."""
@@ -364,6 +379,11 @@ class CurveSet(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     curves: list[CurveData] = Field(default_factory=lambda: list[CurveData](), alias="list")
+
+    @field_validator("curves", mode="before")
+    @classmethod
+    def _coerce_curves(cls, v: Any) -> list[Any]:
+        return v or []
 
 
 # ==================== Training Plan Models ====================
@@ -405,6 +425,11 @@ class FitnessSummary(BaseModel):
     date: str | None = None
     interpretation: dict[str, Any] = Field(default_factory=dict)
 
+    @field_validator("interpretation", mode="before")
+    @classmethod
+    def _coerce_interpretation(cls, v: Any) -> dict[str, Any]:
+        return v or {}
+
 
 # ==================== Activity Interval Models ====================
 
@@ -439,6 +464,11 @@ class IntervalsDTO(BaseModel):
     id: str | None = None
     icu_intervals: list[Interval] = Field(default_factory=lambda: list[Interval]())
 
+    @field_validator("icu_intervals", mode="before")
+    @classmethod
+    def _coerce_icu_intervals(cls, v: Any) -> list[Any]:
+        return v or []
+
 
 # ==================== Activity Streams Models ====================
 
@@ -470,6 +500,11 @@ class BestEfforts(BaseModel):
     """Response from the best-efforts endpoint."""
 
     efforts: list[Effort] = Field(default_factory=lambda: list[Effort]())
+
+    @field_validator("efforts", mode="before")
+    @classmethod
+    def _coerce_efforts(cls, v: Any) -> list[Any]:
+        return v or []
 
 
 # ==================== Gear Models ====================
@@ -507,6 +542,11 @@ class Gear(BaseModel):
     reminders: list[GearReminder] = Field(default_factory=list[GearReminder])
 
     model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator("reminders", mode="before")
+    @classmethod
+    def _coerce_reminders(cls, v: Any) -> list[Any]:
+        return v or []
 
 
 # ==================== Histogram Models ====================

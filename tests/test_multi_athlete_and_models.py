@@ -330,6 +330,62 @@ class TestSportSettingsModelMapping:
         assert athlete.sport_settings[0].fthr == 165
 
 
+class TestNullListDictFieldCoercion:
+    """Several endpoints return explicit `null` (not a missing key) for list/dict fields
+    when there's no computed data yet for that record — e.g. sportInfo on wellness days
+    without processed activities. Pydantic's `default_factory` only applies when the key
+    is absent, so each of these fields needs a `mode="before"` validator to coerce None
+    to an empty list/dict instead of raising a validation error. Wellness.sport_info has
+    its own dedicated test in test_wellness_tools.py; this covers the rest."""
+
+    def test_athlete_handles_null_sport_settings(self):
+        from intervals_icu_mcp.models import Athlete
+
+        athlete = Athlete.model_validate({"id": "i123456", "name": "Test", "sportSettings": None})
+        assert athlete.sport_settings == []
+
+    def test_curve_data_handles_null_list_fields(self):
+        from intervals_icu_mcp.models import CurveData
+
+        curve = CurveData.model_validate(
+            {"secs": None, "values": None, "activity_id": None, "watts_per_kg": None}
+        )
+        assert curve.secs == []
+        assert curve.values == []
+        assert curve.activity_id == []
+        assert curve.watts_per_kg == []
+
+    def test_curve_set_handles_null_curves(self):
+        from intervals_icu_mcp.models import CurveSet
+
+        curve_set = CurveSet.model_validate({"list": None})
+        assert curve_set.curves == []
+
+    def test_fitness_summary_handles_null_interpretation(self):
+        from intervals_icu_mcp.models import FitnessSummary
+
+        summary = FitnessSummary.model_validate({"interpretation": None})
+        assert summary.interpretation == {}
+
+    def test_intervals_dto_handles_null_icu_intervals(self):
+        from intervals_icu_mcp.models import IntervalsDTO
+
+        dto = IntervalsDTO.model_validate({"icu_intervals": None})
+        assert dto.icu_intervals == []
+
+    def test_best_efforts_handles_null_efforts(self):
+        from intervals_icu_mcp.models import BestEfforts
+
+        efforts = BestEfforts.model_validate({"efforts": None})
+        assert efforts.efforts == []
+
+    def test_gear_handles_null_reminders(self):
+        from intervals_icu_mcp.models import Gear
+
+        gear = Gear.model_validate({"id": "b123", "reminders": None})
+        assert gear.reminders == []
+
+
 class TestPydanticAliases:
     """Test that icu_average_watts / icu_weighted_avg_watts map correctly."""
 

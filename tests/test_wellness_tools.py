@@ -256,3 +256,15 @@ class TestWellnessTools:
         record = Wellness.model_validate({"id": "2026-04-20", "weight": 70.0, "futureMetric": 42})
         # Unknown field is preserved (not silently dropped)
         assert getattr(record, "futureMetric", None) == 42
+
+    def test_wellness_handles_null_sport_info(self):
+        """API returns sportInfo: null for days without computed sport metrics —
+        this should not crash parsing."""
+        from intervals_icu_mcp.models import Wellness
+
+        raw = {
+            "id": "2026-07-09",
+            "sportInfo": None,
+        }
+        wellness = Wellness.model_validate(raw)
+        assert wellness.sport_info == []
