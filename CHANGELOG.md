@@ -14,6 +14,11 @@ that preserve the information (key renames, restructuring, added fields) ship in
 clients. (Releases up to and including 4.0.0 treated any response-shape change as
 breaking; this narrower contract applies from the next release onward.)
 
+## [4.3.1] — 2026-07-21
+
+### Fixed
+- Every `icu_update_wellness` call crashed with a validation error (`sportInfo: Input should be a valid list`): the Intervals.icu API returns explicit `null` (not a missing key) for list/dict fields with no computed data — e.g. `sportInfo` on any wellness day without eFTP/W'/Pmax metrics, the common case — and Pydantic's `default_factory` only applies when the key is absent. All eight fields with this pattern now coerce `null` to an empty list/dict before validation: `Wellness.sport_info`, `Athlete.sport_settings`, `CurveData.secs`/`values`/`activity_id`/`watts_per_kg`, `CurveSet.curves`, `FitnessSummary.interpretation`, `IntervalsDTO.icu_intervals`, `BestEfforts.efforts`, and `Gear.reminders`. Verified against the live API. Contributed by @Jozwiaczek (#94).
+
 ## [4.3.0] — 2026-07-14
 
 ### Added
