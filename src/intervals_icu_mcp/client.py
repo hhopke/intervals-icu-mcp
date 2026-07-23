@@ -892,9 +892,12 @@ class ICUClient:
             List of Workout objects
         """
         athlete_id = athlete_id or self.config.intervals_icu_athlete_id
-        response = await self._request("GET", f"/athlete/{athlete_id}/folders/{folder_id}/workouts")
+        # The API has no GET on /folders/{folderId}/workouts (that path is PUT-only),
+        # so fetch the whole library and filter by folder_id.
+        response = await self._request("GET", f"/athlete/{athlete_id}/workouts")
         adapter = TypeAdapter(list[Workout])
-        return adapter.validate_python(response.json())
+        workouts = adapter.validate_python(response.json())
+        return [w for w in workouts if w.folder_id == folder_id]
 
     # ==================== Event Write Operations ====================
 
