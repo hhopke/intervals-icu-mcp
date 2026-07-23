@@ -116,7 +116,7 @@ class TestGetWorkoutsInFolder:
         mock_ctx = MagicMock()
         mock_ctx.get_state = AsyncMock(return_value=mock_config)
 
-        respx_mock.get("/athlete/i123456/folders/1/workouts").mock(
+        respx_mock.get("/athlete/i123456/workouts").mock(
             return_value=Response(
                 200,
                 json=[
@@ -125,6 +125,7 @@ class TestGetWorkoutsInFolder:
                         "name": "Threshold Intervals",
                         "description": "5x5min @ FTP",
                         "type": "Ride",
+                        "folder_id": 1,
                         "moving_time": 3600,
                         "distance": 30000.0,
                         "icu_training_load": 100,
@@ -137,8 +138,15 @@ class TestGetWorkoutsInFolder:
                     {
                         "id": 101,
                         "name": "Easy Spin",
+                        "folder_id": 1,
                         "moving_time": 1800,
                         "indoor": False,
+                    },
+                    {
+                        "id": 102,
+                        "name": "Other Folder Workout",
+                        "folder_id": 7,
+                        "moving_time": 900,
                     },
                 ],
             )
@@ -149,6 +157,7 @@ class TestGetWorkoutsInFolder:
         response = json.loads(result)
         data = response["data"]
         assert data["folder_id"] == 1
+        # Workout 102 lives in folder 7 and must be filtered out
         assert len(data["workouts"]) == 2
         threshold = data["workouts"][0]
         assert threshold["metrics"]["training_load"] == 100
@@ -171,8 +180,8 @@ class TestGetWorkoutsInFolder:
         mock_ctx = MagicMock()
         mock_ctx.get_state = AsyncMock(return_value=mock_config)
 
-        respx_mock.get("/athlete/i123456/folders/2/workouts").mock(
-            return_value=Response(200, json=[{"id": 200, "name": "Placeholder"}])
+        respx_mock.get("/athlete/i123456/workouts").mock(
+            return_value=Response(200, json=[{"id": 200, "name": "Placeholder", "folder_id": 2}])
         )
 
         result = await get_workouts_in_folder(folder_id=2, ctx=mock_ctx)
@@ -183,8 +192,9 @@ class TestGetWorkoutsInFolder:
         mock_ctx = MagicMock()
         mock_ctx.get_state = AsyncMock(return_value=mock_config)
 
-        respx_mock.get("/athlete/i123456/folders/99/workouts").mock(
-            return_value=Response(200, json=[])
+        # A non-empty library where nothing belongs to folder 99
+        respx_mock.get("/athlete/i123456/workouts").mock(
+            return_value=Response(200, json=[{"id": 300, "name": "Elsewhere", "folder_id": 1}])
         )
 
         result = await get_workouts_in_folder(folder_id=99, ctx=mock_ctx)
@@ -197,9 +207,7 @@ class TestGetWorkoutsInFolder:
         mock_ctx = MagicMock()
         mock_ctx.get_state = AsyncMock(return_value=mock_config)
 
-        respx_mock.get("/athlete/i123456/folders/1/workouts").mock(
-            return_value=Response(404, json={})
-        )
+        respx_mock.get("/athlete/i123456/workouts").mock(return_value=Response(404, json={}))
 
         result = await get_workouts_in_folder(folder_id=1, ctx=mock_ctx)
         response = json.loads(result)
