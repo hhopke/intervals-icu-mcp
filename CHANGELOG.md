@@ -14,7 +14,7 @@ that preserve the information (key renames, restructuring, added fields) ship in
 clients. (Releases up to and including 4.0.0 treated any response-shape change as
 breaking; this narrower contract applies from the next release onward.)
 
-## [Unreleased]
+## [4.3.2] — 2026-07-23
 
 ### Fixed
 - `icu_get_workouts_in_folder` failed with HTTP 405 for every folder and training plan — broken since the initial release. It called `GET /athlete/{id}/folders/{folderId}/workouts`, but that Intervals.icu path is PUT-only (a bulk-update operation); the API has no per-folder listing endpoint at all. The client now fetches the athlete's full workout library (`GET /athlete/{id}/workouts`) and filters by `folder_id`. Verified against the live API. Reported by @gadelain (#95).
