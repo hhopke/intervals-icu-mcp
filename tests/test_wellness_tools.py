@@ -257,6 +257,59 @@ class TestWellnessTools:
         # Unknown field is preserved (not silently dropped)
         assert getattr(record, "futureMetric", None) == 42
 
+    async def test_get_wellness_for_date_surfaces_custom_fields(self, mock_config, respx_mock):
+        """Athlete-defined wellness fields survive MCP response formatting."""
+        custom_fields = {
+            "REMSleep": 7200,
+            "DeepSleep": 5400,
+            "LightSleep": 14400,
+            "ActiveEnergy": 850,
+            "RestingEnergy": 1750,
+            "LeanBodyMass": 61.5,
+        }
+        respx_mock.get("/athlete/i123456/wellness/2026-04-20").mock(
+            return_value=Response(
+                200,
+                json={"id": "2026-04-20", **custom_fields},
+            )
+        )
+
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+        result = await get_wellness_for_date(date="2026-04-20", ctx=mock_ctx)
+        response = json.loads(result)
+
+        assert response["data"]["custom_fields"] == custom_fields
+
+    async def test_get_wellness_data_surfaces_custom_fields_including_zero(
+        self, mock_config, respx_mock
+    ):
+        """Range responses retain valid falsy custom-field values."""
+        respx_mock.get("/athlete/i123456/wellness").mock(
+            return_value=Response(
+                200,
+                json=[
+                    {
+                        "id": "2026-04-20",
+                        "REMSleep": 0,
+                        "ActiveEnergy": 0,
+                        "LeanBodyMass": 61.5,
+                    }
+                ],
+            )
+        )
+
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+        result = await get_wellness_data(days_back=1, ctx=mock_ctx)
+        response = json.loads(result)
+
+        assert response["data"]["wellness_data"][0]["custom_fields"] == {
+            "REMSleep": 0,
+            "ActiveEnergy": 0,
+            "LeanBodyMass": 61.5,
+        }
+
     def test_wellness_handles_null_sport_info(self):
         """API returns sportInfo: null for days without computed sport metrics —
         this should not crash parsing."""
