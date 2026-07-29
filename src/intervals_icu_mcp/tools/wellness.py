@@ -166,6 +166,14 @@ def _format_wellness_record(record: Any, date_id: str) -> dict[str, Any]:
     if getattr(record, "comments", None):
         day_data["comments"] = record.comments
 
+    # Athlete-defined wellness fields are not part of the static Wellness
+    # schema. Pydantic keeps them in model_extra (Wellness uses extra="allow");
+    # surface them verbatim instead of silently dropping them while formatting.
+    model_extra: dict[str, Any] = getattr(record, "model_extra", None) or {}
+    custom_fields = {name: value for name, value in model_extra.items() if value is not None}
+    if custom_fields:
+        day_data["custom_fields"] = custom_fields
+
     return day_data
 
 
