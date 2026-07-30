@@ -65,27 +65,26 @@ async def get_gear_list(
                     for reminder in gear.reminders:
                         reminder_info: dict[str, Any] = {
                             "id": reminder.id,
-                            "text": reminder.text,
+                            "text": reminder.name,
                         }
 
-                        # Alert thresholds
-                        if reminder.distance_alert is not None:
-                            reminder_info["alert_every_km"] = round(
-                                reminder.distance_alert / 1000, 2
-                            )
-                        if reminder.time_alert is not None:
-                            hours = reminder.time_alert // 3600
-                            reminder_info["alert_every_hours"] = hours
+                        # Recurring trigger thresholds (API sends 0 for unused)
+                        if reminder.distance:
+                            reminder_info["alert_every_km"] = round(reminder.distance / 1000, 2)
+                        if reminder.time:
+                            reminder_info["alert_every_hours"] = int(reminder.time // 3600)
+                        if reminder.activities:
+                            reminder_info["alert_every_activities"] = reminder.activities
+                        if reminder.days:
+                            reminder_info["alert_every_days"] = reminder.days
 
-                        # Due status
-                        if reminder.is_due is not None:
-                            reminder_info["is_due"] = reminder.is_due
-
-                        if reminder.due_distance is not None:
-                            reminder_info["due_in_km"] = round(reminder.due_distance / 1000, 2)
-                        if reminder.due_time is not None:
-                            hours = reminder.due_time // 3600
-                            reminder_info["due_in_hours"] = hours
+                        # Consumption since the reminder was last reset
+                        if reminder.percent_used is not None:
+                            reminder_info["percent_used"] = round(reminder.percent_used, 1)
+                        if reminder.distance and reminder.distance_used is not None:
+                            reminder_info["used_km"] = round(reminder.distance_used / 1000, 2)
+                        if reminder.time and reminder.time_used is not None:
+                            reminder_info["used_hours"] = round(reminder.time_used / 3600, 1)
 
                         if reminder.snoozed_until:
                             reminder_info["snoozed_until"] = reminder.snoozed_until
@@ -288,15 +287,14 @@ async def create_gear_reminder(
 
     try:
         async with ICUClient(config) as client:
-            reminder_data: dict[str, Any] = {"text": text}
+            # API field names: name, distance (meters), time (seconds)
+            reminder_data: dict[str, Any] = {"name": text}
 
             if distance_alert is not None:
-                # Convert km to meters
-                reminder_data["distance_alert"] = int(distance_alert * 1000)
+                reminder_data["distance"] = int(distance_alert * 1000)
 
             if time_alert is not None:
-                # Convert hours to seconds
-                reminder_data["time_alert"] = time_alert * 3600
+                reminder_data["time"] = time_alert * 3600
 
             if distance_alert is None and time_alert is None:
                 return ResponseBuilder.build_error_response(
@@ -304,20 +302,26 @@ async def create_gear_reminder(
                     error_type="validation_error",
                 )
 
-            reminder = await client.create_gear_reminder(
-                gear_id, reminder_data, athlete_id=athlete_id
+            # The API returns the full Gear object; the new reminder is the
+            # newest entry carrying the name we just sent.
+            gear = await client.create_gear_reminder(gear_id, reminder_data, athlete_id=athlete_id)
+            reminder = next(
+                (
+                    r
+                    for r in sorted(gear.reminders, key=lambda r: r.id, reverse=True)
+                    if r.name == text
+                ),
+                None,
             )
 
-            result: dict[str, Any] = {
-                "id": reminder.id,
-                "gear_id": gear_id,
-                "text": reminder.text,
-            }
+            result: dict[str, Any] = {"gear_id": gear_id, "text": text}
 
-            if reminder.distance_alert is not None:
-                result["alert_every_km"] = round(reminder.distance_alert / 1000, 2)
-            if reminder.time_alert is not None:
-                result["alert_every_hours"] = reminder.time_alert // 3600
+            if reminder is not None:
+                result["id"] = reminder.id
+                if reminder.distance:
+                    result["alert_every_km"] = round(reminder.distance / 1000, 2)
+                if reminder.time:
+                    result["alert_every_hours"] = int(reminder.time // 3600)
 
             return ResponseBuilder.build_response(
                 result,
@@ -351,46 +355,39 @@ async def update_gear_reminder(
 
     try:
         async with ICUClient(config) as client:
+            # API field names: name, distance (meters), time (seconds)
             reminder_data: dict[str, Any] = {}
 
             if text is not None:
-                reminder_data["text"] = text
+                reminder_data["name"] = text
 
             if distance_alert is not None:
-                # Convert km to meters
-                reminder_data["distance_alert"] = int(distance_alert * 1000)
+                reminder_data["distance"] = int(distance_alert * 1000)
 
             if time_alert is not None:
-                # Convert hours to seconds
-                reminder_data["time_alert"] = time_alert * 3600
+                reminder_data["time"] = time_alert * 3600
 
             if not reminder_data:
                 return ResponseBuilder.build_error_response(
                     "No fields provided to update", error_type="validation_error"
                 )
 
-            reminder = await client.update_gear_reminder(
+            # The API returns the full Gear object; report the reminder we updated.
+            gear = await client.update_gear_reminder(
                 gear_id, reminder_id, reminder_data, athlete_id=athlete_id
             )
+            reminder = next((r for r in gear.reminders if r.id == reminder_id), None)
 
-            result: dict[str, Any] = {
-                "id": reminder.id,
-                "gear_id": gear_id,
-                "text": reminder.text,
-            }
+            result: dict[str, Any] = {"id": reminder_id, "gear_id": gear_id}
 
-            if reminder.distance_alert is not None:
-                result["alert_every_km"] = round(reminder.distance_alert / 1000, 2)
-            if reminder.time_alert is not None:
-                result["alert_every_hours"] = reminder.time_alert // 3600
-
-            if reminder.is_due is not None:
-                result["is_due"] = reminder.is_due
-
-            if reminder.due_distance is not None:
-                result["due_in_km"] = round(reminder.due_distance / 1000, 2)
-            if reminder.due_time is not None:
-                result["due_in_hours"] = reminder.due_time // 3600
+            if reminder is not None:
+                result["text"] = reminder.name
+                if reminder.distance:
+                    result["alert_every_km"] = round(reminder.distance / 1000, 2)
+                if reminder.time:
+                    result["alert_every_hours"] = int(reminder.time // 3600)
+                if reminder.percent_used is not None:
+                    result["percent_used"] = round(reminder.percent_used, 1)
 
             return ResponseBuilder.build_response(
                 result,

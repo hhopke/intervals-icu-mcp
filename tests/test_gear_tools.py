@@ -43,17 +43,19 @@ class TestGetGearList:
                         "reminders": [
                             {
                                 "id": 101,
-                                "text": "Replace chain",
-                                "distance_alert": 5000000.0,  # 5000 km
-                                "due_distance": 250000.0,  # 250 km
-                                "is_due": False,
+                                "name": "Replace chain",
+                                "distance": 5000000.0,  # every 5000 km
+                                "time": 0.0,
+                                "distance_used": 4750000.0,  # 4750 km since reset
+                                "percent_used": 95.0,
                             },
                             {
                                 "id": 102,
-                                "text": "Service",
-                                "time_alert": 360000,  # 100h
-                                "due_time": 3600,  # 1h
-                                "is_due": True,
+                                "name": "Service",
+                                "distance": 0.0,
+                                "time": 360000.0,  # every 100h
+                                "time_used": 356400.0,  # 99h since reset
+                                "percent_used": 99.0,
                                 "snoozed_until": "2026-06-01",
                             },
                         ],
@@ -81,13 +83,17 @@ class TestGetGearList:
         assert bike["usage"]["activity_count"] == 142
         assert len(bike["reminders"]) == 2
         chain = bike["reminders"][0]
+        assert chain["text"] == "Replace chain"
         assert chain["alert_every_km"] == 5000.0
-        assert chain["due_in_km"] == 250.0
-        assert chain["is_due"] is False
+        assert chain["used_km"] == 4750.0
+        assert chain["percent_used"] == 95.0
         service = bike["reminders"][1]
         assert service["alert_every_hours"] == 100
-        assert service["due_in_hours"] == 1
+        assert service["used_hours"] == 99.0
         assert service["snoozed_until"] == "2026-06-01"
+        # zero thresholds (API's "unused") are omitted, not shown as 0
+        assert "alert_every_hours" not in chain
+        assert "alert_every_km" not in service
         # Minimal gear has no usage block
         assert "usage" not in gear[1]
         assert response["metadata"]["count"] == 2
@@ -241,11 +247,21 @@ class TestDeleteGear:
 
 class TestCreateGearReminder:
     async def test_success_with_distance_alert(self, patch_config, respx_mock):
-        """Distance is converted km → meters on send and back to km on response."""
-        route = respx_mock.post("/athlete/i123456/gear/g1/reminders").mock(
+        """POSTs the singular /reminder path with API field names (regression
+        for #107 — the plural path 404s and `text`/`distance_alert` 422).
+        Distance is converted km → meters on send and back to km on response;
+        the API responds with the full gear object, not the reminder."""
+        route = respx_mock.post("/athlete/i123456/gear/g1/reminder").mock(
             return_value=Response(
                 200,
-                json={"id": 200, "text": "Replace chain", "distance_alert": 5000000.0},
+                json={
+                    "id": "g1",
+                    "name": "Road Bike",
+                    "reminders": [
+                        {"id": 199, "name": "Replace chain", "distance": 1000000.0},
+                        {"id": 200, "name": "Replace chain", "distance": 5000000.0, "time": 0.0},
+                    ],
+                },
             )
         )
 
@@ -254,24 +270,30 @@ class TestCreateGearReminder:
         )
 
         sent = json.loads(route.calls[0].request.content)
-        assert sent == {"text": "Replace chain", "distance_alert": 5000000}
+        assert sent == {"name": "Replace chain", "distance": 5000000}
         response = json.loads(result)
+        # newest matching reminder (id 200) is reported, not the older duplicate
+        assert response["data"]["id"] == 200
         assert response["data"]["alert_every_km"] == 5000.0
 
     async def test_success_with_time_alert(self, patch_config, respx_mock):
         """Time is converted hours → seconds on send and back to hours on response."""
-        route = respx_mock.post("/athlete/i123456/gear/g1/reminders").mock(
+        route = respx_mock.post("/athlete/i123456/gear/g1/reminder").mock(
             return_value=Response(
                 200,
-                json={"id": 201, "text": "Service", "time_alert": 360000},
+                json={
+                    "id": "g1",
+                    "reminders": [{"id": 201, "name": "Service", "time": 360000.0}],
+                },
             )
         )
 
         result = await create_gear_reminder(gear_id="g1", text="Service", time_alert=100)
 
         sent = json.loads(route.calls[0].request.content)
-        assert sent == {"text": "Service", "time_alert": 360000}
+        assert sent == {"name": "Service", "time": 360000}
         response = json.loads(result)
+        assert response["data"]["id"] == 201
         assert response["data"]["alert_every_hours"] == 100
 
     async def test_no_alert_validation_error(self, patch_config):
@@ -284,15 +306,22 @@ class TestCreateGearReminder:
 
 class TestUpdateGearReminder:
     async def test_success_partial_update(self, patch_config, respx_mock):
-        route = respx_mock.put("/athlete/i123456/gear/g1/reminders/200").mock(
+        """PUTs the singular /reminder/{id} path; the response gear's matching
+        reminder is reported back."""
+        route = respx_mock.put("/athlete/i123456/gear/g1/reminder/200").mock(
             return_value=Response(
                 200,
                 json={
-                    "id": 200,
-                    "text": "New text",
-                    "distance_alert": 3000000.0,
-                    "due_distance": 100000.0,
-                    "is_due": True,
+                    "id": "g1",
+                    "reminders": [
+                        {"id": 199, "name": "Other", "distance": 1000000.0},
+                        {
+                            "id": 200,
+                            "name": "New text",
+                            "distance": 3000000.0,
+                            "percent_used": 42.5,
+                        },
+                    ],
                 },
             )
         )
@@ -302,13 +331,13 @@ class TestUpdateGearReminder:
         )
 
         sent = json.loads(route.calls[0].request.content)
-        assert sent == {"text": "New text", "distance_alert": 3000000}
+        assert sent == {"name": "New text", "distance": 3000000}
         response = json.loads(result)
         data = response["data"]
+        assert data["id"] == 200
         assert data["text"] == "New text"
         assert data["alert_every_km"] == 3000.0
-        assert data["due_in_km"] == 100.0
-        assert data["is_due"] is True
+        assert data["percent_used"] == 42.5
 
     async def test_no_fields_validation_error(self, patch_config):
         result = await update_gear_reminder(gear_id="g1", reminder_id=200)

@@ -511,16 +511,30 @@ class BestEfforts(BaseModel):
 
 
 class GearReminder(BaseModel):
-    """Gear maintenance reminder."""
+    """Gear maintenance reminder.
+
+    Mirrors the API schema: `distance` (m), `time` (s), `activities`, and
+    `days` are recurring trigger thresholds (0 = threshold unused); the
+    `*_used` fields track consumption since `last_reset`.
+    """
 
     id: int
-    text: str | None = None
-    distance_alert: float | None = Field(None, alias="distance_alert")
-    time_alert: int | None = Field(None, alias="time_alert")
-    due_distance: float | None = Field(None, alias="due_distance")
-    due_time: int | None = Field(None, alias="due_time")
-    is_due: bool | None = Field(None, alias="is_due")
-    snoozed_until: str | None = Field(None, alias="snoozed_until")
+    gear_id: str | None = None
+    name: str | None = None
+    distance: float | None = None
+    time: float | None = None
+    activities: int | None = None
+    days: int | None = None
+    last_reset: str | None = None
+    starting_distance: float | None = None
+    starting_time: float | None = None
+    starting_activities: int | None = None
+    snoozed_until: str | None = None
+    percent_used: float | None = None
+    distance_used: float | None = None
+    time_used: float | None = None
+    activities_used: int | None = None
+    days_used: int | None = None
 
     model_config = ConfigDict(populate_by_name=True)
 

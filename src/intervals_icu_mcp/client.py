@@ -18,7 +18,6 @@ from .models import (
     Event,
     Folder,
     Gear,
-    GearReminder,
     Interval,
     IntervalsDTO,
     SportSettings,
@@ -1065,22 +1064,22 @@ class ICUClient:
         gear_id: str,
         reminder_data: dict[str, Any],
         athlete_id: str | None = None,
-    ) -> GearReminder:
+    ) -> Gear:
         """Create a new reminder for a gear item.
 
         Args:
             gear_id: Gear ID
-            reminder_data: Reminder data dictionary
+            reminder_data: Reminder data using API field names (name, distance, time, ...)
             athlete_id: Athlete ID (uses config default if not provided)
 
         Returns:
-            Created GearReminder object
+            The updated Gear object — the API returns the gear, not the reminder
         """
         athlete_id = athlete_id or self.config.intervals_icu_athlete_id
         response = await self._request(
-            "POST", f"/athlete/{athlete_id}/gear/{gear_id}/reminders", json=reminder_data
+            "POST", f"/athlete/{athlete_id}/gear/{gear_id}/reminder", json=reminder_data
         )
-        return GearReminder(**response.json())
+        return Gear(**response.json())
 
     async def update_gear_reminder(
         self,
@@ -1088,25 +1087,25 @@ class ICUClient:
         reminder_id: int,
         reminder_data: dict[str, Any],
         athlete_id: str | None = None,
-    ) -> GearReminder:
+    ) -> Gear:
         """Update an existing gear reminder.
 
         Args:
             gear_id: Gear ID
             reminder_id: Reminder ID
-            reminder_data: Updated reminder data dictionary
+            reminder_data: Updated reminder data using API field names (name, distance, time, ...)
             athlete_id: Athlete ID (uses config default if not provided)
 
         Returns:
-            Updated GearReminder object
+            The updated Gear object — the API returns the gear, not the reminder
         """
         athlete_id = athlete_id or self.config.intervals_icu_athlete_id
         response = await self._request(
             "PUT",
-            f"/athlete/{athlete_id}/gear/{gear_id}/reminders/{reminder_id}",
+            f"/athlete/{athlete_id}/gear/{gear_id}/reminder/{reminder_id}",
             json=reminder_data,
         )
-        return GearReminder(**response.json())
+        return Gear(**response.json())
 
     # ==================== Sport Settings Endpoints ====================
 
