@@ -187,6 +187,7 @@ def _scales_for_records(records: list[dict[str, Any]]) -> dict[str, str]:
 
 async def get_wellness_data(
     days_back: Annotated[int, "Number of days to look back"] = 7,
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Fetch wellness records over a RANGE of recent days (default last 7).
@@ -207,6 +208,7 @@ async def get_wellness_data(
 
         async with ICUClient(config) as client:
             wellness_records = await client.get_wellness(
+                athlete_id=athlete_id,
                 oldest=oldest,
                 newest=newest,
             )
@@ -286,6 +288,7 @@ async def get_wellness_data(
 
 async def get_wellness_for_date(
     date: Annotated[str, "Date in YYYY-MM-DD format"],
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Fetch the wellness record for ONE specific date.
@@ -308,7 +311,7 @@ async def get_wellness_for_date(
 
     try:
         async with ICUClient(config) as client:
-            wellness = await client.get_wellness_for_date(date=date)
+            wellness = await client.get_wellness_for_date(date=date, athlete_id=athlete_id)
 
             wellness_data = _format_wellness_record(wellness, date)
 
@@ -366,13 +369,15 @@ async def update_wellness(
     fat_total: Annotated[float | None, "Total fat consumed (grams)"] = None,
     hydration_liters: Annotated[float | None, "Hydration volume (liters)"] = None,
     comments: Annotated[str | None, "Comments or notes"] = None,
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Upsert wellness data for ONE specific date — creates the record if missing, otherwise updates the fields you pass.
 
     Only provided fields are sent. Subjective scales (fatigue, soreness,
     stress, mood, motivation, injury) are 1-5. Pass `locked=True` to stop
-    device sync from overwriting manual entries.
+    device sync from overwriting manual entries. Writes to the authenticated
+    athlete unless athlete_id names a managed athlete.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
@@ -456,7 +461,7 @@ async def update_wellness(
             )
 
         async with ICUClient(config) as client:
-            wellness = await client.update_wellness(wellness_data)
+            wellness = await client.update_wellness(wellness_data, athlete_id=athlete_id)
 
             result_data = _format_wellness_record(wellness, date)
 

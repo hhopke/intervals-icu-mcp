@@ -48,6 +48,16 @@ Set the mode in your client config alongside the credentials:
 
 ## Tools
 
+### Coaching multiple athletes
+
+Athlete-scoped tools take an optional `athlete_id` parameter. Omit it and the tool
+operates on `INTERVALS_ICU_ATHLETE_ID` from your config; pass it to read or write one
+of the athletes your account coaches (e.g. `athlete_id: "i999888"`). The API rejects
+IDs you don't have access to with HTTP 403.
+
+Note that `athlete_id` applies to the tools only. The `intervals-icu://athlete/profile`
+resource takes no arguments and always reflects the configured default athlete.
+
 ### Activities (13 tools)
 
 | Tool                     | Description                                       |

@@ -63,15 +63,20 @@ def _fitness_chart_summary(series: list[dict[str, Any]], today: date) -> dict[st
 
 
 async def get_athlete_profile(
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
-    """Get the authenticated athlete's profile — sport settings (outdoor/indoor FTP, FTHR, pace) and current CTL/ATL/TSB."""
+    """Get an athlete's profile — sport settings (outdoor/indoor FTP, FTHR, pace) and current CTL/ATL/TSB.
+
+    Defaults to the authenticated athlete; coaches can pass athlete_id to read
+    one of their managed athletes instead.
+    """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
 
     try:
         async with ICUClient(config) as client:
-            athlete = await client.get_athlete()
+            athlete = await client.get_athlete(athlete_id=athlete_id)
 
             # Build profile data
             profile: dict[str, Any] = {
@@ -174,11 +179,14 @@ async def get_athlete_profile(
 
 
 async def get_fitness_summary(
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
-    """Get the athlete's current fitness / fatigue / form snapshot — CTL, ATL, TSB, ramp rate, with interpretation and training recommendations.
+    """Get an athlete's current fitness / fatigue / form snapshot — CTL, ATL, TSB, ramp rate, with interpretation and training recommendations.
 
     Use for "how's my form?", "am I overtrained?", training-status checks.
+    Defaults to the authenticated athlete; coaches can pass athlete_id to read
+    one of their managed athletes instead.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
@@ -186,7 +194,7 @@ async def get_fitness_summary(
     try:
         async with ICUClient(config) as client:
             today = date.today().isoformat()
-            wellness = await client.get_wellness_for_date(today)
+            wellness = await client.get_wellness_for_date(today, athlete_id=athlete_id)
 
             ctl = wellness.ctl
             atl = wellness.atl
