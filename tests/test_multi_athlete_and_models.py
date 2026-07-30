@@ -112,10 +112,29 @@ class TestMultiAthleteFitness:
         response = json.loads(result)
 
         assert response["data"]["fitness_metrics"]["ctl"]["value"] == 71.0
+        # The response must name whose numbers these are — the #99 failure was
+        # undetectable precisely because it never did.
+        assert response["data"]["athlete_id"] == COACH_ATHLETE
         assert (
             respx_mock.calls.last.request.url.path
             == f"/api/v1/athlete/{COACH_ATHLETE}/wellness/{today}"
         )
+
+    async def test_fitness_summary_no_data_names_the_athlete(self, mock_config, respx_mock):
+        """The no-data message must not tell a coach to go do the athlete's training."""
+        from datetime import date
+
+        today = date.today().isoformat()
+        respx_mock.get(f"/athlete/{COACH_ATHLETE}/wellness/{today}").mock(
+            return_value=Response(200, json={"id": today})
+        )
+
+        result = await get_fitness_summary(athlete_id=COACH_ATHLETE, ctx=make_ctx(mock_config))
+        response = json.loads(result)
+
+        assert response["error"]["type"] == "no_data"
+        assert COACH_ATHLETE in response["error"]["message"]
+        assert "Complete some activities" not in response["error"]["message"]
 
     async def test_get_fitness_summary_default_athlete(
         self, mock_config, respx_mock, mock_wellness_data
@@ -129,7 +148,8 @@ class TestMultiAthleteFitness:
         )
 
         result = await get_fitness_summary(ctx=make_ctx(mock_config))
-        json.loads(result)
+        response = json.loads(result)
+        assert response["data"]["athlete_id"] == "i123456"
         assert respx_mock.calls.last.request.url.path == f"/api/v1/athlete/i123456/wellness/{today}"
 
     async def test_get_athlete_profile_with_athlete_id(
@@ -170,6 +190,7 @@ class TestMultiAthleteFitness:
         response = json.loads(result)
 
         assert response["data"]["count"] == 0
+        assert response["data"]["athlete_id"] == COACH_ATHLETE
         assert respx_mock.calls.last.request.url.path == f"/api/v1/athlete/{COACH_ATHLETE}/wellness"
 
 

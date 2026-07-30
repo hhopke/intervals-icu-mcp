@@ -194,6 +194,7 @@ async def get_fitness_summary(
     try:
         async with ICUClient(config) as client:
             today = date.today().isoformat()
+            resolved_athlete = athlete_id or config.intervals_icu_athlete_id
             wellness = await client.get_wellness_for_date(today, athlete_id=athlete_id)
 
             ctl = wellness.ctl
@@ -203,9 +204,12 @@ async def get_fitness_summary(
 
             if ctl is None and atl is None:
                 return ResponseBuilder.build_error_response(
-                    "No fitness data available. "
-                    "Complete some activities to build your fitness history.",
+                    f"No fitness data available for athlete {resolved_athlete} on {today}.",
                     error_type="no_data",
+                    suggestions=[
+                        "Fitness metrics need a training history — check that this "
+                        "athlete has activities recorded.",
+                    ],
                 )
 
             # Core metrics
@@ -303,6 +307,7 @@ async def get_fitness_summary(
                 analysis["recommendations"] = recommendations
 
             data: dict[str, Any] = {
+                "athlete_id": resolved_athlete,
                 "date": today,
                 "fitness_metrics": fitness,
             }
@@ -393,6 +398,7 @@ async def get_fitness_chart(
             if not series:
                 return ResponseBuilder.build_response(
                     data={
+                        "athlete_id": athlete_id or config.intervals_icu_athlete_id,
                         "date_range": {"oldest": oldest, "newest": newest},
                         "count": 0,
                         "series": [],
@@ -405,6 +411,7 @@ async def get_fitness_chart(
                 )
 
             data: dict[str, Any] = {
+                "athlete_id": athlete_id or config.intervals_icu_athlete_id,
                 "date_range": {"oldest": oldest, "newest": newest},
                 "count": len(series),
                 "series": series,

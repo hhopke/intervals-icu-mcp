@@ -19,6 +19,8 @@ breaking; this narrower contract applies from the next release onward.)
 ### Fixed
 - The fitness/fatigue/form tools ignored the requested athlete and always returned the configured default profile's CTL/ATL/TSB. `icu_get_fitness_summary` and `icu_get_athlete_profile` exposed **no parameters at all**, so a coach asking for a specific athlete's numbers got their own back with no error — the response looked normal and the substitution was only detectable by cross-checking the Intervals.icu web UI. Both now accept an optional `athlete_id`, as do `icu_get_wellness_data` and `icu_get_wellness_for_date` (wellness records carry CTL/ATL). The API client already supported per-athlete routing on all four; only the tool signatures were missing it. `icu_get_fitness_chart` already accepted `athlete_id` and was unaffected — verified against the live API, where an unauthorized ID correctly returns HTTP 403 rather than silently falling back. Reported by @alexxsirko (#99).
 - `icu_update_wellness` also gained `athlete_id`, so a coach reading a managed athlete's wellness can write back to that athlete instead of silently updating their own record.
+- `icu_get_fitness_summary` and `icu_get_fitness_chart` now echo the resolved `athlete_id` in the response. The #99 failure was undetectable because the payload never stated whose numbers it carried; naming the athlete makes a wrong-athlete answer visible without a trip to the web UI. (`icu_get_athlete_profile` already returned the id under `profile.id`.)
+- `icu_get_fitness_summary`'s no-data message told the caller to "complete some activities to build your fitness history" — nonsense advice when a coach queries an athlete with no data. It now names the athlete and the date instead.
 
 ## [4.3.2] — 2026-07-23
 
