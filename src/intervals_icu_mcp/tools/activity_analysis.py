@@ -280,6 +280,7 @@ async def search_intervals(
     min_duration: Annotated[int | None, "Minimum duration in seconds"] = None,
     max_duration: Annotated[int | None, "Maximum duration in seconds"] = None,
     limit: Annotated[int, "Maximum number of results to return"] = 30,
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Search intervals ACROSS ALL the athlete's activities (cross-activity).
@@ -294,6 +295,7 @@ async def search_intervals(
     try:
         async with ICUClient(config) as client:
             results = await client.search_intervals(
+                athlete_id=athlete_id,
                 interval_type=interval_type,
                 min_duration=min_duration,
                 max_duration=max_duration,

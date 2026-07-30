@@ -39,6 +39,15 @@ def make_ctx(config):
 COACH_ATHLETE = "i999888"
 
 
+def _patch_direct_config(monkeypatch, mod, config):
+    """gear.py and sport_settings.py bypass the middleware and call load_config()
+    themselves; validate_credentials() also rejects the fixture's placeholder
+    athlete id, so both have to be patched for those modules."""
+    if hasattr(mod, "load_config"):
+        monkeypatch.setattr(mod, "load_config", lambda: config)
+        monkeypatch.setattr(mod, "validate_credentials", lambda _c: True)
+
+
 # ==================== Multi-athlete: Activities ====================
 
 
@@ -237,6 +246,83 @@ class TestMultiAthleteWellness:
         )
         json.loads(result)
         assert respx_mock.calls.last.request.url.path == f"/api/v1/athlete/{COACH_ATHLETE}/wellness"
+
+
+# ==================== Multi-athlete: remaining read surface ====================
+
+
+class TestMultiAthleteRemainingReads:
+    """athlete_id passthrough on curves, sport settings, gear, library and search.
+
+    Covers the tools closed out by #101. Each asserts the request path, since a
+    silently-dropped parameter still returns a valid-looking 200.
+    """
+
+    @pytest.mark.parametrize(
+        "tool_path,func_name,route,kwargs",
+        [
+            ("performance", "get_power_curves", "power-curves", {}),
+            ("curves", "get_hr_curves", "hr-curves", {}),
+            ("curves", "get_pace_curves", "pace-curves", {}),
+            ("sport_settings", "get_sport_settings", "sport-settings", {}),
+            ("gear", "get_gear_list", "gear", {}),
+            ("workout_library", "get_workout_library", "folders", {}),
+            ("workout_library", "get_workouts_in_folder", "workouts", {"folder_id": 1}),
+            ("activities", "search_activities_full", "activities/search-full", {"query": "x"}),
+            ("activities", "get_activities_around", "activities-around", {"activity_id": "a1"}),
+        ],
+    )
+    async def test_read_tool_routes_to_requested_athlete(
+        self, mock_config, respx_mock, monkeypatch, tool_path, func_name, route, kwargs
+    ):
+        import importlib
+
+        mod = importlib.import_module(f"intervals_icu_mcp.tools.{tool_path}")
+        func = getattr(mod, func_name)
+        # gear.py and sport_settings.py read credentials via load_config() instead of
+        # the middleware-injected ctx state, so mock_config alone does not reach them.
+        _patch_direct_config(monkeypatch, mod, mock_config)
+
+        respx_mock.get(f"/athlete/{COACH_ATHLETE}/{route}").mock(
+            return_value=Response(200, json=[])
+        )
+
+        await func(athlete_id=COACH_ATHLETE, ctx=make_ctx(mock_config), **kwargs)
+
+        assert respx_mock.calls.last.request.url.path == f"/api/v1/athlete/{COACH_ATHLETE}/{route}"
+
+    async def test_gear_write_routes_to_requested_athlete(
+        self, mock_config, respx_mock, monkeypatch
+    ):
+        """Writes must land on the coached athlete, not the authenticated one."""
+        from intervals_icu_mcp.tools import gear
+
+        _patch_direct_config(monkeypatch, gear, mock_config)
+        respx_mock.put(f"/athlete/{COACH_ATHLETE}/gear/b1").mock(
+            return_value=Response(200, json={"id": "b1", "name": "Bike"})
+        )
+
+        await gear.update_gear(
+            gear_id="b1", name="Bike", athlete_id=COACH_ATHLETE, ctx=make_ctx(mock_config)
+        )
+
+        assert respx_mock.calls.last.request.url.path == f"/api/v1/athlete/{COACH_ATHLETE}/gear/b1"
+
+    async def test_sport_settings_write_routes_to_requested_athlete(
+        self, mock_config, respx_mock, monkeypatch
+    ):
+        from intervals_icu_mcp.tools import sport_settings
+
+        _patch_direct_config(monkeypatch, sport_settings, mock_config)
+        respx_mock.put(f"/athlete/{COACH_ATHLETE}/sport-settings/7").mock(
+            return_value=Response(200, json={"id": 7, "types": ["Ride"], "ftp": 260})
+        )
+
+        await sport_settings.update_sport_settings(
+            sport_id=7, ftp=260, athlete_id=COACH_ATHLETE, ctx=make_ctx(mock_config)
+        )
+
+        assert COACH_ATHLETE in respx_mock.calls.last.request.url.path
 
 
 # ==================== Multi-athlete: Events ====================

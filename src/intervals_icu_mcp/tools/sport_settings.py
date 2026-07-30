@@ -11,6 +11,7 @@ from ..sport_settings_format import build_sport_settings_api_payload, format_spo
 
 
 async def get_sport_settings(
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Get all per-sport thresholds — outdoor/indoor FTP, FTHR, running pace, and swim threshold."""
@@ -22,7 +23,7 @@ async def get_sport_settings(
 
     try:
         async with ICUClient(config) as client:
-            settings_list = await client.get_sport_settings()
+            settings_list = await client.get_sport_settings(athlete_id=athlete_id)
 
             if not settings_list:
                 return ResponseBuilder.build_response(
@@ -58,6 +59,7 @@ async def update_sport_settings(
     recalc_hr_zones: Annotated[
         bool, "Recalculate HR zones from the updated threshold heart rate"
     ] = True,
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Update an existing per-sport threshold record (outdoor/indoor FTP, FTHR, pace, swim)."""
@@ -85,6 +87,7 @@ async def update_sport_settings(
             settings = await client.update_sport_settings(
                 sport_id,
                 settings_data,
+                athlete_id=athlete_id,
                 recalc_hr_zones=recalc_hr_zones,
             )
 
@@ -106,6 +109,7 @@ async def update_sport_settings(
 
 async def apply_sport_settings(
     sport_id: Annotated[int, "ID of the sport settings to apply"],
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Recompute training load, zones, and derived metrics on HISTORICAL activities using the current sport settings.
@@ -121,7 +125,7 @@ async def apply_sport_settings(
 
     try:
         async with ICUClient(config) as client:
-            result = await client.apply_sport_settings(sport_id)
+            result = await client.apply_sport_settings(sport_id, athlete_id=athlete_id)
 
             return ResponseBuilder.build_response(
                 result,
@@ -150,6 +154,7 @@ async def create_sport_settings(
     swim_threshold: Annotated[
         float | None, "Swim threshold in min/100m (e.g., 1.5 for 1:30/100m)"
     ] = None,
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Create a per-sport threshold record with outdoor/indoor FTP, FTHR, pace, or swim settings."""
@@ -170,7 +175,7 @@ async def create_sport_settings(
                 swim_threshold=swim_threshold,
             )
 
-            settings = await client.create_sport_settings(settings_data)
+            settings = await client.create_sport_settings(settings_data, athlete_id=athlete_id)
 
             return ResponseBuilder.build_response(
                 format_sport_settings_entry(settings),
@@ -190,6 +195,7 @@ async def create_sport_settings(
 
 async def delete_sport_settings(
     sport_id: Annotated[int, "ID of the sport settings to delete"],
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Permanently delete a per-sport threshold record. Destructive — affects historical chart math; only registered when INTERVALS_ICU_DELETE_MODE=full."""
@@ -201,7 +207,7 @@ async def delete_sport_settings(
 
     try:
         async with ICUClient(config) as client:
-            await client.delete_sport_settings(sport_id)
+            await client.delete_sport_settings(sport_id, athlete_id=athlete_id)
 
             return ResponseBuilder.build_response(
                 {"sport_id": sport_id, "deleted": True},

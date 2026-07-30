@@ -28,6 +28,7 @@ async def get_power_curves(
         str | None,
         "Time period shorthand: 'week', 'month', 'year', 'all' (optional)",
     ] = None,
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Fetch the power-vs-duration curve — best (highest) sustained watts across durations from 5s up to 1h, aggregated over the chosen window.
@@ -64,7 +65,9 @@ async def get_power_curves(
             period_label = "90_days"
 
         async with ICUClient(config) as client:
-            curve_set = await client.get_power_curves(curves=curves, type=sport_type)
+            curve_set = await client.get_power_curves(
+                athlete_id=athlete_id, curves=curves, type=sport_type
+            )
 
             if not curve_set.curves or not curve_set.curves[0].values:
                 return ResponseBuilder.build_response(

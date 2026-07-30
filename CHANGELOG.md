@@ -22,6 +22,10 @@ breaking; this narrower contract applies from the next release onward.)
 - `icu_get_fitness_summary` and `icu_get_fitness_chart` now echo the resolved `athlete_id` in the response. The #99 failure was undetectable because the payload never stated whose numbers it carried; naming the athlete makes a wrong-athlete answer visible without a trip to the web UI. (`icu_get_athlete_profile` already returned the id under `profile.id`.)
 - `icu_get_fitness_summary`'s no-data message told the caller to "complete some activities to build your fitness history" — nonsense advice when a coach queries an athlete with no data. It now names the athlete and the date instead.
 
+### Added
+- `athlete_id` on the remaining 19 athlete-scoped tools, completing multi-athlete support: `icu_get_power_curves`, `icu_get_hr_curves`, `icu_get_pace_curves`, `icu_get_sport_settings`, `icu_update_sport_settings`, `icu_apply_sport_settings`, `icu_create_sport_settings`, `icu_delete_sport_settings`, `icu_get_gear_list`, `icu_create_gear`, `icu_update_gear`, `icu_delete_gear`, `icu_create_gear_reminder`, `icu_update_gear_reminder`, `icu_get_workout_library`, `icu_get_workouts_in_folder`, `icu_search_activities_full`, `icu_get_activities_around`, and `icu_search_intervals`. Previously multi-athlete support was half-shipped — activity and event tools honoured `athlete_id` while these silently answered for the configured default, which is the inconsistency behind #99. All 45 athlete-scoped tools now route consistently; the 16 tools scoped by a globally-unique `activity_id` correctly take no `athlete_id`. Verified against the live API (an inaccessible ID returns HTTP 403 rather than falling back).
+- `docs/tools.md` now documents the coaching/following model, which had never been described: access is a per-relationship role (any account can coach), following grants read-only and coaching grants write, and the coach authenticates with their own API key.
+
 ## [4.3.2] — 2026-07-23
 
 ### Fixed

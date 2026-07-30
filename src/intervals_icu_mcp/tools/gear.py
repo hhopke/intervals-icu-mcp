@@ -10,6 +10,7 @@ from ..response_builder import ResponseBuilder
 
 
 async def get_gear_list(
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """List all gear items with usage stats (distance, time, activity count) and maintenance reminders."""
@@ -21,7 +22,7 @@ async def get_gear_list(
 
     try:
         async with ICUClient(config) as client:
-            gear_list = await client.get_gear()
+            gear_list = await client.get_gear(athlete_id=athlete_id)
 
             if not gear_list:
                 return ResponseBuilder.build_response(
@@ -112,6 +113,7 @@ async def create_gear(
     model: Annotated[str | None, "Model name"] = None,
     active: Annotated[bool, "Whether this gear is actively used"] = True,
     primary: Annotated[bool, "Whether this is the primary gear of this type"] = False,
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Create a new gear item for tracking equipment usage and maintenance (bikes, shoes, trainers, etc.)."""
@@ -135,7 +137,7 @@ async def create_gear(
             if model:
                 gear_data["model"] = model
 
-            gear = await client.create_gear(gear_data)
+            gear = await client.create_gear(gear_data, athlete_id=athlete_id)
 
             result: dict[str, Any] = {
                 "id": gear.id,
@@ -169,6 +171,7 @@ async def update_gear(
     model: Annotated[str | None, "Updated model"] = None,
     active: Annotated[bool | None, "Whether this gear is actively used"] = None,
     primary: Annotated[bool | None, "Whether this is the primary gear of this type"] = None,
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Update an existing gear item. Only fields you pass are sent."""
@@ -200,7 +203,7 @@ async def update_gear(
                     "No fields provided to update", error_type="validation_error"
                 )
 
-            gear = await client.update_gear(gear_id, gear_data)
+            gear = await client.update_gear(gear_id, gear_data, athlete_id=athlete_id)
 
             result: dict[str, Any] = {
                 "id": gear.id,
@@ -241,6 +244,7 @@ async def update_gear(
 
 async def delete_gear(
     gear_id: Annotated[str, "ID of the gear item to delete"],
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Permanently delete a gear item and its maintenance reminders. Activities that used this gear are not affected."""
@@ -252,7 +256,7 @@ async def delete_gear(
 
     try:
         async with ICUClient(config) as client:
-            await client.delete_gear(gear_id)
+            await client.delete_gear(gear_id, athlete_id=athlete_id)
 
             return ResponseBuilder.build_response(
                 {"gear_id": gear_id, "deleted": True},
@@ -272,6 +276,7 @@ async def create_gear_reminder(
         float | None, "Alert every N kilometers (e.g., 500 for every 500km)"
     ] = None,
     time_alert: Annotated[int | None, "Alert every N hours (e.g., 100 for every 100 hours)"] = None,
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Create a maintenance reminder for a gear item, triggered by distance, time, or both."""
@@ -299,7 +304,9 @@ async def create_gear_reminder(
                     error_type="validation_error",
                 )
 
-            reminder = await client.create_gear_reminder(gear_id, reminder_data)
+            reminder = await client.create_gear_reminder(
+                gear_id, reminder_data, athlete_id=athlete_id
+            )
 
             result: dict[str, Any] = {
                 "id": reminder.id,
@@ -332,6 +339,7 @@ async def update_gear_reminder(
     text: Annotated[str | None, "Updated reminder text"] = None,
     distance_alert: Annotated[float | None, "Updated distance alert in kilometers"] = None,
     time_alert: Annotated[int | None, "Updated time alert in hours"] = None,
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Update an existing gear maintenance reminder. Only fields you pass are sent."""
@@ -361,7 +369,9 @@ async def update_gear_reminder(
                     "No fields provided to update", error_type="validation_error"
                 )
 
-            reminder = await client.update_gear_reminder(gear_id, reminder_id, reminder_data)
+            reminder = await client.update_gear_reminder(
+                gear_id, reminder_id, reminder_data, athlete_id=athlete_id
+            )
 
             result: dict[str, Any] = {
                 "id": reminder.id,

@@ -105,9 +105,7 @@ async def get_activities_by_date(
     newest: Annotated[
         str | None, "Newest date to include, YYYY-MM-DD (inclusive). Defaults to today."
     ] = None,
-    limit: Annotated[
-        int, "Max activities to return (newest-first within the window)"
-    ] = 500,
+    limit: Annotated[int, "Max activities to return (newest-first within the window)"] = 500,
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
@@ -622,6 +620,7 @@ async def download_gpx_file(
 async def search_activities_full(
     query: Annotated[str, "Search query (activity name or tag)"],
     limit: Annotated[int, "Maximum number of results to return"] = 30,
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Search activities by name or tag, returning FULL Activity objects with power, HR, training load, intensity factor, normalized power, weather — every metric per result.
@@ -641,6 +640,7 @@ async def search_activities_full(
     try:
         async with ICUClient(config) as client:
             activities = await client.search_activities_full(
+                athlete_id=athlete_id,
                 query=query,
                 limit=min(limit, 100),
             )
@@ -709,6 +709,7 @@ async def search_activities_full(
 async def get_activities_around(
     activity_id: Annotated[str, "Reference activity ID"],
     count: Annotated[int, "Number of activities before and after"] = 5,
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Fetch the activities chronologically before and after a reference activity (N each side).
@@ -722,6 +723,7 @@ async def get_activities_around(
     try:
         async with ICUClient(config) as client:
             activities = await client.get_activities_around(
+                athlete_id=athlete_id,
                 activity_id=activity_id,
                 count=count,
             )

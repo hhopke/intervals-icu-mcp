@@ -10,6 +10,7 @@ from ..response_builder import ResponseBuilder
 
 
 async def get_workout_library(
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """List all workout-library folders + training plans the athlete has access to (personal, shared, and followed plans).
@@ -22,7 +23,7 @@ async def get_workout_library(
 
     try:
         async with ICUClient(config) as client:
-            folders = await client.get_workout_folders()
+            folders = await client.get_workout_folders(athlete_id=athlete_id)
 
             if not folders:
                 return ResponseBuilder.build_response(
@@ -88,6 +89,7 @@ async def get_workout_library(
 
 async def get_workouts_in_folder(
     folder_id: Annotated[int, "Folder ID to get workouts from"],
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """List the workouts stored in one specific library folder or training plan — name, type, structure, training load, intensity factor."""
@@ -96,7 +98,7 @@ async def get_workouts_in_folder(
 
     try:
         async with ICUClient(config) as client:
-            workouts = await client.get_workouts_in_folder(folder_id)
+            workouts = await client.get_workouts_in_folder(folder_id, athlete_id=athlete_id)
 
             if not workouts:
                 return ResponseBuilder.build_response(

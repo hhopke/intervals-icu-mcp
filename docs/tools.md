@@ -48,12 +48,29 @@ Set the mode in your client config alongside the credentials:
 
 ## Tools
 
-### Coaching multiple athletes
+### Coaching and following other athletes
 
-Athlete-scoped tools take an optional `athlete_id` parameter. Omit it and the tool
-operates on `INTERVALS_ICU_ATHLETE_ID` from your config; pass it to read or write one
-of the athletes your account coaches (e.g. `athlete_id: "i999888"`). The API rejects
-IDs you don't have access to with HTTP 403.
+Athlete-scoped tools take an optional `athlete_id`. Omit it and the tool operates on
+`INTERVALS_ICU_ATHLETE_ID` from your config; pass it to target another athlete your
+account can reach (e.g. `athlete_id: "i999888"`). You use **your own** API key — never
+theirs. The API rejects IDs you can't access with HTTP 403.
+
+Access comes from a relationship, not an account type — any Intervals.icu account can
+coach. The two relationships differ:
+
+| Relationship | Access |
+| --- | --- |
+| **Following** | read only |
+| **Coaching** | read + write (activities, calendar, FTP and training settings) |
+
+Both are established by request and acceptance, so an athlete must accept your coaching
+request before writes succeed. Whether coaches can write *every* athlete-scoped resource
+(gear and wellness in particular) is not documented upstream — those tools accept
+`athlete_id` and forward it, and the API is the authority on whether the write is allowed.
+
+Tools scoped by `activity_id` (activity details, streams, intervals, histograms,
+messages) take no `athlete_id` — an activity ID is globally unique and already
+identifies its owner.
 
 Note that `athlete_id` applies to the tools only. The `intervals-icu://athlete/profile`
 resource takes no arguments and always reflects the configured default athlete.
