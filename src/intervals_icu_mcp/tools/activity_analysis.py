@@ -275,11 +275,37 @@ async def get_best_efforts(
         )
 
 
+_INTERVAL_TARGET_TYPES = {"AUTO", "POWER", "HR", "PACE"}
+
+# The API returns full Activity objects (~180 fields each); only these carry
+# information about the interval match itself or identify the activity.
+_INTERVAL_SEARCH_FIELDS = [
+    "id",
+    "name",
+    "type",
+    "start_date_local",
+    "distance",
+    "moving_time",
+    "icu_training_load",
+    "interval_summary",
+]
+
+
 async def search_intervals(
-    interval_type: Annotated[str | None, "Type of interval to search for"] = None,
-    min_duration: Annotated[int | None, "Minimum duration in seconds"] = None,
-    max_duration: Annotated[int | None, "Maximum duration in seconds"] = None,
-    limit: Annotated[int, "Maximum number of results to return"] = 30,
+    interval_type: Annotated[
+        str | None,
+        "Interval target type: AUTO, POWER, HR, or PACE (what the interval "
+        "targeted — not the sport and not a workout-step label)",
+    ] = None,
+    min_duration: Annotated[int | None, "Minimum interval duration in seconds"] = None,
+    max_duration: Annotated[int | None, "Maximum interval duration in seconds"] = None,
+    min_intensity: Annotated[
+        int | None, "Minimum interval intensity in percent of threshold (e.g. 80)"
+    ] = None,
+    max_intensity: Annotated[
+        int | None, "Maximum interval intensity in percent of threshold (e.g. 105)"
+    ] = None,
+    limit: Annotated[int, "Maximum number of matching activities to return"] = 30,
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
@@ -287,18 +313,29 @@ async def search_intervals(
 
     Different from icu_get_activity_intervals (single-activity). Use to track
     progress on a workout type ("all my threshold intervals over the last
-    year") or find comparable historical sessions.
+    year") or find comparable historical sessions. Returns the activities
+    containing matching intervals, each with an `interval_summary` like
+    "2x 8m 162w" (reps x duration at target).
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
+
+    if interval_type and interval_type.upper() not in _INTERVAL_TARGET_TYPES:
+        return ResponseBuilder.build_error_response(
+            f"Invalid interval_type '{interval_type}'. "
+            f"Must be one of: {', '.join(sorted(_INTERVAL_TARGET_TYPES))}.",
+            error_type="validation_error",
+        )
 
     try:
         async with ICUClient(config) as client:
             results = await client.search_intervals(
                 athlete_id=athlete_id,
-                interval_type=interval_type,
+                interval_type=interval_type.upper() if interval_type else None,
                 min_duration=min_duration,
                 max_duration=max_duration,
+                min_intensity=min_intensity,
+                max_intensity=max_intensity,
                 limit=limit,
             )
 
@@ -310,21 +347,32 @@ async def search_intervals(
                     search_criteria.append(f"min_duration={min_duration}s")
                 if max_duration:
                     search_criteria.append(f"max_duration={max_duration}s")
+                if min_intensity:
+                    search_criteria.append(f"min_intensity={min_intensity}%")
+                if max_intensity:
+                    search_criteria.append(f"max_intensity={max_intensity}%")
 
                 criteria_str = ", ".join(search_criteria) if search_criteria else "your criteria"
 
                 return ResponseBuilder.build_response(
-                    data={"intervals": [], "count": 0},
+                    data={"activities": [], "count": 0},
                     metadata={"message": f"No intervals found matching {criteria_str}"},
                 )
 
+            activities = [
+                {k: item.get(k) for k in _INTERVAL_SEARCH_FIELDS if item.get(k) is not None}
+                for item in results
+            ]
+
             result_data = {
-                "intervals": results,
-                "count": len(results),
+                "activities": activities,
+                "count": len(activities),
                 "search_criteria": {
                     "interval_type": interval_type,
                     "min_duration_seconds": min_duration,
                     "max_duration_seconds": max_duration,
+                    "min_intensity_percent": min_intensity,
+                    "max_intensity_percent": max_intensity,
                 },
             }
 

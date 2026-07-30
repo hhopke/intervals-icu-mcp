@@ -261,34 +261,89 @@ class TestGetBestEfforts:
 
 class TestSearchIntervals:
     async def test_success_with_all_filters(self, mock_config, respx_mock):
+        """Filters map to the API's required param names (regression for #102)."""
         route = respx_mock.get("/athlete/i123456/activities/interval-search").mock(
             return_value=Response(
                 200,
                 json=[
-                    {"id": 1, "type": "WORK", "duration": 300, "activity_id": "a1"},
-                    {"id": 2, "type": "WORK", "duration": 600, "activity_id": "a2"},
+                    {
+                        "id": "i1",
+                        "name": "Sweet Spot 2x8",
+                        "type": "Ride",
+                        "start_date_local": "2026-04-08T20:54:11",
+                        "moving_time": 3622,
+                        "icu_training_load": 51,
+                        "interval_summary": ["2x 8m 162w"],
+                        "average_stride": 1.2,
+                        "athlete_max_hr": 190,
+                    },
+                    {
+                        "id": "i2",
+                        "name": "Threshold",
+                        "type": "Run",
+                        "interval_summary": ["4x 5m 4:10/km"],
+                    },
                 ],
             )
         )
 
         result = await search_intervals(
-            interval_type="WORK",
+            interval_type="power",
             min_duration=120,
             max_duration=1200,
+            min_intensity=80,
+            max_intensity=105,
             limit=10,
             ctx=_make_ctx(mock_config),
         )
 
         params = route.calls[0].request.url.params
-        assert params["type"] == "WORK"
-        assert params["minDuration"] == "120"
-        assert params["maxDuration"] == "1200"
+        assert params["type"] == "POWER"
+        assert params["minSecs"] == "120"
+        assert params["maxSecs"] == "1200"
+        assert params["minIntensity"] == "80"
+        assert params["maxIntensity"] == "105"
+        assert params["limit"] == "10"
 
         response = json.loads(result)
         data = response["data"]
         assert data["count"] == 2
-        assert data["search_criteria"]["interval_type"] == "WORK"
+        assert data["search_criteria"]["interval_type"] == "power"
         assert data["search_criteria"]["min_duration_seconds"] == 120
+        assert data["search_criteria"]["min_intensity_percent"] == 80
+        # Full Activity objects are projected down to the interval-relevant fields
+        first = data["activities"][0]
+        assert first["interval_summary"] == ["2x 8m 162w"]
+        assert "average_stride" not in first
+        assert "athlete_max_hr" not in first
+
+    async def test_required_params_sent_on_default_call(self, mock_config, respx_mock):
+        """The API 422s without all four bounds — a bare call must send defaults."""
+        route = respx_mock.get("/athlete/i123456/activities/interval-search").mock(
+            return_value=Response(200, json=[])
+        )
+
+        await search_intervals(ctx=_make_ctx(mock_config))
+
+        params = route.calls[0].request.url.params
+        assert params["minSecs"] == "0"
+        assert params["maxSecs"] == "86400"
+        assert params["minIntensity"] == "0"
+        assert params["maxIntensity"] == "999"
+        assert params["limit"] == "30"
+        assert "type" not in params
+
+    async def test_invalid_interval_type_rejected_before_api_call(self, mock_config, respx_mock):
+        """Values like WORK or Ride are not target types — fail fast, no request."""
+        route = respx_mock.get("/athlete/i123456/activities/interval-search").mock(
+            return_value=Response(200, json=[])
+        )
+
+        result = await search_intervals(interval_type="WORK", ctx=_make_ctx(mock_config))
+        response = json.loads(result)
+        assert response["error"]["type"] == "validation_error"
+        assert "AUTO" in response["error"]["message"]
+        assert not route.called
 
     async def test_no_results_with_criteria_string(self, mock_config, respx_mock):
         respx_mock.get("/athlete/i123456/activities/interval-search").mock(
@@ -296,11 +351,11 @@ class TestSearchIntervals:
         )
 
         result = await search_intervals(
-            interval_type="THRESHOLD", min_duration=600, ctx=_make_ctx(mock_config)
+            interval_type="PACE", min_duration=600, ctx=_make_ctx(mock_config)
         )
         response = json.loads(result)
         assert response["data"]["count"] == 0
-        assert "THRESHOLD" in response["metadata"]["message"]
+        assert "PACE" in response["metadata"]["message"]
         assert "600" in response["metadata"]["message"]
 
     async def test_no_results_no_criteria_uses_default_string(self, mock_config, respx_mock):
@@ -317,6 +372,6 @@ class TestSearchIntervals:
             return_value=Response(500, json={})
         )
 
-        result = await search_intervals(interval_type="WORK", ctx=_make_ctx(mock_config))
+        result = await search_intervals(interval_type="HR", ctx=_make_ctx(mock_config))
         response = json.loads(result)
         assert response["error"]["type"] == "api_error"

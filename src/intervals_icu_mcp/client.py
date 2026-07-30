@@ -869,35 +869,41 @@ class ICUClient:
         interval_type: str | None = None,
         min_duration: int | None = None,
         max_duration: int | None = None,
+        min_intensity: int | None = None,
+        max_intensity: int | None = None,
         limit: int = 30,
     ) -> list[dict[str, Any]]:
         """Search for intervals across activities.
 
         Args:
             athlete_id: Athlete ID (uses config default if not provided)
-            interval_type: Type of interval to search for
-            min_duration: Minimum duration in seconds
-            max_duration: Maximum duration in seconds
-            limit: Maximum number of results to return
+            interval_type: Interval target type: AUTO, POWER, HR, or PACE
+            min_duration: Minimum interval duration in seconds
+            max_duration: Maximum interval duration in seconds
+            min_intensity: Minimum interval intensity in percent of threshold
+            max_intensity: Maximum interval intensity in percent of threshold
+            limit: Maximum number of matching activities to return
 
         Returns:
-            List of matching intervals with activity context
+            List of matching activities, each with a summary of the intervals found
         """
         athlete_id = athlete_id or self.config.intervals_icu_athlete_id
-        params = {}
-
+        # The API rejects the request with HTTP 422 unless all four bounds are
+        # present, so unset bounds fall back to the widest accepted range.
+        params: dict[str, Any] = {
+            "minSecs": min_duration if min_duration is not None else 0,
+            "maxSecs": max_duration if max_duration is not None else 86400,
+            "minIntensity": min_intensity if min_intensity is not None else 0,
+            "maxIntensity": max_intensity if max_intensity is not None else 999,
+            "limit": limit,
+        }
         if interval_type:
             params["type"] = interval_type
-        if min_duration:
-            params["minDuration"] = min_duration
-        if max_duration:
-            params["maxDuration"] = max_duration
 
         response = await self._request(
             "GET", f"/athlete/{athlete_id}/activities/interval-search", params=params
         )
-        results = response.json()
-        return results[:limit]
+        return response.json()
 
     # ==================== Workout Library Endpoints ====================
 
