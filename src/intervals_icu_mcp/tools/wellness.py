@@ -20,6 +20,7 @@ WELLNESS_SCALES: dict[str, str] = {
     "mood": "1-5 (1=very poor, 5=very good)",
     "motivation": "1-5 (1=very low, 5=very high)",
     "injury": "1-5 (1=none, 5=severe)",
+    "hydration": "1-4 (1=well hydrated, 4=very dehydrated)",
     "sleep_quality": "1-5 (1=Great, 5=Poor — inverted scale)",
     "sleep_score": "0-100 (device-specific, higher is better)",
     "readiness": "0-100 (higher is better)",
@@ -58,7 +59,7 @@ def _format_wellness_record(record: Any, date_id: str) -> dict[str, Any]:
 
     # Subjective feelings
     subjective: dict[str, Any] = {}
-    for field in ["fatigue", "soreness", "stress", "mood", "motivation", "injury"]:
+    for field in ["fatigue", "soreness", "stress", "mood", "motivation", "injury", "hydration"]:
         if getattr(record, field, None):
             subjective[field] = getattr(record, field)
     if getattr(record, "readiness", None):
