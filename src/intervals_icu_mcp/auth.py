@@ -61,7 +61,10 @@ def validate_credentials(config: ICUConfig) -> bool:
     """
     if not config.intervals_icu_api_key or config.intervals_icu_api_key == "your_api_key_here":
         return False
-    if not config.intervals_icu_athlete_id or config.intervals_icu_athlete_id == "i123456":
+    # Do not reject specific athlete id values: any non-empty id may belong to a
+    # real athlete (i123456 from .env.example is a valid id someone could own).
+    # The API is the authority on whether credentials actually work.
+    if not config.intervals_icu_athlete_id:
         return False
     return True
 
