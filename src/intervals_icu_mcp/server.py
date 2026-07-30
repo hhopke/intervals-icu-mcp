@@ -794,9 +794,9 @@ to understand the exact syntax format that Intervals.icu expects.
 
 Steps:
 1. Read the workout syntax resource (intervals-icu://workout-syntax)
-2. Check the athlete's current fitness using get_fitness_summary and get_sport_settings
+2. Check the athlete's current fitness using icu_get_fitness_summary and icu_get_sport_settings
 3. Design an appropriate {workout_type} workout for {sport} based on their fitness level
-4. Create the workout using create_event with:
+4. Create the workout using icu_create_event with:
    - category: "WORKOUT"
    - event_type: "{sport}"
    - description: The structured workout text using the syntax from the resource
@@ -827,8 +827,8 @@ Focus on:
 4. Recovery metrics (HRV, sleep, wellness)
 5. Key insights and recommendations
 
-Use get_recent_activities with days_back={days}, icu_get_fitness_chart for CTL/ATL/TSB trends,
-icu_get_fitness_summary for today's form, and get_wellness_data to assess recovery.
+Use icu_get_recent_activities with days_back={days}, icu_get_fitness_chart for CTL/ATL/TSB trends,
+icu_get_fitness_summary for today's form, and icu_get_wellness_data to assess recovery.
 Present findings in a clear, actionable format."""
 
 
@@ -848,7 +848,7 @@ Include:
 3. Power zones and training recommendations
 4. Trends and recent improvements
 
-Use get_power_curves to get the data, then provide detailed analysis with training suggestions."""
+Use icu_get_power_curves to get the data, then provide detailed analysis with training suggestions."""
     elif metric == "hr":
         return """Analyze my heart rate performance.
 
@@ -858,7 +858,7 @@ Include:
 3. HR zones based on max HR
 4. Cardiac fitness trends
 
-Use get_hr_curves to get HR curve data, then provide detailed analysis with zone recommendations."""
+Use icu_get_hr_curves to get HR curve data, then provide detailed analysis with zone recommendations."""
     else:
         return """Analyze my pace performance.
 
@@ -868,7 +868,7 @@ Include:
 3. Pace zones for different training intensities
 4. Recent running trends
 
-Use get_pace_curves to get pace curve data (optionally with GAP for trail running),
+Use icu_get_pace_curves to get pace curve data (optionally with GAP for trail running),
 then provide detailed analysis with training recommendations."""
 
 
@@ -890,8 +890,8 @@ Include:
 6. Subjective metrics (feel, RPE)
 7. Performance insights and comparison to recent activities
 
-Use get_activity_details for basic info, get_activity_intervals for workout structure,
-get_best_efforts for peak performances, and optionally get_activity_streams for
+Use icu_get_activity_details for basic info, icu_get_activity_intervals for workout structure,
+icu_get_best_efforts for peak performances, and optionally icu_get_activity_streams for
 time-series visualization. Compare with similar recent activities to provide context."""
 
 
@@ -907,7 +907,7 @@ Include:
 4. Recovery trends over past week
 5. Training recommendations
 
-Use get_wellness_data for recent wellness, get_fitness_summary for TSB analysis,
+Use icu_get_wellness_data for recent wellness, icu_get_fitness_summary for TSB analysis,
 then provide clear guidance on training intensity."""
 
 
@@ -923,8 +923,8 @@ Include:
 4. Workout library structure (if using a training plan)
 5. Recommendations for adjustments
 
-Use get_upcoming_workouts to see the plan, get_fitness_summary for current form,
-and optionally get_workout_library to see available training plans, then evaluate
+Use icu_get_upcoming_workouts to see the plan, icu_get_fitness_summary for current form,
+and optionally icu_get_workout_library to see available training plans, then evaluate
 if the plan is appropriate and suggest any modifications."""
 
 
@@ -938,11 +938,11 @@ async def plan_training_week(goal: str = "balanced") -> str:
     return f"""Help me plan my training week with a "{goal}" focus.
 
 Steps:
-1. Check current fitness status (CTL/ATL/TSB) using get_fitness_summary
-2. Review recent training load and patterns with get_recent_activities
-3. Check recovery markers with get_wellness_data
-4. Review workout library for appropriate sessions with get_workout_library
-5. Create planned workouts for the week using create_event
+1. Check current fitness status (CTL/ATL/TSB) using icu_get_fitness_summary
+2. Review recent training load and patterns with icu_get_recent_activities
+3. Check recovery markers with icu_get_wellness_data
+4. Review workout library for appropriate sessions with icu_get_workout_library
+5. Create planned workouts for the week using icu_create_event
 
 Provide a structured weekly plan with:
 - Workout types and intensities for each day
@@ -960,47 +960,47 @@ async def verify_setup() -> str:
 Run each step, report the result, and flag any errors.
 
 Step 1 - Athlete Profile:
-  Call get_athlete_profile. Confirm name, athlete ID, and that sport settings are returned.
+  Call icu_get_athlete_profile. Confirm name, athlete ID, and that sport settings are returned.
 
 Step 2 - Fitness Metrics:
-  Call get_fitness_summary. Confirm CTL, ATL, TSB, and ramp rate are present.
+  Call icu_get_fitness_summary. Confirm CTL, ATL, TSB, and ramp rate are present.
 
 Step 3 - Recent Activities:
-  Call get_recent_activities with limit=3 and days_back=14.
+  Call icu_get_recent_activities with limit=3 and days_back=14.
   Confirm activities are returned with id, name, type, and distance.
   Check that average_watts is populated for cycling activities (verifies Pydantic alias mapping).
 
 Step 4 - Activity Search:
-  Pick the name of one activity from Step 3 and call search_activities with that name.
+  Pick the name of one activity from Step 3 and call icu_search_activities with that name.
   Confirm it returns matching results.
 
 Step 5 - Calendar Events:
-  Call get_calendar_events with days_ahead=14 and days_back=7.
+  Call icu_get_calendar_events with days_ahead=14 and days_back=7.
   Confirm each event includes an id field (needed for update/delete operations).
   Note whether dates are returned as full ISO-8601 datetimes.
 
 Step 6 - Upcoming Workouts:
-  Call get_upcoming_workouts with limit=5.
+  Call icu_get_upcoming_workouts with limit=5.
   Confirm each workout includes an id field.
 
 Step 7 - Wellness Data:
-  Call get_wellness_data with days=7. Confirm HRV, sleep, and subjective metrics are present.
+  Call icu_get_wellness_data with days=7. Confirm HRV, sleep, and subjective metrics are present.
 
 Step 8 - Power Curves:
-  Call get_power_curves with period="42days". Confirm data points are returned.
+  Call icu_get_power_curves with period="42days". Confirm data points are returned.
 
 Step 9 - Event Lifecycle (create, read, update, duplicate, delete):
-  a) Call create_event with start_date tomorrow, name="MCP Verification Test",
+  a) Call icu_create_event with start_date tomorrow, name="MCP Verification Test",
      category="NOTE". Confirm the event is created and an id is returned.
-  b) Call get_event with that id. Confirm the event details match.
-  c) Call update_event with that id, changing the name to "MCP Verification Test - Updated".
-  d) Call duplicate_events with that id (as JSON array) to create a copy 1 week later.
+  b) Call icu_get_event with that id. Confirm the event details match.
+  c) Call icu_update_event with that id, changing the name to "MCP Verification Test - Updated".
+  d) Call icu_duplicate_events with that id (as JSON array) to create a copy 1 week later.
      Confirm the duplicate has a new id and correct date.
-  e) Call delete_event on both the original and duplicated event ids.
+  e) Call icu_delete_event on both the original and duplicated event ids.
      Confirm both are deleted.
 
 Step 10 - Workout Library:
-  Call get_workout_library. Confirm folders are returned.
+  Call icu_get_workout_library. Confirm folders are returned.
 
 Present a summary table at the end:
 | Step | Tool(s) | Status | Notes |
@@ -1045,29 +1045,29 @@ Reads work for any athlete you follow or coach. Writes require coach access.
 {step_zero}Run each remaining step with athlete_id="{target}" and report the result.
 
 Step 1 - Activities:
-  Call get_recent_activities with athlete_id="{target}", limit=3, days_back=14.
+  Call icu_get_recent_activities with athlete_id="{target}", limit=3, days_back=14.
   Confirm activities are returned for the correct athlete.
 
 Step 2 - Activity Search:
-  Call search_activities with athlete_id="{target}" and a generic query like "ride".
+  Call icu_search_activities with athlete_id="{target}" and a generic query like "ride".
 
 Step 3 - Calendar Events:
-  Call get_calendar_events with athlete_id="{target}", days_ahead=14.
+  Call icu_get_calendar_events with athlete_id="{target}", days_ahead=14.
   Confirm events include id fields.
 
 Step 4 - Upcoming Workouts:
-  Call get_upcoming_workouts with athlete_id="{target}", limit=5.
+  Call icu_get_upcoming_workouts with athlete_id="{target}", limit=5.
 
 Step 5 - Get Event:
-  If any events were returned in Step 3, call get_event with one of those ids
+  If any events were returned in Step 3, call icu_get_event with one of those ids
   and athlete_id="{target}".
 
 Step 6 - Event Lifecycle:
-  a) Call create_event with athlete_id="{target}", start_date tomorrow,
+  a) Call icu_create_event with athlete_id="{target}", start_date tomorrow,
      name="Coach Test Event", category="NOTE".
-  b) Call update_event with athlete_id="{target}", changing the name.
-  c) Call duplicate_events with athlete_id="{target}" to create a copy 1 week later.
-  d) Call delete_event on both events with athlete_id="{target}".
+  b) Call icu_update_event with athlete_id="{target}", changing the name.
+  c) Call icu_duplicate_events with athlete_id="{target}" to create a copy 1 week later.
+  d) Call icu_delete_event on both events with athlete_id="{target}".
 
 Step 7 - Fitness / fatigue / form (the surface fixed in #99):
   a) Call icu_get_fitness_summary with NO athlete_id and note the CTL.

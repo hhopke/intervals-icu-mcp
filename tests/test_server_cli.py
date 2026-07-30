@@ -76,3 +76,51 @@ class TestVerifyMultiAthletePrompt:
 
         # Only the Step 0 placeholder and the deliberate 403 probe.
         assert targets == {"<the athlete you picked in Step 0>", "i999999"}, targets
+
+
+class TestPromptToolReferences:
+    """Every tool a prompt tells the model to call must actually be registered.
+
+    All 9 prompts previously referenced bare names (`get_fitness_summary`) while
+    every tool registers as `icu_*`, so the prompts pointed at tools that do not
+    exist. This also guards against a future tool rename silently staling them.
+    """
+
+    async def test_all_prompt_tool_references_are_registered(self):
+        import inspect
+
+        from fastmcp import Client
+
+        import intervals_icu_mcp.server as server_mod
+        from intervals_icu_mcp.server import mcp
+
+        async with Client(mcp) as client:
+            registered = {t.name for t in await client.list_tools()}
+            prompts = await client.list_prompts()
+
+        assert prompts, "expected the server to expose prompts"
+
+        verb = "get|create|update|delete|search|list|bulk|apply|add|download|duplicate"
+        offenders: dict[str, list[str]] = {}
+        for prompt in prompts:
+            fn = getattr(server_mod, prompt.name, None)
+            if fn is None:
+                continue
+            source = inspect.getsource(fn)
+            referenced = set(re.findall(rf"\b((?:icu_)?(?:{verb})_[a-z_]+)\b", source))
+            # A bare name is only an error when the icu_-prefixed tool exists.
+            missing = sorted(
+                n for n in referenced if n not in registered and f"icu_{n}" in registered
+            )
+            if missing:
+                offenders[prompt.name] = missing
+
+        assert not offenders, f"prompts reference unregistered tool names: {offenders}"
+
+    async def test_no_double_prefixed_tool_names(self):
+        import inspect
+
+        import intervals_icu_mcp.server as server_mod
+
+        source = inspect.getsource(server_mod)
+        assert not re.findall(r"icu_icu_\w+", source)
