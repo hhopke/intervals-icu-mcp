@@ -10,7 +10,84 @@ from intervals_icu_mcp.tools.athlete import (
     get_athlete_profile,
     get_fitness_chart,
     get_fitness_summary,
+    list_athletes,
 )
+
+
+def _ctx(config):
+    ctx = MagicMock()
+    ctx.get_state = AsyncMock(return_value=config)
+    return ctx
+
+
+class TestListAthletes:
+    """Tests for the icu_list_athletes discovery tool."""
+
+    ROSTER = [
+        {"id": "i999888", "name": "Coached", "icu_permission": "WRITE", "icu_coach": True},
+        {"id": "i777666", "name": "Followed", "icu_permission": "READ", "icu_coach": False},
+        {"id": "i123456", "name": "Me", "icu_permission": None, "icu_coach": False},
+    ]
+
+    async def test_projects_roster_with_access_levels(self, mock_config, respx_mock):
+        """Maps icu_permission/icu_coach onto access labels and a can_write flag."""
+        respx_mock.get("/athletes").mock(return_value=Response(200, json=self.ROSTER))
+
+        response = json.loads(await list_athletes(ctx=_ctx(mock_config)))
+        data = response["data"]
+
+        assert data["count"] == 3
+        assert data["default_athlete_id"] == "i123456"
+        by_id = {a["athlete_id"]: a for a in data["athletes"]}
+        assert (by_id["i999888"]["access"], by_id["i999888"]["can_write"]) == ("coach", True)
+        assert (by_id["i777666"]["access"], by_id["i777666"]["can_write"]) == ("follower", False)
+        assert (by_id["i123456"]["access"], by_id["i123456"]["can_write"]) == ("self", True)
+
+    async def test_default_athlete_sorts_first(self, mock_config, respx_mock):
+        """The caller's own account must not be buried in a long roster."""
+        respx_mock.get("/athletes").mock(return_value=Response(200, json=self.ROSTER))
+
+        response = json.loads(await list_athletes(ctx=_ctx(mock_config)))
+        athletes = response["data"]["athletes"]
+
+        assert athletes[0]["athlete_id"] == "i123456"
+        assert athletes[0]["is_default"] is True
+        # Remaining entries alphabetical
+        assert [a["name"] for a in athletes[1:]] == ["Coached", "Followed"]
+
+    async def test_projection_drops_the_bulk_of_the_payload(self, mock_config, respx_mock):
+        """The API returns ~160 fields per athlete; only the useful ones survive."""
+        fat = {**self.ROSTER[1], "city": "Zurich", "bikes": [{"id": "b1"}], "email": "x@y.z"}
+        respx_mock.get("/athletes").mock(return_value=Response(200, json=[fat]))
+
+        response = json.loads(await list_athletes(ctx=_ctx(mock_config)))
+        entry = response["data"]["athletes"][0]
+
+        assert set(entry) == {"athlete_id", "name", "access", "can_write"}
+
+    async def test_empty_roster(self, mock_config, respx_mock):
+        respx_mock.get("/athletes").mock(return_value=Response(200, json=[]))
+
+        response = json.loads(await list_athletes(ctx=_ctx(mock_config)))
+
+        assert response["data"]["count"] == 0
+        assert "message" in response["metadata"]
+
+    async def test_tolerates_wrapped_payload(self, mock_config, respx_mock):
+        """Documented as a bare array; an envelope must not crash the tool."""
+        respx_mock.get("/athletes").mock(return_value=Response(200, json={"athletes": self.ROSTER}))
+
+        response = json.loads(await list_athletes(ctx=_ctx(mock_config)))
+
+        assert response["data"]["count"] == 3
+
+    async def test_api_error_suggests_the_actual_causes(self, mock_config, respx_mock):
+        respx_mock.get("/athletes").mock(return_value=Response(403, json={"error": "denied"}))
+
+        response = json.loads(await list_athletes(ctx=_ctx(mock_config)))
+
+        assert response["error"]["type"] == "api_error"
+        assert any("API key" in s for s in response["error"]["suggestions"])
 
 
 class TestGetAthleteProfile:

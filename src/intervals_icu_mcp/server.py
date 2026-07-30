@@ -51,7 +51,12 @@ from .tools.activity_analysis import (
     search_intervals,
 )
 from .tools.activity_messages import add_activity_message, get_activity_messages
-from .tools.athlete import get_athlete_profile, get_fitness_chart, get_fitness_summary
+from .tools.athlete import (
+    get_athlete_profile,
+    get_fitness_chart,
+    get_fitness_summary,
+    list_athletes,
+)
 from .tools.curves import get_hr_curves, get_pace_curves
 from .tools.custom_items import (
     create_custom_item,
@@ -285,6 +290,15 @@ mcp.tool(
 )(get_gap_histogram)
 
 # Register athlete tools
+mcp.tool(
+    name="icu_list_athletes",
+    annotations={
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+)(list_athletes)
 mcp.tool(
     name="icu_get_athlete_profile",
     annotations={
@@ -994,17 +1008,41 @@ Report any failures with the error message so they can be investigated."""
 
 
 @mcp.prompt()
-async def verify_multi_athlete(athlete_id: str) -> str:
+async def verify_multi_athlete(athlete_id: str = "") -> str:
     """Verify multi-athlete support by querying a specific athlete's data.
 
     Args:
-        athlete_id: The Intervals.icu athlete ID to test against (e.g., "i987654")
+        athlete_id: Athlete ID to test against (e.g., "i987654"). Leave empty to
+            pick one from icu_list_athletes.
     """
-    return f"""Verify multi-athlete support by querying athlete {athlete_id}.
-This tests that the athlete_id parameter correctly routes API requests to a different
-athlete than the default configured one. You must have coach access to this athlete.
+    target = athlete_id or "<the athlete you picked in Step 0>"
+    step_zero = (
+        """Step 0 - Discover athletes:
+  Call icu_list_athletes. It returns every athlete this account can reach, each
+  with an access level ("self", "coach", "follower", "none") and a can_write flag.
+  Pick one whose athlete_id is NOT the default and use it for every step below.
+  If the roster has only the default athlete, stop and report that multi-athlete
+  support cannot be exercised from this account.
+  Note the chosen athlete's can_write value — if it is false you have read-only
+  (follower) access, so expect Step 6 to fail with 403. That is correct behavior,
+  not a bug.
 
-Run each step with athlete_id="{athlete_id}" and report the result.
+"""
+        if not athlete_id
+        else f"""Step 0 - Confirm access:
+  Call icu_list_athletes and confirm {athlete_id} appears. Note its access level
+  and can_write flag. If can_write is false, expect Step 6 to fail with 403 —
+  that is correct behavior, not a bug.
+
+"""
+    )
+    return f"""Verify multi-athlete support by querying athlete {target}.
+This tests that the athlete_id parameter correctly routes API requests to a different
+athlete than the default configured one.
+
+Reads work for any athlete you follow or coach. Writes require coach access.
+
+{step_zero}Run each remaining step with athlete_id="{target}" and report the result.
 
 Step 1 - Activities:
   Call get_recent_activities with athlete_id="{athlete_id}", limit=3, days_back=14.
@@ -1029,11 +1067,32 @@ Step 6 - Event Lifecycle:
      name="Coach Test Event", category="NOTE".
   b) Call update_event with athlete_id="{athlete_id}", changing the name.
   c) Call duplicate_events with athlete_id="{athlete_id}" to create a copy 1 week later.
-  d) Call delete_event on both events with athlete_id="{athlete_id}".
+  d) Call delete_event on both events with athlete_id="{target}".
+
+Step 7 - Fitness / fatigue / form (the surface fixed in #99):
+  a) Call icu_get_fitness_summary with NO athlete_id and note the CTL.
+  b) Call icu_get_fitness_summary with athlete_id="{target}".
+     The CTL must differ from (a) unless the two athletes genuinely train alike,
+     and the response's athlete_id field must echo "{target}".
+     Getting (a)'s numbers back is the exact bug this verifies against.
+  c) Call icu_get_athlete_profile with athlete_id="{target}" and confirm the
+     name is the coached athlete, not the default one.
+  d) Call icu_get_fitness_chart with athlete_id="{target}", days_back=14,
+     days_ahead=0.
+
+Step 8 - Wellness and other athlete-scoped reads:
+  Call icu_get_wellness_data, icu_get_sport_settings, icu_get_gear_list and
+  icu_get_power_curves, each with athlete_id="{target}".
+
+Step 9 - Permission enforcement:
+  Call icu_get_fitness_summary with athlete_id="i999999" (an inaccessible id).
+  It MUST return HTTP 403. Returning the default athlete's data instead means
+  athlete_id is being silently dropped.
 
 Present a summary table:
 | Step | Tool | athlete_id Used | Status | Notes |
-Flag any 401/403 errors as permission issues (coach access required)."""
+Flag 401/403 on reads as a missing follow/coach relationship. Flag 403 on writes
+(Step 6) as read-only access, which is expected for a follower."""
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:

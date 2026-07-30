@@ -1,6 +1,6 @@
 """Async HTTP client for Intervals.icu API."""
 
-from typing import Any
+from typing import Any, cast
 
 import httpx
 from pydantic import TypeAdapter
@@ -138,6 +138,30 @@ class ICUClient:
         athlete_id = athlete_id or self.config.intervals_icu_athlete_id
         response = await self._request("GET", f"/athlete/{athlete_id}")
         return Athlete(**response.json())
+
+    async def list_athletes(self) -> list[dict[str, Any]]:
+        """List athletes this API key can reach — followed, coached, and the caller.
+
+        Note this endpoint is NOT athlete-scoped: it takes no athlete id and is
+        resolved server-side from the API key.
+
+        Returns:
+            Raw athlete records. Kept as dicts rather than the Athlete model
+            because the relationship fields this is fetched for (icu_permission,
+            icu_coach) are not part of that model.
+        """
+        response = await self._request("GET", "/athletes")
+        payload: Any = response.json()
+        # Documented as a bare array; tolerate an envelope in case that changes.
+        if isinstance(payload, dict):
+            for key in ("athletes", "list", "data"):
+                nested: Any = cast(dict[str, Any], payload).get(key)
+                if isinstance(nested, list):
+                    return cast(list[dict[str, Any]], nested)
+            return []
+        if isinstance(payload, list):
+            return cast(list[dict[str, Any]], payload)
+        return []
 
     # ==================== Activity Endpoints ====================
 

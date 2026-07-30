@@ -1,6 +1,6 @@
 # Tool, Resource, and Prompt Reference
 
-Complete inventory of everything the Intervals.icu MCP server exposes: up to 61 tools across 11 categories, 4 MCP Resources, and 7 MCP Prompts.
+Complete inventory of everything the Intervals.icu MCP server exposes: up to 62 tools across 11 categories, 4 MCP Resources, and 7 MCP Prompts.
 
 ## Delete Safety Mode
 
@@ -8,9 +8,9 @@ Destructive tools are gated by the optional `INTERVALS_ICU_DELETE_MODE` env var.
 
 | Mode | Registered tools | Events | Activities | Gear | Sport settings | Custom items |
 |---|---|---|---|---|---|---|
-| `safe` (default) | 57 | tomorrow or later | ✗ | ✓ | ✗ | ✗ |
-| `full` | 60 | any date | ✓ | ✓ | ✓ | ✓ |
-| `none` | 54 | ✗ | ✗ | ✗ | ✗ | ✗ |
+| `safe` (default) | 59 | tomorrow or later | ✗ | ✓ | ✗ | ✗ |
+| `full` | 62 | any date | ✓ | ✓ | ✓ | ✓ |
+| `none` | 56 | ✗ | ✗ | ✗ | ✗ | ✗ |
 
 In `safe` mode, `icu_delete_event` and `icu_bulk_delete_events` return a uniform envelope showing what was deleted and what was skipped:
 
@@ -54,6 +54,10 @@ Athlete-scoped tools take an optional `athlete_id`. Omit it and the tool operate
 `INTERVALS_ICU_ATHLETE_ID` from your config; pass it to target another athlete your
 account can reach (e.g. `athlete_id: "i999888"`). You use **your own** API key — never
 theirs. The API rejects IDs you can't access with HTTP 403.
+
+Use **`icu_list_athletes`** to discover valid ids. It returns everyone this account can
+reach, each with an `access` level (`self`, `coach`, `follower`, `none`) and a
+`can_write` flag, so you can tell up front whether a write will be permitted.
 
 Access comes from a relationship, not an account type — any Intervals.icu account can
 coach. The two relationships differ:
@@ -115,10 +119,11 @@ The threaded notes/comments shown under an activity — the user's own training 
 | `icu_get_activity_messages`    | Read notes/comments/coach feedback on a specific activity  |
 | `icu_add_activity_message`     | Post a note or comment on a specific activity              |
 
-### Athlete (3 tools)
+### Athlete (4 tools)
 
 | Tool                  | Description                                                     |
 | --------------------- | --------------------------------------------------------------- |
+| `icu_list_athletes` | List athletes this account can access (self, followed, coached) with each one's access level — use to resolve a name to an `athlete_id` |
 | `icu_get_athlete_profile` | Get athlete profile, fitness metrics, and outdoor/indoor FTP   |
 | `icu_get_fitness_summary` | Get detailed CTL/ATL/TSB analysis with training recommendations |
 | `icu_get_fitness_chart` | Get PMC time-series (CTL/ATL/TSB) over a date window, including future projections from planned workouts |
