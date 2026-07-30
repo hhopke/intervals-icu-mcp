@@ -1045,28 +1045,28 @@ Reads work for any athlete you follow or coach. Writes require coach access.
 {step_zero}Run each remaining step with athlete_id="{target}" and report the result.
 
 Step 1 - Activities:
-  Call get_recent_activities with athlete_id="{athlete_id}", limit=3, days_back=14.
+  Call get_recent_activities with athlete_id="{target}", limit=3, days_back=14.
   Confirm activities are returned for the correct athlete.
 
 Step 2 - Activity Search:
-  Call search_activities with athlete_id="{athlete_id}" and a generic query like "ride".
+  Call search_activities with athlete_id="{target}" and a generic query like "ride".
 
 Step 3 - Calendar Events:
-  Call get_calendar_events with athlete_id="{athlete_id}", days_ahead=14.
+  Call get_calendar_events with athlete_id="{target}", days_ahead=14.
   Confirm events include id fields.
 
 Step 4 - Upcoming Workouts:
-  Call get_upcoming_workouts with athlete_id="{athlete_id}", limit=5.
+  Call get_upcoming_workouts with athlete_id="{target}", limit=5.
 
 Step 5 - Get Event:
   If any events were returned in Step 3, call get_event with one of those ids
-  and athlete_id="{athlete_id}".
+  and athlete_id="{target}".
 
 Step 6 - Event Lifecycle:
-  a) Call create_event with athlete_id="{athlete_id}", start_date tomorrow,
+  a) Call create_event with athlete_id="{target}", start_date tomorrow,
      name="Coach Test Event", category="NOTE".
-  b) Call update_event with athlete_id="{athlete_id}", changing the name.
-  c) Call duplicate_events with athlete_id="{athlete_id}" to create a copy 1 week later.
+  b) Call update_event with athlete_id="{target}", changing the name.
+  c) Call duplicate_events with athlete_id="{target}" to create a copy 1 week later.
   d) Call delete_event on both events with athlete_id="{target}".
 
 Step 7 - Fitness / fatigue / form (the surface fixed in #99):
