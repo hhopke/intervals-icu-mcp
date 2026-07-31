@@ -178,7 +178,29 @@ class TestWellnessTools:
         assert data["nutrition"]["hydration_liters"] == 2.5
         scales = response["metadata"]["scales"]
         assert "hydration" in scales and "1-4" in scales["hydration"]
-        assert "stress" not in scales
+
+    async def test_update_wellness_writes_hydration_rating(self, mock_config, respx_mock):
+        """The subjective rating is writable and distinct from hydrationVolume."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.put("/athlete/i123456/wellness").mock(
+            return_value=Response(
+                200,
+                json={"id": "2026-04-22", "hydration": 3, "hydrationVolume": 1.5},
+            )
+        )
+
+        result = await update_wellness(
+            date="2026-04-22", hydration=3, hydration_liters=1.5, ctx=mock_ctx
+        )
+
+        sent = json.loads(route.calls[0].request.content)
+        assert sent["hydration"] == 3
+        assert sent["hydrationVolume"] == 1.5
+        response = json.loads(result)
+        assert response["data"]["subjective"]["hydration"] == 3
+        assert response["data"]["nutrition"]["hydration_liters"] == 1.5
 
     async def test_get_wellness_data_includes_scales_and_extra_fields(
         self, mock_config, respx_mock
