@@ -540,26 +540,35 @@ class GearReminder(BaseModel):
 
 
 class Gear(BaseModel):
-    """Gear/equipment item."""
+    """Gear/equipment item.
+
+    Mirrors the API schema: `type` is a CamelCase enum value ("Bike",
+    "Shoes", "Trainer", plus component types like "Chain" or "Cassette"),
+    `retired` is a date string (null = in active use), and `distance` (m) /
+    `time` (s) / `activities` are accumulated usage. The API has no brand,
+    model, active, or primary fields on gear.
+    """
 
     id: str
-    athlete_id: str | None = Field(None, alias="athlete_id")
+    athlete_id: str | None = None
     name: str | None = None
-    brand: str | None = None
-    model: str | None = None
-    gear_type: str | None = Field(None, alias="gear_type")  # e.g., "BIKE", "SHOE"
-    active: bool | None = None
-    primary: bool | None = None
-    distance: float | None = None  # Total distance in meters
-    moving_time: int | None = Field(None, alias="moving_time")  # Total time in seconds
-    activity_count: int | None = Field(None, alias="activity_count")
+    type: str | None = None
+    purchased: str | None = None
+    notes: str | None = None
+    distance: float | None = None
+    time: float | None = None
+    activities: int | None = None
+    use_elapsed_time: bool | None = None
+    retired: str | None = None
+    component: bool | None = None
+    component_ids: list[str] = Field(default_factory=list)
     reminders: list[GearReminder] = Field(default_factory=list[GearReminder])
 
     model_config = ConfigDict(populate_by_name=True)
 
-    @field_validator("reminders", mode="before")
+    @field_validator("reminders", "component_ids", mode="before")
     @classmethod
-    def _coerce_reminders(cls, v: Any) -> list[Any]:
+    def _coerce_null_lists(cls, v: Any) -> list[Any]:
         return v or []
 
 

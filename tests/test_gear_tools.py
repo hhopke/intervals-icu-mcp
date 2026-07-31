@@ -33,13 +33,12 @@ class TestGetGearList:
                     {
                         "id": "g1",
                         "name": "Road Bike",
-                        "brand": "Specialized",
-                        "model": "Tarmac",
-                        "gear_type": "BIKE",
-                        "active": True,
+                        "type": "Bike",
+                        "purchased": "2024-05-01",
+                        "notes": "Specialized Tarmac",
                         "distance": 12500000.0,  # 12,500 km in meters
-                        "moving_time": 360000,  # 100h
-                        "activity_count": 142,
+                        "time": 360000.0,  # 100h
+                        "activities": 142,
                         "reminders": [
                             {
                                 "id": 101,
@@ -63,8 +62,8 @@ class TestGetGearList:
                     {
                         "id": "g2",
                         "name": "Trail Shoes",
-                        "gear_type": "SHOE",
-                        "active": True,
+                        "type": "Shoes",
+                        "retired": "2026-05-01",
                     },
                 ],
             )
@@ -77,10 +76,17 @@ class TestGetGearList:
         assert len(gear) == 2
         bike = gear[0]
         assert bike["name"] == "Road Bike"
-        assert bike["brand"] == "Specialized"
+        assert bike["type"] == "Bike"
+        assert bike["active"] is True
+        assert bike["purchased_on"] == "2024-05-01"
+        assert bike["notes"] == "Specialized Tarmac"
         assert bike["usage"]["total_distance_km"] == 12500.0
         assert bike["usage"]["total_time"] == "100h 0m"
         assert bike["usage"]["activity_count"] == 142
+        # retired gear derives active=False and shows the retirement date
+        shoes = gear[1]
+        assert shoes["active"] is False
+        assert shoes["retired_on"] == "2026-05-01"
         assert len(bike["reminders"]) == 2
         chain = bike["reminders"][0]
         assert chain["text"] == "Replace chain"
@@ -126,19 +132,14 @@ class TestGetGearList:
 
 
 class TestCreateGear:
-    async def test_success_with_all_fields(self, patch_config, respx_mock):
-        respx_mock.post("/athlete/i123456/gear").mock(
+    async def test_success_maps_type_and_warns_on_unsupported(self, patch_config, respx_mock):
+        """gear_type maps to the API's CamelCase `type` enum (regression for
+        #110 — `gear_type`/`brand`/`model`/`primary` are not API fields);
+        unsupported params are reported as ignored, not silently dropped."""
+        route = respx_mock.post("/athlete/i123456/gear").mock(
             return_value=Response(
                 200,
-                json={
-                    "id": "g99",
-                    "name": "New Bike",
-                    "brand": "Trek",
-                    "model": "Madone",
-                    "gear_type": "BIKE",
-                    "active": True,
-                    "primary": True,
-                },
+                json={"id": "g99", "name": "New Bike", "type": "Bike"},
             )
         )
 
@@ -146,29 +147,59 @@ class TestCreateGear:
             name="New Bike", gear_type="BIKE", brand="Trek", model="Madone", primary=True
         )
 
+        sent_body = json.loads(route.calls[0].request.content)
+        assert sent_body == {"name": "New Bike", "type": "Bike"}
         response = json.loads(result)
         data = response["data"]
         assert data["id"] == "g99"
-        assert data["brand"] == "Trek"
-        assert data["primary"] is True
+        assert data["type"] == "Bike"
+        assert data["active"] is True
+        assert "brand" not in data and "primary" not in data
+        warning = response["metadata"]["warning"]
+        assert "brand" in warning and "model" in warning and "primary" in warning
         assert response["metadata"]["type"] == "gear_created"
 
-    async def test_success_minimal_fields(self, patch_config, respx_mock):
-        """Optional brand/model are omitted from the request and response when not provided."""
-        respx_mock.post("/athlete/i123456/gear").mock(
+    async def test_success_minimal_fields_no_warning(self, patch_config, respx_mock):
+        """SHOE alias maps to Shoes; no warning when no unsupported params given."""
+        route = respx_mock.post("/athlete/i123456/gear").mock(
             return_value=Response(
                 200,
-                json={"id": "g100", "name": "Trainer", "gear_type": "TRAINER", "active": True},
+                json={"id": "g100", "name": "Trail Shoes", "type": "Shoes"},
             )
         )
 
-        result = await create_gear(name="Trainer", gear_type="TRAINER")
+        result = await create_gear(name="Trail Shoes", gear_type="SHOE")
+
+        sent_body = json.loads(route.calls[0].request.content)
+        assert sent_body == {"name": "Trail Shoes", "type": "Shoes"}
+        response = json.loads(result)
+        assert response["data"]["type"] == "Shoes"
+        assert "warning" not in response["metadata"]
+
+    async def test_create_inactive_sets_retired_date(self, patch_config, respx_mock):
+        route = respx_mock.post("/athlete/i123456/gear").mock(
+            return_value=Response(
+                200,
+                json={"id": "g101", "name": "Old Bike", "type": "Bike", "retired": "2026-07-31"},
+            )
+        )
+
+        result = await create_gear(name="Old Bike", gear_type="Bike", active=False)
+
+        sent_body = json.loads(route.calls[0].request.content)
+        assert "retired" in sent_body
+        response = json.loads(result)
+        assert response["data"]["active"] is False
+
+    async def test_invalid_gear_type_rejected(self, patch_config, respx_mock):
+        route = respx_mock.post("/athlete/i123456/gear").mock(return_value=Response(200, json={}))
+
+        result = await create_gear(name="X", gear_type="OTHER")
 
         response = json.loads(result)
-        data = response["data"]
-        assert data["name"] == "Trainer"
-        assert "brand" not in data
-        assert "model" not in data
+        assert response["error"]["type"] == "validation_error"
+        assert "Bike" in response["error"]["message"]
+        assert not route.called
 
     async def test_missing_credentials(self, monkeypatch, mock_config):
         monkeypatch.setattr(gear_tool, "load_config", lambda: mock_config)
@@ -181,34 +212,51 @@ class TestCreateGear:
 
 class TestUpdateGear:
     async def test_success_partial_update(self, patch_config, respx_mock):
-        """Only non-None fields are sent; usage block returned when distance is set."""
+        """Only mapped fields hit the wire; active=False becomes a retired date."""
         route = respx_mock.put("/athlete/i123456/gear/g1").mock(
             return_value=Response(
                 200,
                 json={
                     "id": "g1",
                     "name": "Renamed Bike",
-                    "gear_type": "BIKE",
-                    "active": False,
-                    "primary": False,
+                    "type": "Bike",
+                    "retired": "2026-07-31",
                     "distance": 12500000.0,
-                    "moving_time": 360000,
-                    "activity_count": 142,
+                    "time": 360000.0,
+                    "activities": 142,
                 },
             )
         )
 
         result = await update_gear(gear_id="g1", name="Renamed Bike", active=False)
 
-        # Confirm only the two passed fields hit the wire
         sent_body = json.loads(route.calls[0].request.content)
-        assert sent_body == {"name": "Renamed Bike", "active": False}
+        assert sent_body["name"] == "Renamed Bike"
+        assert "retired" in sent_body and sent_body["retired"] is not None
+        assert "active" not in sent_body
 
         response = json.loads(result)
         data = response["data"]
         assert data["name"] == "Renamed Bike"
+        assert data["active"] is False
+        assert data["retired_on"] == "2026-07-31"
         assert data["usage"]["total_distance_km"] == 12500.0
+        assert data["usage"]["total_time"] == "100h 0m"
         assert data["usage"]["activity_count"] == 142
+
+    async def test_unretire_sends_empty_string(self, patch_config, respx_mock):
+        """active=True clears `retired` via empty string — the API ignores
+        null (live-verified), so sending None would silently no-op."""
+        route = respx_mock.put("/athlete/i123456/gear/g1").mock(
+            return_value=Response(200, json={"id": "g1", "name": "Bike", "type": "Bike"})
+        )
+
+        result = await update_gear(gear_id="g1", active=True)
+
+        sent_body = json.loads(route.calls[0].request.content)
+        assert sent_body == {"retired": ""}
+        response = json.loads(result)
+        assert response["data"]["active"] is True
 
     async def test_no_fields_validation_error(self, patch_config):
         result = await update_gear(gear_id="g1")

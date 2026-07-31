@@ -1,5 +1,6 @@
 """Gear management tools for tracking equipment and maintenance."""
 
+from datetime import date
 from typing import Annotated, Any
 
 from fastmcp import Context
@@ -7,6 +8,36 @@ from fastmcp import Context
 from ..auth import load_config, validate_credentials
 from ..client import ICUAPIError, ICUClient
 from ..response_builder import ResponseBuilder
+
+# The API's gear `type` enum (CamelCase). Includes whole items (Bike, Shoes,
+# Trainer, ...) and component types (Chain, Cassette, Wheel, ...).
+GEAR_TYPES = [
+    "Bike", "Shoes", "Wetsuit", "RowingMachine", "Skis", "Snowboard", "Boat",
+    "Board", "Equipment", "Accessories", "Apparel", "Computer", "Light",
+    "Battery", "Brake", "BrakePads", "Rotor", "Drivetrain", "BottomBracket",
+    "Cassette", "Chain", "Chainrings", "Crankset", "Derailleur", "Pedals",
+    "Lever", "Cable", "Frame", "Fork", "Handlebar", "Headset", "Saddle",
+    "Seatpost", "Shock", "Stem", "Axel", "Hub", "Trainer", "Tube", "Tyre",
+    "Wheel", "Wheelset", "PowerMeter", "Cleats", "CyclingShoes", "Paddle",
+]  # fmt: skip
+
+# Case-insensitive lookup, plus the singular "SHOE" spelling the tool docs
+# previously taught.
+_GEAR_TYPE_LOOKUP = {v.upper(): v for v in GEAR_TYPES} | {"SHOE": "Shoes"}
+
+# Tool params with no API-side field — accepted for compatibility, reported
+# as ignored (see #110; scheduled for removal in the next major).
+_UNSUPPORTED_GEAR_PARAMS = ("brand", "model", "primary")
+
+
+def _ignored_params_note(**params: Any) -> str | None:
+    ignored = [name for name, value in params.items() if value]
+    if not ignored:
+        return None
+    return (
+        f"Ignored parameter(s) {', '.join(ignored)}: the Intervals.icu API has no "
+        "brand/model/primary fields on gear. Put such details in the gear name."
+    )
 
 
 async def get_gear_list(
@@ -35,26 +66,28 @@ async def get_gear_list(
                 gear_info: dict[str, Any] = {
                     "id": gear.id,
                     "name": gear.name,
-                    "type": gear.gear_type,
-                    "active": gear.active,
+                    "type": gear.type,
+                    "active": gear.retired is None,
                 }
 
-                # Brand and model
-                if gear.brand:
-                    gear_info["brand"] = gear.brand
-                if gear.model:
-                    gear_info["model"] = gear.model
+                if gear.retired:
+                    gear_info["retired_on"] = gear.retired
+                if gear.purchased:
+                    gear_info["purchased_on"] = gear.purchased
+                if gear.notes:
+                    gear_info["notes"] = gear.notes
 
                 # Usage statistics
                 usage: dict[str, Any] = {}
                 if gear.distance is not None:
                     usage["total_distance_km"] = round(gear.distance / 1000, 2)
-                if gear.moving_time is not None:
-                    hours = gear.moving_time // 3600
-                    minutes = (gear.moving_time % 3600) // 60
+                if gear.time is not None:
+                    total_secs = int(gear.time)
+                    hours = total_secs // 3600
+                    minutes = (total_secs % 3600) // 60
                     usage["total_time"] = f"{hours}h {minutes}m"
-                if gear.activity_count is not None:
-                    usage["activity_count"] = gear.activity_count
+                if gear.activities is not None:
+                    usage["activity_count"] = gear.activities
 
                 if usage:
                     gear_info["usage"] = usage
@@ -107,11 +140,17 @@ async def get_gear_list(
 
 async def create_gear(
     name: Annotated[str, "Name of the gear item"],
-    gear_type: Annotated[str, "Type of gear (e.g., 'BIKE', 'SHOE', 'TRAINER', 'WETSUIT', 'OTHER')"],
-    brand: Annotated[str | None, "Brand name"] = None,
-    model: Annotated[str | None, "Model name"] = None,
-    active: Annotated[bool, "Whether this gear is actively used"] = True,
-    primary: Annotated[bool, "Whether this is the primary gear of this type"] = False,
+    gear_type: Annotated[
+        str,
+        "Gear type, case-insensitive. Whole items: Bike, Shoes, Wetsuit, Trainer, "
+        "RowingMachine, Skis, Snowboard, Boat, Board, Equipment, Accessories, "
+        "Apparel, Computer. Components: Chain, Cassette, Wheel, Tyre, Frame, "
+        "Pedals, PowerMeter, and more.",
+    ],
+    brand: Annotated[str | None, "IGNORED — the API has no brand field; put it in the name"] = None,
+    model: Annotated[str | None, "IGNORED — the API has no model field; put it in the name"] = None,
+    active: Annotated[bool, "Whether this gear is actively used (False = retired)"] = True,
+    primary: Annotated[bool | None, "IGNORED — the API has no primary flag on gear"] = None,
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
@@ -122,39 +161,37 @@ async def create_gear(
             "Error: Intervals.icu credentials not configured. Run intervals-icu-mcp-auth to set up."
         )
 
+    api_type = _GEAR_TYPE_LOOKUP.get(gear_type.upper())
+    if api_type is None:
+        return ResponseBuilder.build_error_response(
+            f"Invalid gear_type '{gear_type}'. Must be one of: {', '.join(GEAR_TYPES)}.",
+            error_type="validation_error",
+        )
+
     try:
         async with ICUClient(config) as client:
-            gear_data: dict[str, Any] = {
-                "name": name,
-                "gear_type": gear_type,
-                "active": active,
-                "primary": primary,
-            }
-
-            if brand:
-                gear_data["brand"] = brand
-            if model:
-                gear_data["model"] = model
+            gear_data: dict[str, Any] = {"name": name, "type": api_type}
+            if not active:
+                gear_data["retired"] = date.today().isoformat()
 
             gear = await client.create_gear(gear_data, athlete_id=athlete_id)
 
             result: dict[str, Any] = {
                 "id": gear.id,
                 "name": gear.name,
-                "type": gear.gear_type,
-                "active": gear.active,
-                "primary": gear.primary,
+                "type": gear.type,
+                "active": gear.retired is None,
             }
 
-            if gear.brand:
-                result["brand"] = gear.brand
-            if gear.model:
-                result["model"] = gear.model
+            metadata: dict[str, Any] = {
+                "type": "gear_created",
+                "message": "Gear item created successfully",
+            }
+            note = _ignored_params_note(brand=brand, model=model, primary=primary)
+            if note:
+                metadata["warning"] = note
 
-            return ResponseBuilder.build_response(
-                result,
-                metadata={"type": "gear_created", "message": "Gear item created successfully"},
-            )
+            return ResponseBuilder.build_response(result, metadata=metadata)
 
     except ICUAPIError as e:
         return ResponseBuilder.build_error_response(e.message, error_type="api_error")
@@ -165,11 +202,15 @@ async def create_gear(
 async def update_gear(
     gear_id: Annotated[str, "ID of the gear item to update"],
     name: Annotated[str | None, "Updated name"] = None,
-    gear_type: Annotated[str | None, "Updated type (BIKE, SHOE, TRAINER, etc.)"] = None,
-    brand: Annotated[str | None, "Updated brand"] = None,
-    model: Annotated[str | None, "Updated model"] = None,
-    active: Annotated[bool | None, "Whether this gear is actively used"] = None,
-    primary: Annotated[bool | None, "Whether this is the primary gear of this type"] = None,
+    gear_type: Annotated[
+        str | None, "Updated type, case-insensitive (Bike, Shoes, Trainer, Chain, ...)"
+    ] = None,
+    brand: Annotated[str | None, "IGNORED — the API has no brand field; put it in the name"] = None,
+    model: Annotated[str | None, "IGNORED — the API has no model field; put it in the name"] = None,
+    active: Annotated[
+        bool | None, "False retires the gear (dated today); True un-retires it"
+    ] = None,
+    primary: Annotated[bool | None, "IGNORED — the API has no primary flag on gear"] = None,
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
@@ -180,22 +221,29 @@ async def update_gear(
             "Error: Intervals.icu credentials not configured. Run intervals-icu-mcp-auth to set up."
         )
 
+    api_type: str | None = None
+    if gear_type is not None:
+        api_type = _GEAR_TYPE_LOOKUP.get(gear_type.upper())
+        if api_type is None:
+            return ResponseBuilder.build_error_response(
+                f"Invalid gear_type '{gear_type}'. Must be one of: {', '.join(GEAR_TYPES)}.",
+                error_type="validation_error",
+            )
+
     try:
         async with ICUClient(config) as client:
             gear_data: dict[str, Any] = {}
 
             if name is not None:
                 gear_data["name"] = name
-            if gear_type is not None:
-                gear_data["gear_type"] = gear_type
-            if brand is not None:
-                gear_data["brand"] = brand
-            if model is not None:
-                gear_data["model"] = model
-            if active is not None:
-                gear_data["active"] = active
-            if primary is not None:
-                gear_data["primary"] = primary
+            if api_type is not None:
+                gear_data["type"] = api_type
+            if active is False:
+                gear_data["retired"] = date.today().isoformat()
+            elif active is True:
+                # Live-verified: the API ignores null for `retired` (Jackson
+                # treats it as absent); empty string is what clears it.
+                gear_data["retired"] = ""
 
             if not gear_data:
                 return ResponseBuilder.build_error_response(
@@ -207,33 +255,33 @@ async def update_gear(
             result: dict[str, Any] = {
                 "id": gear.id,
                 "name": gear.name,
-                "type": gear.gear_type,
-                "active": gear.active,
-                "primary": gear.primary,
+                "type": gear.type,
+                "active": gear.retired is None,
             }
-
-            if gear.brand:
-                result["brand"] = gear.brand
-            if gear.model:
-                result["model"] = gear.model
+            if gear.retired:
+                result["retired_on"] = gear.retired
 
             # Usage statistics
-            if gear.distance is not None or gear.moving_time is not None:
+            if gear.distance is not None or gear.time is not None:
                 usage: dict[str, Any] = {}
                 if gear.distance is not None:
                     usage["total_distance_km"] = round(gear.distance / 1000, 2)
-                if gear.moving_time is not None:
-                    hours = gear.moving_time // 3600
-                    minutes = (gear.moving_time % 3600) // 60
-                    usage["total_time"] = f"{hours}h {minutes}m"
-                if gear.activity_count is not None:
-                    usage["activity_count"] = gear.activity_count
+                if gear.time is not None:
+                    total_secs = int(gear.time)
+                    usage["total_time"] = f"{total_secs // 3600}h {(total_secs % 3600) // 60}m"
+                if gear.activities is not None:
+                    usage["activity_count"] = gear.activities
                 result["usage"] = usage
 
-            return ResponseBuilder.build_response(
-                result,
-                metadata={"type": "gear_updated", "message": "Gear item updated successfully"},
-            )
+            metadata: dict[str, Any] = {
+                "type": "gear_updated",
+                "message": "Gear item updated successfully",
+            }
+            note = _ignored_params_note(brand=brand, model=model, primary=primary)
+            if note:
+                metadata["warning"] = note
+
+            return ResponseBuilder.build_response(result, metadata=metadata)
 
     except ICUAPIError as e:
         return ResponseBuilder.build_error_response(e.message, error_type="api_error")
