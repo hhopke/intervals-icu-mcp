@@ -25,12 +25,9 @@ GEAR_TYPES = [
 # previously taught.
 _GEAR_TYPE_LOOKUP = {v.upper(): v for v in GEAR_TYPES} | {"SHOE": "Shoes"}
 
-# Tool params with no API-side field — accepted for compatibility, reported
-# as ignored (see #110; scheduled for removal in the next major).
-_UNSUPPORTED_GEAR_PARAMS = ("brand", "model", "primary")
-
-
 def _ignored_params_note(**params: Any) -> str | None:
+    """Warning for tool params with no API-side field — accepted for
+    compatibility, reported as ignored (#110; removal deferred to next major)."""
     ignored = [name for name, value in params.items() if value]
     if not ignored:
         return None
