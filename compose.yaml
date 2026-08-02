@@ -1,0 +1,14 @@
+name: intervals-icu-mcp
+
+services:
+  intervals-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    command: ["python", "wrapper.py"]
+    environment:
+      - INTERVALS_ICU_API_KEY=${INTERVALS_ICU_API_KEY}
+      - INTERVALS_ICU_ATHLETE_ID=${INTERVALS_ICU_ATHLETE_ID}
+      - FASTMCP_ALLOWED_HOSTS=*
