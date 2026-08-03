@@ -21,15 +21,39 @@ def get_oauth_discovery_document(request: Request):
     base_url = get_base_url(request)
     return JSONResponse({
         "issuer": base_url,
-        "authorization_endpoint": "https://accounts.google.com/o/oauth2/v2/auth",
-        "token_endpoint": "https://oauth2.googleapis.com/token",
+        "authorization_endpoint": f"{base_url}/auth",
+        "token_endpoint": f"{base_url}/token",
         "jwks_uri": "https://www.googleapis.com/oauth2/v3/certs",
-        "response_types_supported": ["code"],
+        "response_types_supported": ["code", "token", "id_token", "none"],
+        "response_modes_supported": ["query", "fragment", "form_post"],
         "subject_types_supported": ["public"],
         "id_token_signing_alg_values_supported": ["RS256"],
         "scopes_supported": ["openid", "email", "profile"],
-        "grant_types_supported": ["authorization_code", "refresh_token"]
+        "token_endpoint_auth_methods_supported": ["client_secret_post", "client_secret_basic"],
+        "claims_supported": ["aud", "email", "email_verified", "exp", "family_name", "given_name", "iat", "iss", "name", "picture", "sub"],
+        "code_challenge_methods_supported": ["plain", "S256"],
+        "grant_types_supported": ["authorization_code", "refresh_token", "urn:ietf:params:oauth:grant-type:jwt-bearer"]
     })
+
+from starlette.responses import RedirectResponse
+import urllib.parse
+
+@mcp.custom_route("/auth", methods=["GET"])
+async def auth_proxy(request: Request):
+    # Proxy authorization request to Google
+    qs = request.url.query
+    google_auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{qs}"
+    return RedirectResponse(url=google_auth_url)
+
+@mcp.custom_route("/token", methods=["POST"])
+async def token_proxy(request: Request):
+    # Proxy token exchange to Google
+    form_data = await request.form()
+    payload = dict(form_data)
+    async with httpx.AsyncClient() as client:
+        resp = await client.post("https://oauth2.googleapis.com/token", data=payload)
+        return JSONResponse(resp.json(), status_code=resp.status_code)
+
 # Add OAuth Discovery endpoints for Gemini Spark (RFC 8414 & OpenID)
 @mcp.custom_route("/.well-known/oauth-authorization-server", methods=["GET"])
 async def oauth_authorization_server(request: Request):
@@ -52,8 +76,8 @@ class GoogleOAuthASGIMiddleware:
             method = scope.get("method", "")
             
             # We protect /sse for standard SSE transport
-            # Protect GET /sse and POST /messages
-            if (path == "/sse" and method == "GET") or (path.startswith("/messages") and method == "POST"):
+            # Protect GET and POST on /mcp
+            if path == "/mcp" and method in ("GET", "POST"):
                 headers = dict(scope.get("headers", []))
                 # Headers in ASGI are lowercase bytes
                 auth = headers.get(b"authorization", b"").decode("utf-8")
@@ -93,8 +117,8 @@ if __name__ == "__main__":
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", "8080"))
     
-    # Use sse transport for Gemini Spark compatibility
-    app = mcp.http_app(transport="sse")
+    # Use streamable-http transport for Gemini Spark compatibility
+    app = mcp.http_app(transport="streamable-http")
     
     # Add ProxyHeadersMiddleware to properly resolve request.base_url in Cloud Run
     app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
