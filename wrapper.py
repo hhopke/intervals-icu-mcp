@@ -28,16 +28,6 @@ def get_oauth_discovery_document(request: Request):
         "subject_types_supported": ["public"],
         "id_token_signing_alg_values_supported": ["RS256"]
     })
-
-def get_oauth_protected_resource(request: Request):
-    base_url = get_base_url(request)
-    return JSONResponse({
-        "resource": base_url,
-        "authorization_servers": [
-            "https://accounts.google.com"
-        ]
-    })
-
 # Add OAuth Discovery endpoints for Gemini Spark (RFC 8414 & OpenID)
 @mcp.custom_route("/.well-known/oauth-authorization-server", methods=["GET"])
 async def oauth_authorization_server(request: Request):
@@ -46,15 +36,6 @@ async def oauth_authorization_server(request: Request):
 @mcp.custom_route("/.well-known/openid-configuration", methods=["GET"])
 async def openid_configuration(request: Request):
     return get_oauth_discovery_document(request)
-
-# Add RFC 9289 OAuth Protected Resource Metadata
-@mcp.custom_route("/.well-known/oauth-protected-resource", methods=["GET"])
-async def oauth_protected_resource_root(request: Request):
-    return get_oauth_protected_resource(request)
-
-@mcp.custom_route("/.well-known/oauth-protected-resource/mcp", methods=["GET"])
-async def oauth_protected_resource_mcp(request: Request):
-    return get_oauth_protected_resource(request)
 
 # Strict ASGI Authentication Middleware for Google OAuth
 class GoogleOAuthASGIMiddleware:
