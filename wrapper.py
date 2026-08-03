@@ -26,7 +26,9 @@ def get_oauth_discovery_document(request: Request):
         "jwks_uri": "https://www.googleapis.com/oauth2/v3/certs",
         "response_types_supported": ["code"],
         "subject_types_supported": ["public"],
-        "id_token_signing_alg_values_supported": ["RS256"]
+        "id_token_signing_alg_values_supported": ["RS256"],
+        "scopes_supported": ["openid", "email", "profile"],
+        "grant_types_supported": ["authorization_code", "refresh_token"]
     })
 # Add OAuth Discovery endpoints for Gemini Spark (RFC 8414 & OpenID)
 @mcp.custom_route("/.well-known/oauth-authorization-server", methods=["GET"])
@@ -50,40 +52,40 @@ class GoogleOAuthASGIMiddleware:
             method = scope.get("method", "")
             
             # We protect /sse for standard SSE transport
-            if path == "/sse":
-                if method != "OPTIONS":
-                    headers = dict(scope.get("headers", []))
-                    # Headers in ASGI are lowercase bytes
-                    auth = headers.get(b"authorization", b"").decode("utf-8")
+            # Protect GET /sse and POST /messages
+            if (path == "/sse" and method == "GET") or (path.startswith("/messages") and method == "POST"):
+                headers = dict(scope.get("headers", []))
+                # Headers in ASGI are lowercase bytes
+                auth = headers.get(b"authorization", b"").decode("utf-8")
                     
-                    async def reject():
-                        await send({
-                            "type": "http.response.start", 
-                            "status": 401, 
-                            "headers": [
-                                (b"content-type", b"application/json"),
-                                (b"www-authenticate", b"Bearer")
-                            ]
-                        })
-                        await send({
-                            "type": "http.response.body", 
-                            "body": b'{"detail": "Unauthorized"}'
-                        })
+                async def reject():
+                    await send({
+                        "type": "http.response.start", 
+                        "status": 401, 
+                        "headers": [
+                            (b"content-type", b"application/json"),
+                            (b"www-authenticate", b"Bearer")
+                        ]
+                    })
+                    await send({
+                        "type": "http.response.body", 
+                        "body": b'{"detail": "Unauthorized"}'
+                    })
 
-                    if not auth.startswith("Bearer "):
-                        # Require Bearer token
-                        await reject()
-                        return
+                if not auth.startswith("Bearer "):
+                    # Require Bearer token
+                    await reject()
+                    return
                     
-                    token = auth.split(" ")[1]
-                    
-                    # Validate the token with Google
-                    if not self.skip_validation:
-                        async with httpx.AsyncClient() as client:
-                            resp = await client.get(f"https://oauth2.googleapis.com/tokeninfo?access_token={token}")
-                            if resp.status_code != 200:
-                                await reject()
-                                return
+                token = auth.split(" ")[1]
+                
+                # Validate the token with Google
+                if not self.skip_validation:
+                    async with httpx.AsyncClient() as client:
+                        resp = await client.get(f"https://oauth2.googleapis.com/tokeninfo?access_token={token}")
+                        if resp.status_code != 200:
+                            await reject()
+                            return
 
         await self.app(scope, receive, send)
 
