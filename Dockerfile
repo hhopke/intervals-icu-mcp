@@ -1,7 +1,7 @@
 # Multi-stage build for minimal final image
-FROM --platform=$TARGETPLATFORM ghcr.io/astral-sh/uv:latest AS uv
+FROM ghcr.io/astral-sh/uv:latest AS uv
 
-FROM --platform=$TARGETPLATFORM python:3.11-slim AS builder
+FROM python:3.11-slim AS builder
 
 # Install uv for faster dependency management
 COPY --from=uv /uv /usr/local/bin/uv
@@ -25,7 +25,7 @@ COPY src/ ./src/
 RUN uv sync --frozen --no-dev
 
 # Final stage - minimal runtime image
-FROM --platform=$TARGETPLATFORM python:3.11-slim
+FROM python:3.11-slim
 
 # Set working directory
 WORKDIR /app
@@ -36,6 +36,7 @@ COPY --from=builder /app/.venv /app/.venv
 # Copy application code
 COPY src/ ./src/
 COPY pyproject.toml ./
+COPY wrapper.py ./
 
 # Set environment variables
 ENV PATH="/app/.venv/bin:$PATH" \
@@ -47,4 +48,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD python -c "import intervals_icu_mcp; print('ok')" || exit 1
 
 # Run the MCP server
-ENTRYPOINT ["python", "-m", "intervals_icu_mcp.server"]
+ENTRYPOINT ["python", "wrapper.py"]
