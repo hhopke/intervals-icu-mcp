@@ -49,8 +49,8 @@ class GoogleOAuthASGIMiddleware:
             path = scope.get("path", "")
             method = scope.get("method", "")
             
-            # We protect /mcp instead of /sse since we are using streamable-http
-            if path == "/mcp":
+            # We protect /sse for standard SSE transport
+            if path == "/sse":
                 if method != "OPTIONS":
                     headers = dict(scope.get("headers", []))
                     # Headers in ASGI are lowercase bytes
@@ -91,8 +91,8 @@ if __name__ == "__main__":
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", "8080"))
     
-    # Use streamable-http transport for Gemini Spark compatibility
-    app = mcp.http_app(transport="streamable-http")
+    # Use sse transport for Gemini Spark compatibility
+    app = mcp.http_app(transport="sse")
     
     # Add ProxyHeadersMiddleware to properly resolve request.base_url in Cloud Run
     app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
