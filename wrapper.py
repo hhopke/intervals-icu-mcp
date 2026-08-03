@@ -50,8 +50,16 @@ async def token_proxy(request: Request):
     # Proxy token exchange to Google
     form_data = await request.form()
     payload = dict(form_data)
+    
+    # Forward headers like Authorization (for basic auth)
+    headers = {}
+    if "authorization" in request.headers:
+        headers["authorization"] = request.headers["authorization"]
+        
+    print(f"Token proxy payload: {payload}", flush=True)
     async with httpx.AsyncClient() as client:
-        resp = await client.post("https://oauth2.googleapis.com/token", data=payload)
+        resp = await client.post("https://oauth2.googleapis.com/token", data=payload, headers=headers)
+        print(f"Token proxy response ({resp.status_code}): {resp.text}", flush=True)
         return JSONResponse(resp.json(), status_code=resp.status_code)
 
 # Add OAuth Discovery endpoints for Gemini Spark (RFC 8414 & OpenID)
