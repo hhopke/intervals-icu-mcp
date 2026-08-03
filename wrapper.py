@@ -8,24 +8,53 @@ from starlette.responses import JSONResponse
 sys.path.insert(0, os.path.abspath("src"))
 
 from starlette.middleware.cors import CORSMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from intervals_icu_mcp.server import mcp
 
-def get_oauth_protected_resource():
+def get_base_url(request: Request) -> str:
+    # Use headers to construct the real base URL if behind a proxy
+    scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
+    host = request.headers.get("host", request.url.hostname)
+    return f"{scheme}://{host}"
+
+def get_oauth_discovery_document(request: Request):
+    base_url = get_base_url(request)
     return JSONResponse({
+        "issuer": base_url,
+        "authorization_endpoint": "https://accounts.google.com/o/oauth2/v2/auth",
+        "token_endpoint": "https://oauth2.googleapis.com/token",
+        "jwks_uri": "https://www.googleapis.com/oauth2/v3/certs",
+        "response_types_supported": ["code"],
+        "subject_types_supported": ["public"],
+        "id_token_signing_alg_values_supported": ["RS256"]
+    })
+
+def get_oauth_protected_resource(request: Request):
+    base_url = get_base_url(request)
+    return JSONResponse({
+        "resource": base_url,
         "authorization_servers": [
             "https://accounts.google.com"
         ]
     })
 
+# Add OAuth Discovery endpoints for Gemini Spark (RFC 8414 & OpenID)
+@mcp.custom_route("/.well-known/oauth-authorization-server", methods=["GET"])
+async def oauth_authorization_server(request: Request):
+    return get_oauth_discovery_document(request)
+
+@mcp.custom_route("/.well-known/openid-configuration", methods=["GET"])
+async def openid_configuration(request: Request):
+    return get_oauth_discovery_document(request)
+
 # Add RFC 9289 OAuth Protected Resource Metadata
 @mcp.custom_route("/.well-known/oauth-protected-resource", methods=["GET"])
 async def oauth_protected_resource_root(request: Request):
-    return get_oauth_protected_resource()
+    return get_oauth_protected_resource(request)
 
 @mcp.custom_route("/.well-known/oauth-protected-resource/mcp", methods=["GET"])
 async def oauth_protected_resource_mcp(request: Request):
-    return get_oauth_protected_resource()
-
+    return get_oauth_protected_resource(request)
 
 # Strict ASGI Authentication Middleware for Google OAuth
 class GoogleOAuthASGIMiddleware:
@@ -39,20 +68,20 @@ class GoogleOAuthASGIMiddleware:
             path = scope.get("path", "")
             method = scope.get("method", "")
             
-            # We now protect /mcp instead of /sse since we are using streamable-http
+            # We protect /mcp instead of /sse since we are using streamable-http
             if path == "/mcp":
                 if method != "OPTIONS":
                     headers = dict(scope.get("headers", []))
                     # Headers in ASGI are lowercase bytes
                     auth = headers.get(b"authorization", b"").decode("utf-8")
                     
-                    async def reject(reason="invalid_token"):
+                    async def reject():
                         await send({
                             "type": "http.response.start", 
                             "status": 401, 
                             "headers": [
                                 (b"content-type", b"application/json"),
-                                (b"www-authenticate", f'Bearer error="{reason}"'.encode("utf-8"))
+                                (b"www-authenticate", b"Bearer")
                             ]
                         })
                         await send({
@@ -62,7 +91,7 @@ class GoogleOAuthASGIMiddleware:
 
                     if not auth.startswith("Bearer "):
                         # Require Bearer token
-                        await reject("invalid_request")
+                        await reject()
                         return
                     
                     token = auth.split(" ")[1]
@@ -72,7 +101,7 @@ class GoogleOAuthASGIMiddleware:
                         async with httpx.AsyncClient() as client:
                             resp = await client.get(f"https://oauth2.googleapis.com/tokeninfo?access_token={token}")
                             if resp.status_code != 200:
-                                await reject("invalid_token")
+                                await reject()
                                 return
 
         await self.app(scope, receive, send)
@@ -83,6 +112,9 @@ if __name__ == "__main__":
     
     # Use streamable-http transport for Gemini Spark compatibility
     app = mcp.http_app(transport="streamable-http")
+    
+    # Add ProxyHeadersMiddleware to properly resolve request.base_url in Cloud Run
+    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
     
     # Add CORS (This handles OPTIONS requests before Auth can block them)
     app.add_middleware(
