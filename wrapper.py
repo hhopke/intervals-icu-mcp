@@ -10,27 +10,22 @@ sys.path.insert(0, os.path.abspath("src"))
 from starlette.middleware.cors import CORSMiddleware
 from intervals_icu_mcp.server import mcp
 
-def get_oauth_discovery_document(request: Request):
-    # Construct the issuer URL from the incoming request (or fallback)
-    base_url = str(request.base_url).rstrip("/")
+def get_oauth_protected_resource():
     return JSONResponse({
-        "issuer": base_url,
-        "authorization_endpoint": "https://accounts.google.com/o/oauth2/v2/auth",
-        "token_endpoint": "https://oauth2.googleapis.com/token",
-        "jwks_uri": "https://www.googleapis.com/oauth2/v3/certs",
-        "response_types_supported": ["code"],
-        "subject_types_supported": ["public"],
-        "id_token_signing_alg_values_supported": ["RS256"]
+        "authorization_servers": [
+            "https://accounts.google.com"
+        ]
     })
 
-# Add OAuth Discovery endpoints for Gemini Spark
-@mcp.custom_route("/.well-known/oauth-authorization-server", methods=["GET"])
-async def oauth_authorization_server(request: Request):
-    return get_oauth_discovery_document(request)
+# Add RFC 9289 OAuth Protected Resource Metadata
+@mcp.custom_route("/.well-known/oauth-protected-resource", methods=["GET"])
+async def oauth_protected_resource_root(request: Request):
+    return get_oauth_protected_resource()
 
-@mcp.custom_route("/.well-known/openid-configuration", methods=["GET"])
-async def openid_configuration(request: Request):
-    return get_oauth_discovery_document(request)
+@mcp.custom_route("/.well-known/oauth-protected-resource/mcp", methods=["GET"])
+async def oauth_protected_resource_mcp(request: Request):
+    return get_oauth_protected_resource()
+
 
 # Strict ASGI Authentication Middleware for Google OAuth
 class GoogleOAuthASGIMiddleware:
@@ -44,8 +39,8 @@ class GoogleOAuthASGIMiddleware:
             path = scope.get("path", "")
             method = scope.get("method", "")
             
-            # Protect both /sse and /messages paths
-            if path in ["/sse", "/messages"]:
+            # We now protect /mcp instead of /sse since we are using streamable-http
+            if path == "/mcp":
                 if method != "OPTIONS":
                     headers = dict(scope.get("headers", []))
                     # Headers in ASGI are lowercase bytes
@@ -86,8 +81,8 @@ if __name__ == "__main__":
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", "8080"))
     
-    # Extract the raw Starlette ASGI app from FastMCP
-    app = mcp.http_app()
+    # Use streamable-http transport for Gemini Spark compatibility
+    app = mcp.http_app(transport="streamable-http")
     
     # Add CORS (This handles OPTIONS requests before Auth can block them)
     app.add_middleware(
