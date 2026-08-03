@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.abspath("src"))
 from starlette.middleware.cors import CORSMiddleware
 from intervals_icu_mcp.server import mcp
 
-app = getattr(mcp, "_mcp_server", mcp).app if hasattr(mcp, "_mcp_server") else mcp.http_app
+app = mcp.http_app
 
 app.add_middleware(
     CORSMiddleware,
