@@ -1,5 +1,5 @@
 <!-- mcp-name: io.github.hhopke/intervals-icu-mcp -->
-## Overview
+## Notes for this fork.
 This is a clone of hhopke/intervals-icu-mcp but has additional files that allow it to be installed in docker and connected to Google Gemini Spark as a Connected App.
 
 # Intervals.icu MCP Server
