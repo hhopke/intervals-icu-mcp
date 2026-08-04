@@ -1,0 +1,28 @@
+name: star-dump
+
+# Temporary: dumps stargazer timestamps so the star history can be charted.
+# Delete this workflow once the data has been collected.
+
+on:
+  push:
+    branches: [claude/repo-star-development-rexl2k]
+
+permissions:
+  contents: read
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch stargazer timestamps
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --paginate \
+            -H "Accept: application/vnd.github.star+json" \
+            "/repos/${{ github.repository }}/stargazers?per_page=100" \
+            --jq '.[].starred_at' > stars.txt
+          echo "=== BEGIN STAR DATA ==="
+          cat stars.txt
+          echo "=== END STAR DATA ==="
+          echo "total: $(wc -l < stars.txt)"
