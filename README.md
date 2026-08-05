@@ -2,6 +2,8 @@
 
 # Intervals.icu MCP Server
 
+[![MCP Toplist](https://mcptoplist.com/badge/io.github.hhopke%2Fintervals-icu-mcp.svg)](https://mcptoplist.com/server/io.github.hhopke%2Fintervals-icu-mcp)
+
 ![intervals-icu-mcp demo](https://raw.githubusercontent.com/hhopke/intervals-icu-mcp/main/docs/demo.gif)
 
 A Model Context Protocol (MCP) server for Intervals.icu integration. Access your training data, wellness metrics, and performance analysis through Claude, ChatGPT, and other LLMs.
