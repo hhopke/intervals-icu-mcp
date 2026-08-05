@@ -169,7 +169,10 @@ class Activity(ActivitySummary):
     hrss: float | None = None
     trimp: float | None = None
     feel: int | None = None
-    perceived_exertion: int | None = None
+    perceived_exertion: int | None = Field(
+        default=None,
+        validation_alias=AliasChoices("perceived_exertion", "icu_rpe"),
+    )
     compliance: float | None = None
     avg_lr_balance: float | None = None
     commute: bool | None = None
