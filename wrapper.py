@@ -42,7 +42,14 @@ import urllib.parse
 async def auth_proxy(request: Request):
     # Proxy authorization request to Google
     qs = request.url.query
-    google_auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{qs}"
+    
+    # Force offline access so Google issues a refresh token, allowing Gemini to stay connected indefinitely
+    params = dict(urllib.parse.parse_qsl(qs))
+    params["access_type"] = "offline"
+    params["prompt"] = "consent"
+    
+    new_qs = urllib.parse.urlencode(params)
+    google_auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{new_qs}"
     return RedirectResponse(url=google_auth_url)
 
 @mcp.custom_route("/token", methods=["POST"])
