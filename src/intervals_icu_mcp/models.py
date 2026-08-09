@@ -40,9 +40,28 @@ class SportSettings(BaseModel):
 
     id: int
     type: str | None = None
+
+    # Default workout timings
+    warmup_time: int | None = None
+    cooldown_time: int | None = None
+
+    # Power settings
     ftp: int | None = None
     indoor_ftp: int | None = None
+    power_zones: list[int] | None = None
+    power_zone_names: list[str] | None = None
+    sweet_spot_min: int | None = None
+    sweet_spot_max: int | None = None
+
+    # Heart-rate settings
     fthr: int | None = None
+    max_hr: int | None = None
+    hr_zones: list[int] | None = None
+    hr_zone_names: list[str] | None = None
+    hr_load_type: str | None = None
+    hrrc_min_percent: float | None = None
+
+    # Pace / swimming settings
     pace_threshold: float | None = None
     swim_threshold: float | None = None
 
@@ -55,6 +74,7 @@ class SportSettings(BaseModel):
 
         raw = cast(dict[str, Any], data)
         normalized: dict[str, Any] = dict(raw)
+
         types = raw.get("types")
         if isinstance(types, list) and types and normalized.get("type") is None:
             normalized["type"] = types[0]
@@ -66,16 +86,20 @@ class SportSettings(BaseModel):
         if threshold_pace is not None:
             pace_load_type = raw.get("pace_load_type")
             sport_types = cast(list[Any], types) if isinstance(types, list) else []
+
             is_swim = pace_load_type == "SWIM" or any(
-                isinstance(t, str) and t in _SWIM_SPORT_TYPES for t in sport_types
+                isinstance(t, str) and t in _SWIM_SPORT_TYPES
+                for t in sport_types
             )
-            # The API stores RUN pace as min/km (5:45/km -> 5.75) but SWIM pace as
-            # SPEED in m/s (0:25/100m -> 4.0). Convert swim m/s -> min/100m; use the
-            # run pace directly. (Sending swim as min/100m stored a bogus speed, #88.)
+
+            # The API stores RUN pace as min/km but SWIM threshold
+            # as speed in m/s. Convert swimming speed to min/100m.
             if is_swim:
                 if normalized.get("swim_threshold") is None:
                     normalized["swim_threshold"] = (
-                        (100.0 / threshold_pace) / 60.0 if threshold_pace else None
+                        (100.0 / threshold_pace) / 60.0
+                        if threshold_pace
+                        else None
                     )
             elif normalized.get("pace_threshold") is None:
                 normalized["pace_threshold"] = threshold_pace
