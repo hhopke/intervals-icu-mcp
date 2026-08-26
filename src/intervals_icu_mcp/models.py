@@ -1,5 +1,6 @@
 """Pydantic models for Intervals.icu API responses."""
 
+import math
 from datetime import datetime
 from typing import Any, Literal, cast
 
@@ -183,6 +184,15 @@ class Activity(ActivitySummary):
     trainer: bool | None = None
     indoor: bool | None = None
     analyzed: str | None = None
+
+    @field_validator("perceived_exertion", mode="before")
+    @classmethod
+    def _round_perceived_exertion(cls, v: Any) -> Any:
+        """RPE is a whole number on the 1-10 scale, but `perceived_exertion` is
+        typed float by the API. Round rather than fail the whole activity."""
+        if isinstance(v, float):
+            return math.floor(v + 0.5) if math.isfinite(v) else None
+        return v
 
 
 class ActivitySearchResult(BaseModel):

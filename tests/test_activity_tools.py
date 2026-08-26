@@ -291,6 +291,32 @@ class TestActivityTools:
 
         assert response["data"]["subjective"] == {"rpe": 7}
 
+    async def test_get_activity_details_fractional_perceived_exertion(
+        self, mock_config, respx_mock
+    ):
+        """A fractional `perceived_exertion` (typed float by the API) is rounded
+        onto the 1-10 scale instead of failing validation for the whole activity."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.get("/activity/a123").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": "a123",
+                    "start_date_local": "2026-03-20T10:00:00",
+                    "name": "Test Ride",
+                    "type": "Ride",
+                    "perceived_exertion": 6.5,
+                },
+            )
+        )
+
+        result = await get_activity_details(activity_id="a123", ctx=mock_ctx)
+        response = json.loads(result)
+
+        assert response["data"]["subjective"] == {"rpe": 7}
+
     async def test_get_activity_details_partial_nutrition(self, mock_config, respx_mock):
         """Nutrition section omits null fields; preserves zero values."""
         mock_ctx = MagicMock()
