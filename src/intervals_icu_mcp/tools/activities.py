@@ -406,7 +406,10 @@ async def update_activity(
         if feel is not None:
             activity_data["feel"] = feel
         if perceived_exertion is not None:
-            activity_data["perceived_exertion"] = perceived_exertion
+            # `icu_rpe` is the field Intervals.icu actually stores the athlete's
+            # RPE in; `perceived_exertion` is the Strava-imported mirror, so
+            # writing that key left the RPE shown in the UI unchanged.
+            activity_data["icu_rpe"] = perceived_exertion
 
         if not activity_data:
             return ResponseBuilder.build_error_response(

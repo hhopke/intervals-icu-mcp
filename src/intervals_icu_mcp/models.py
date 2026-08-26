@@ -169,9 +169,13 @@ class Activity(ActivitySummary):
     hrss: float | None = None
     trimp: float | None = None
     feel: int | None = None
+    # Intervals.icu stores the athlete-entered RPE in `icu_rpe` (int 1-10).
+    # `perceived_exertion` is the Strava-imported mirror of the same rating and
+    # is a float in the API spec, so it is only read as a fallback — otherwise a
+    # fractional import would shadow the native value.
     perceived_exertion: int | None = Field(
         default=None,
-        validation_alias=AliasChoices("perceived_exertion", "icu_rpe"),
+        validation_alias=AliasChoices("icu_rpe", "perceived_exertion"),
     )
     compliance: float | None = None
     avg_lr_balance: float | None = None

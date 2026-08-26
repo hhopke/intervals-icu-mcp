@@ -47,6 +47,42 @@ class TestActivityTools:
         assert response["data"]["name"] == "Updated Ride"
         assert response["metadata"]["message"] == "Successfully updated activity a123"
 
+    async def test_update_activity_writes_icu_rpe(self, mock_config, respx_mock):
+        """RPE is written to the API's native `icu_rpe` field, not to the
+        read-only `perceived_exertion` mirror, so it round-trips."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.put("/activity/a123").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": "a123",
+                    "start_date_local": "2026-03-20T10:00:00",
+                    "name": "Updated Ride",
+                    "type": "Ride",
+                    "feel": 4,
+                    "icu_rpe": 7,
+                },
+            )
+        )
+
+        result = await update_activity(
+            activity_id="a123",
+            feel=4,
+            perceived_exertion=7,
+            ctx=mock_ctx,
+        )
+
+        sent = json.loads(route.calls[0].request.content)
+        assert sent["icu_rpe"] == 7
+        assert sent["feel"] == 4
+        assert "perceived_exertion" not in sent
+
+        response = json.loads(result)
+        assert response["data"]["rpe"] == 7
+        assert response["data"]["feel"] == 4
+
     async def test_update_activity_not_found(self, mock_config, respx_mock):
         """Test updating a non-existent activity."""
         mock_ctx = MagicMock()
@@ -227,6 +263,33 @@ class TestActivityTools:
 
         assert response["data"]["subjective"] == {"feel": 3, "rpe": 3}
         assert response["metadata"]["subjective_scales"] == {"feel": "1-5", "rpe": "1-10"}
+
+    async def test_get_activity_details_icu_rpe_wins_over_perceived_exertion(
+        self, mock_config, respx_mock
+    ):
+        """`icu_rpe` is the athlete-entered value and takes precedence over the
+        Strava-imported `perceived_exertion` float."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.get("/activity/a123").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": "a123",
+                    "start_date_local": "2026-03-20T10:00:00",
+                    "name": "Test Ride",
+                    "type": "Ride",
+                    "icu_rpe": 7,
+                    "perceived_exertion": 6.5,
+                },
+            )
+        )
+
+        result = await get_activity_details(activity_id="a123", ctx=mock_ctx)
+        response = json.loads(result)
+
+        assert response["data"]["subjective"] == {"rpe": 7}
 
     async def test_get_activity_details_partial_nutrition(self, mock_config, respx_mock):
         """Nutrition section omits null fields; preserves zero values."""
