@@ -599,13 +599,29 @@ async def delete_event(
         )
 
 
+# icu_create_event's parameter names -> Intervals.icu API field names. Bulk takes the
+# same vocabulary as the singular tool and as every event response (#5.0.0 unification).
+_BULK_FIELD_MAP = {
+    "event_type": "type",
+    "duration_seconds": "moving_time",
+    "distance_meters": "distance",
+    "training_load": "icu_training_load",
+}
+
+# Raw API names accepted before 5.0.0. They are rejected rather than ignored: every one
+# of them would otherwise pass straight through to the API and keep working, leaving two
+# undocumented vocabularies alive. A named error tells the caller exactly what to change.
+_BULK_RENAMED_FIELDS = {api: friendly for friendly, api in _BULK_FIELD_MAP.items()}
+
+
 async def bulk_create_events(
     events: Annotated[
         str,
-        "JSON array of event objects. Required per event: start_date_local, "
-        "name, category. Optional: description, event_type (activity discipline "
-        "Ride/Run/Swim/…; raw `type` also accepted), moving_time, distance, "
-        "icu_training_load, end_date_local, training_availability, color, "
+        "JSON array of event objects, each shaped exactly like an icu_create_event "
+        "call. Required per event: start_date_local, name, category. Optional: "
+        "description, event_type (activity discipline Ride/Run/Swim/…), "
+        "duration_seconds, distance_meters, training_load, "
+        "end_date_local, training_availability, color, "
         "show_as_note, not_on_fitness_chart, show_on_ctl_line. See "
         "intervals-icu://event-categories for the category enum. " + WORKOUT_SYNTAX_HINT,
     ],
@@ -664,11 +680,23 @@ async def bulk_create_events(
                 )
             event_data["category"] = normalized_category
 
-            # Accept `event_type` (the icu_create_event / icu_update_event parameter
-            # name) as an alias for the API's `type` field, so bulk payloads can mirror
-            # the singular tools. Raw `type` still works and wins if both are present.
-            if "event_type" in event_data:
-                event_data.setdefault("type", event_data.pop("event_type"))
+            # Bulk payloads use the same vocabulary as icu_create_event and as every
+            # event response. Translate to the API's field names here. The raw names
+            # (type, moving_time, distance, icu_training_load) were accepted until
+            # 5.0.0; they silently dropped whenever a model reused the singular
+            # interface, which is why the schemes were unified.
+            removed = [f for f in _BULK_RENAMED_FIELDS if f in event_data]
+            if removed:
+                renames = ", ".join(f"{f} -> {_BULK_RENAMED_FIELDS[f]}" for f in removed)
+                return ResponseBuilder.build_error_response(
+                    f"Event {i}: raw Intervals.icu field name(s) {', '.join(removed)} are no "
+                    f"longer accepted. Bulk payloads use the same names as icu_create_event: "
+                    f"{renames}.",
+                    error_type="validation_error",
+                )
+            for friendly, api_field in _BULK_FIELD_MAP.items():
+                if friendly in event_data:
+                    event_data[api_field] = event_data.pop(friendly)
 
             if normalized_category in RACE_CATEGORIES and not event_data.get("type"):
                 return ResponseBuilder.build_error_response(

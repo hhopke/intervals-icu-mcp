@@ -135,7 +135,7 @@ class TestCreateGear:
     async def test_success_maps_type_and_warns_on_unsupported(self, patch_config, respx_mock):
         """gear_type maps to the API's CamelCase `type` enum (regression for
         #110 — `gear_type`/`brand`/`model`/`primary` are not API fields);
-        unsupported params are reported as ignored, not silently dropped."""
+        gear type aliases still map to the API enum."""
         route = respx_mock.post("/athlete/i123456/gear").mock(
             return_value=Response(
                 200,
@@ -143,9 +143,7 @@ class TestCreateGear:
             )
         )
 
-        result = await create_gear(
-            name="New Bike", gear_type="BIKE", brand="Trek", model="Madone", primary=True
-        )
+        result = await create_gear(name="New Bike", gear_type="BIKE")
 
         sent_body = json.loads(route.calls[0].request.content)
         assert sent_body == {"name": "New Bike", "type": "Bike"}
@@ -154,10 +152,14 @@ class TestCreateGear:
         assert data["id"] == "g99"
         assert data["type"] == "Bike"
         assert data["active"] is True
-        assert "brand" not in data and "primary" not in data
-        warning = response["metadata"]["warning"]
-        assert "brand" in warning and "model" in warning and "primary" in warning
+        # 5.0.0: brand/model/primary are gone, so no ignored-params warning remains.
+        assert "warning" not in response["metadata"]
         assert response["metadata"]["type"] == "gear_created"
+
+    async def test_removed_params_are_rejected(self, patch_config):
+        """brand/model/primary were removed in 5.0.0 — the API never had those fields."""
+        with pytest.raises(TypeError):
+            await create_gear(name="B", gear_type="BIKE", brand="Trek")  # type: ignore[call-arg]
 
     async def test_success_minimal_fields_no_warning(self, patch_config, respx_mock):
         """SHOE alias maps to Shoes; no warning when no unsupported params given."""
