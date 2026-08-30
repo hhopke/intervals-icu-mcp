@@ -60,7 +60,7 @@ class TestResolvePeriod:
 
 
 class TestGetHRCurves:
-    async def test_success_with_zones_and_peak_efforts(self, mock_config, respx_mock):
+    async def test_success_with_peak_efforts(self, mock_config, respx_mock):
         mock_ctx = MagicMock()
         mock_ctx.get_state = AsyncMock(return_value=mock_config)
 
@@ -101,11 +101,11 @@ class TestGetHRCurves:
         assert data["summary"]["peak_hr_duration_seconds"] == 5
         assert "max_hr_bpm" not in data["summary"]
         assert data["summary"]["effort_date_range"]["oldest"] == "2026-02-19"
-        # HR zones derived from max HR
-        zone2 = data["hr_zones"]["zone_2_endurance"]
-        assert zone2["min_bpm"] == int(195 * 0.60)
-        assert zone2["max_bpm"] == int(195 * 0.70)
-        assert zone2["min_percent_max"] == 60
+        # 5.0.0: no synthesized zones. They were a fixed percentage of the curve peak,
+        # which Intervals.icu has already clipped to the configured max HR at import —
+        # so they could only echo a stale copy of the setting they stood in for.
+        # icu_get_sport_settings returns the athlete's real zones (#119).
+        assert "hr_zones" not in data
 
     async def test_empty_curve_data(self, mock_config, respx_mock):
         """Empty values list returns a friendly message, not a crash."""

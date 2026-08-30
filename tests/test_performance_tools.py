@@ -39,10 +39,9 @@ class TestGetPowerCurves:
         # FTP = 20-min power * 0.95 = 300 * 0.95 = 285
         assert data["ftp_analysis"]["twenty_min_power"] == 300
         assert data["ftp_analysis"]["estimated_ftp"] == 285
-        zones = data["ftp_analysis"]["power_zones"]
-        assert zones["threshold"]["min_percent_ftp"] == 91
-        assert zones["threshold"]["max_percent_ftp"] == 105
-        assert zones["threshold"]["min_watts"] == int(285 * 0.91)
+        # 5.0.0: estimated_ftp stays — it is a real signal icu_get_sport_settings cannot
+        # give — but the zone bands derived from it are gone (#119).
+        assert "power_zones" not in data["ftp_analysis"]
         # Peak efforts
         assert data["peak_efforts"]["5_sec"]["watts"] == 1200
         assert data["peak_efforts"]["5_sec"]["activity_id"] == "a1"

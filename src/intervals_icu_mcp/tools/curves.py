@@ -135,37 +135,11 @@ async def get_hr_curves(
                     "newest": curve.end_date_local,
                 }
 
-            # DEPRECATED (#119): these bands are a fixed percentage of the curve peak
-            # above, not of the athlete's max HR or threshold, so they disagree with the
-            # zones Intervals.icu computes training load from. Scheduled for removal in
-            # the next major; use icu_get_sport_settings for the athlete's real zones.
-            hr_zones: dict[str, dict[str, int]] | None = None
-            if peak_hr > 0:
-                zones = {
-                    "zone_1_recovery": (0.50, 0.60),
-                    "zone_2_endurance": (0.60, 0.70),
-                    "zone_3_tempo": (0.70, 0.80),
-                    "zone_4_threshold": (0.80, 0.90),
-                    "zone_5_vo2max": (0.90, 1.00),
-                }
-
-                hr_zones = {}
-                for zone_name, (low, high) in zones.items():
-                    hr_zones[zone_name] = {
-                        "min_bpm": int(peak_hr * low),
-                        "max_bpm": int(peak_hr * high),
-                        "min_percent_max": int(low * 100),
-                        "max_percent_max": int(high * 100),
-                    }
-
             result_data: dict[str, Any] = {
                 "period": period_label,
                 "peak_efforts": peak_efforts,
                 "summary": summary,
             }
-
-            if hr_zones:
-                result_data["hr_zones"] = hr_zones
 
             return ResponseBuilder.build_response(
                 data=result_data,
