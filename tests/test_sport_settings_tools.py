@@ -179,6 +179,35 @@ class TestSportSettingsTools:
         assert "power_zones_percent_ftp" not in run
         assert "sweet_spot_min_percent_ftp" not in run
 
+    async def test_get_sport_settings_signposts_missing_zones(self, patch_config, respx_mock):
+        """No zones configured says so and names the write that fixes it — it does not
+        invent bands, which would disagree with the platform's own time-in-zone math."""
+        respx_mock.get("/athlete/i123456/sport-settings").mock(
+            return_value=Response(200, json=[{"id": 9, "types": ["Ride"], "ftp": 250}])
+        )
+
+        result = await get_sport_settings()
+
+        ride = json.loads(result)["data"]["sport_settings"][0]
+        assert ride["zones_configured"] is False
+        assert "icu_update_sport_settings" in ride["zones_hint"]
+        assert "hr_zones" not in ride
+        assert "power_zones_percent_ftp" not in ride
+
+    async def test_get_sport_settings_no_signpost_when_zones_present(
+        self, patch_config, respx_mock
+    ):
+        """The signpost must not fire for a sport that simply lacks one zone family."""
+        respx_mock.get("/athlete/i123456/sport-settings").mock(
+            return_value=Response(200, json=[RUN_SETTINGS])
+        )
+
+        result = await get_sport_settings()
+
+        run = json.loads(result)["data"]["sport_settings"][0]
+        assert "zones_configured" not in run
+        assert "zones_hint" not in run
+
     async def test_get_sport_settings_tolerates_short_zone_name_list(
         self, patch_config, respx_mock
     ):

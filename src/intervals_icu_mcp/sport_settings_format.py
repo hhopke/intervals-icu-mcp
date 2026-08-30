@@ -117,6 +117,17 @@ def _format_zone_config(settings: SportSettings) -> dict[str, Any]:
     if settings.cooldown_time is not None:
         config["cooldown_seconds"] = settings.cooldown_time
 
+    if not (settings.hr_zones or settings.power_zones or settings.pace_zones):
+        # Intervals.icu derives zones from the threshold, so this is rare. Say so and name
+        # the write that fixes it rather than synthesizing bands — invented zones would
+        # disagree with the time-in-zone/HRSS/TSS this platform computes from real ones.
+        config["zones_configured"] = False
+        config["zones_hint"] = (
+            "No zones configured for this sport. Set fthr (and ftp for power) with "
+            "icu_update_sport_settings and Intervals.icu will derive them; leave "
+            "recalc_hr_zones at its default of true so the HR zones are rebuilt."
+        )
+
     return config
 
 

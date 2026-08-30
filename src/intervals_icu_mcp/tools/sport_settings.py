@@ -18,9 +18,12 @@ async def get_sport_settings(
 
     Returns outdoor/indoor FTP, FTHR, max HR, running pace and swim threshold, plus the
     zone sets configured in Intervals.icu (HR zones in bpm, power zones as %FTP, pace
-    zones as % of threshold pace) with their names. Use this rather than the zones
-    derived by icu_get_power_curves / icu_get_hr_curves when the athlete asks about
-    *their* zones — the curve tools estimate generic zones from a formula.
+    zones as % of threshold pace) with their names.
+
+    This is the ONLY source of the athlete's real zones. Intervals.icu derives them from
+    the threshold and stamps them into every activity at import, so time-in-zone, HRSS and
+    TSS are all computed from these — reasoning about zones from any other number puts the
+    answer at odds with the athlete's own charts. Zones are not derived from curve data.
     """
     config = load_config()
     if not validate_credentials(config):
