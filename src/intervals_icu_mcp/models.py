@@ -173,7 +173,9 @@ class Activity(ActivitySummary):
     # Intervals.icu stores the athlete-entered RPE in `icu_rpe` (int 1-10).
     # `perceived_exertion` is the Strava-imported mirror of the same rating and
     # is a float in the API spec, so it is only read as a fallback — otherwise a
-    # fractional import would shadow the native value.
+    # fractional import would shadow the native value. `_resolve_rpe` below does
+    # the actual falling back; the alias order only covers a response that omits
+    # `icu_rpe` entirely.
     perceived_exertion: int | None = Field(
         default=None,
         validation_alias=AliasChoices("icu_rpe", "perceived_exertion"),
@@ -184,6 +186,25 @@ class Activity(ActivitySummary):
     trainer: bool | None = None
     indoor: bool | None = None
     analyzed: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _resolve_rpe(cls, data: Any) -> Any:
+        """Fall back to the Strava-imported RPE when the native one is null.
+
+        The API always sends `icu_rpe`, explicitly null when the athlete has not
+        entered an RPE, and `AliasChoices` resolves on key presence rather than
+        null-ness — so on its own the fallback would never fire in production.
+        """
+        if not isinstance(data, dict):
+            return data
+
+        raw = cast(dict[str, Any], data)
+        if raw.get("icu_rpe") is None and raw.get("perceived_exertion") is not None:
+            resolved: dict[str, Any] = dict(raw)
+            resolved["icu_rpe"] = resolved["perceived_exertion"]
+            return resolved
+        return raw
 
     @field_validator("perceived_exertion", mode="before")
     @classmethod

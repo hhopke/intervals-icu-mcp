@@ -317,6 +317,59 @@ class TestActivityTools:
 
         assert response["data"]["subjective"] == {"rpe": 7}
 
+    async def test_get_activity_details_null_icu_rpe_falls_back(self, mock_config, respx_mock):
+        """The API always sends `icu_rpe`, explicitly null when the athlete has
+        not entered an RPE — so an imported `perceived_exertion` must still be
+        read. AliasChoices resolves on key presence, hence the model validator."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.get("/activity/a123").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": "a123",
+                    "start_date_local": "2026-03-20T10:00:00",
+                    "name": "Test Ride",
+                    "type": "Ride",
+                    "icu_rpe": None,
+                    "perceived_exertion": 6.5,
+                },
+            )
+        )
+
+        result = await get_activity_details(activity_id="a123", ctx=mock_ctx)
+        response = json.loads(result)
+
+        assert response["data"]["subjective"] == {"rpe": 7}
+        assert response["metadata"]["subjective_scales"] == {"rpe": "1-10"}
+
+    async def test_get_activity_details_both_rpe_fields_null(self, mock_config, respx_mock):
+        """Both RPE fields null — the shape of most real activities — reports no
+        RPE rather than inventing one."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.get("/activity/a123").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": "a123",
+                    "start_date_local": "2026-03-20T10:00:00",
+                    "name": "Test Ride",
+                    "type": "Ride",
+                    "icu_rpe": None,
+                    "perceived_exertion": None,
+                },
+            )
+        )
+
+        result = await get_activity_details(activity_id="a123", ctx=mock_ctx)
+        response = json.loads(result)
+
+        assert "subjective" not in response["data"]
+        assert "subjective_scales" not in response.get("metadata", {})
+
     async def test_get_activity_details_partial_nutrition(self, mock_config, respx_mock):
         """Nutrition section omits null fields; preserves zero values."""
         mock_ctx = MagicMock()
