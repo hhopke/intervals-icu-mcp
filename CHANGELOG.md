@@ -14,6 +14,12 @@ that preserve the information (key renames, restructuring, added fields) ship in
 clients. (Releases up to and including 4.0.0 treated any response-shape change as
 breaking; this narrower contract applies from the next release onward.)
 
+## [Unreleased]
+
+### Fixed
+- The HR curve summary reported its peak under the key `max_hr_bpm`, which is not the athlete's max HR and cannot be: Intervals.icu replaces HR readings above the configured max with an interpolated line at import, so a curve computed from the corrected data can only ever echo a past value of that setting. Live-verified on an account whose curve peak read 198 — never a real heartbeat, just the max HR configured at the time — while the `raw_heartrate` stream and the athlete's head unit both recorded 204. Renamed to `peak_hr_bpm` (and `max_hr_duration_seconds` to `peak_hr_duration_seconds`); key renames are information-preserving under the contract above. The synthesized zone blocks these values feed are now marked deprecated in comments and scheduled for removal in the next major (#119).
+- `icu_get_activity_streams` documented its `streams` parameter as fetching "all streams" when unspecified, which is untrue — the default response omits `raw_heartrate` and `fixed_heartrate`, both fetchable by explicit name. Since the platform never raises max HR on its own and clips silently, `raw_heartrate` is the only way to observe a genuine new max that was corrected away. Both stream types are now documented, along with the fact that `heartrate` is corrected rather than raw.
+
 ## [4.4.0] — 2026-07-31
 
 ### Fixed

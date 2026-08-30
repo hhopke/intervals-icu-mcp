@@ -95,8 +95,11 @@ class TestGetHRCurves:
         assert data["peak_efforts"]["1_min"]["bpm"] == 188
         assert data["peak_efforts"]["20_min"]["bpm"] == 165
         # Summary stats
-        assert data["summary"]["max_hr_bpm"] == 195
-        assert data["summary"]["max_hr_duration_seconds"] == 5
+        # Named peak_hr, not max_hr: this is the top of THIS curve, which Intervals.icu
+        # has already clipped to the configured max HR at import (#119).
+        assert data["summary"]["peak_hr_bpm"] == 195
+        assert data["summary"]["peak_hr_duration_seconds"] == 5
+        assert "max_hr_bpm" not in data["summary"]
         assert data["summary"]["effort_date_range"]["oldest"] == "2026-02-19"
         # HR zones derived from max HR
         zone2 = data["hr_zones"]["zone_2_endurance"]
