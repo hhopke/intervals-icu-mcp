@@ -14,7 +14,14 @@ async def get_sport_settings(
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
-    """Get all per-sport thresholds — outdoor/indoor FTP, FTHR, running pace, and swim threshold."""
+    """Get per-sport thresholds and the athlete's configured power/HR/pace zones.
+
+    Returns outdoor/indoor FTP, FTHR, max HR, running pace and swim threshold, plus the
+    zone sets configured in Intervals.icu (HR zones in bpm, power zones as %FTP, pace
+    zones as % of threshold pace) with their names. Use this rather than the zones
+    derived by icu_get_power_curves / icu_get_hr_curves when the athlete asks about
+    *their* zones — the curve tools estimate generic zones from a formula.
+    """
     config = load_config()
     if not validate_credentials(config):
         return (
@@ -30,7 +37,10 @@ async def get_sport_settings(
                     {"message": "No sport settings found"}, metadata={"count": 0}
                 )
 
-            settings_data = [format_sport_settings_entry(settings) for settings in settings_list]
+            settings_data = [
+                format_sport_settings_entry(settings, include_zones=True)
+                for settings in settings_list
+            ]
 
             return ResponseBuilder.build_response(
                 {"sport_settings": settings_data},
@@ -92,7 +102,7 @@ async def update_sport_settings(
             )
 
             return ResponseBuilder.build_response(
-                format_sport_settings_entry(settings),
+                format_sport_settings_entry(settings, include_zones=True),
                 metadata={
                     "type": "sport_settings_updated",
                     "message": "Sport settings updated successfully",
@@ -178,7 +188,7 @@ async def create_sport_settings(
             settings = await client.create_sport_settings(settings_data, athlete_id=athlete_id)
 
             return ResponseBuilder.build_response(
-                format_sport_settings_entry(settings),
+                format_sport_settings_entry(settings, include_zones=True),
                 metadata={
                     "type": "sport_settings_created",
                     "message": "Sport settings created successfully",

@@ -14,6 +14,11 @@ that preserve the information (key renames, restructuring, added fields) ship in
 clients. (Releases up to and including 4.0.0 treated any response-shape change as
 breaking; this narrower contract applies from the next release onward.)
 
+## [Unreleased]
+
+### Fixed
+- `icu_get_sport_settings` silently dropped the athlete's configured training zones. The API returns `hr_zones`, `power_zones`, and `pace_zones` (with their names) on every sport-settings record, but the `SportSettings` model never declared the fields, so they were discarded before the response was built — the same bug class as the #98 custom-wellness-fields and #109 hydration drops. This left the tool description's long-standing "and zones" claim untrue, and left models reasoning about zones from `icu_get_power_curves` / `icu_get_hr_curves`, which synthesize *generic* zones from a hardcoded formula (5 HR bands at 50-100% of max HR; 6 power bands off an FTP estimated as 20-min power × 0.95) rather than reading the athlete's configuration. The two disagree materially — on a live account the real Ride Z1 tops at 138 bpm across 7 named zones where the synthesized Z1 is 102-122 across 5 unnamed ones. `icu_get_sport_settings`, `icu_update_sport_settings`, and `icu_create_sport_settings` now return the configured zone sets: HR zones as absolute bpm ranges, power zones as %FTP, pace zones as % of threshold pace, each with its Intervals.icu name, alongside `max_hr_bpm`, `hr_load_type`, `hrrc_min_percent`, sweet-spot bounds, and default warmup/cooldown durations. Semantics were established against the live API, which documents none of them: the top power and pace zone carry `999` as an open-ended sentinel (rendered as `unbounded`, not a 999% ceiling), and unused zone sets arrive as `null` rather than `[]`. The update response carries zones too, so the effect of `recalc_hr_zones` is finally visible to the caller. `icu_get_athlete_profile` and the athlete-profile resource deliberately keep their existing lean output — zones add roughly 1k tokens per call. Reported by @jorge-huxley; implementation approach from @nitobosch's #116.
+
 ## [4.4.0] — 2026-07-31
 
 ### Fixed

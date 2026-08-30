@@ -1,14 +1,52 @@
 """Format sport settings for MCP responses and Intervals.icu API write payloads."""
 
+from collections.abc import Sequence
 from typing import Any
 
 from .models import SportSettings
+
+# Intervals.icu caps the top power and pace zone with an open-ended sentinel instead of a
+# real upper bound. Rendering it literally would claim a 999% ceiling.
+_UNBOUNDED_ZONE_LIMIT = 999
+
+
+def _format_zones(
+    limits: Sequence[float],
+    names: Sequence[str],
+    *,
+    min_key: str,
+    max_key: str,
+    integral: bool = True,
+) -> list[dict[str, Any]]:
+    """Convert Intervals.icu upper zone limits into explicit min/max ranges."""
+    zones: list[dict[str, Any]] = []
+    lower: float = 0
+
+    for index, upper in enumerate(limits, start=1):
+        zone: dict[str, Any] = {"zone": f"Z{index}"}
+        # The name array can be shorter than the limits array; pair by index.
+        if index <= len(names):
+            zone["name"] = names[index - 1]
+
+        zone[min_key] = lower
+        if upper >= _UNBOUNDED_ZONE_LIMIT:
+            zone["unbounded"] = True
+        else:
+            zone[max_key] = upper
+
+        zones.append(zone)
+        # Integer bands (bpm, %FTP) are inclusive, so the next zone starts one above.
+        # Float pace bands share the boundary.
+        lower = upper + 1 if integral else upper
+
+    return zones
 
 
 def format_sport_settings_entry(
     settings: SportSettings,
     *,
     include_id: bool = True,
+    include_zones: bool = False,
 ) -> dict[str, Any]:
     """Build an LLM-facing sport settings dict with consistent unit suffixes."""
     sport_info: dict[str, Any] = {}
@@ -29,7 +67,57 @@ def format_sport_settings_entry(
         # round, not truncate — the m/s <-> min/100m conversion adds tiny float error
         total = round(settings.swim_threshold * 60)
         sport_info["swim_threshold"] = f"{total // 60}:{total % 60:02d} /100m"
+    if include_zones:
+        sport_info.update(_format_zone_config(settings))
     return sport_info
+
+
+def _format_zone_config(settings: SportSettings) -> dict[str, Any]:
+    """Build the athlete's configured zone sets plus the scalars that frame them."""
+    config: dict[str, Any] = {}
+
+    if settings.max_hr is not None:
+        config["max_hr_bpm"] = settings.max_hr
+    if settings.hr_zones:
+        # HR zones are absolute bpm, not percentages, and the top bound is the real max HR.
+        config["hr_zones"] = _format_zones(
+            settings.hr_zones,
+            settings.hr_zone_names,
+            min_key="min_bpm",
+            max_key="max_bpm",
+        )
+    if settings.hr_load_type is not None:
+        config["hr_load_type"] = settings.hr_load_type
+    if settings.hrrc_min_percent is not None:
+        config["hrrc_min_percent"] = settings.hrrc_min_percent
+
+    if settings.power_zones:
+        config["power_zones_percent_ftp"] = _format_zones(
+            settings.power_zones,
+            settings.power_zone_names,
+            min_key="min_percent_ftp",
+            max_key="max_percent_ftp",
+        )
+    if settings.sweet_spot_min is not None:
+        config["sweet_spot_min_percent_ftp"] = settings.sweet_spot_min
+    if settings.sweet_spot_max is not None:
+        config["sweet_spot_max_percent_ftp"] = settings.sweet_spot_max
+
+    if settings.pace_zones:
+        config["pace_zones_percent_threshold"] = _format_zones(
+            settings.pace_zones,
+            settings.pace_zone_names,
+            min_key="min_percent",
+            max_key="max_percent",
+            integral=False,
+        )
+
+    if settings.warmup_time is not None:
+        config["warmup_seconds"] = settings.warmup_time
+    if settings.cooldown_time is not None:
+        config["cooldown_seconds"] = settings.cooldown_time
+
+    return config
 
 
 def build_sport_settings_api_payload(

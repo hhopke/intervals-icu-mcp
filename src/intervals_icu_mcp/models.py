@@ -40,11 +40,47 @@ class SportSettings(BaseModel):
 
     id: int
     type: str | None = None
+
+    # Default workout timings (seconds)
+    warmup_time: int | None = None
+    cooldown_time: int | None = None
+
+    # Power
     ftp: int | None = None
     indoor_ftp: int | None = None
+    power_zones: list[int] = Field(default_factory=list[int])
+    power_zone_names: list[str] = Field(default_factory=list[str])
+    sweet_spot_min: int | None = None
+    sweet_spot_max: int | None = None
+
+    # Heart rate
     fthr: int | None = None
+    max_hr: int | None = None
+    hr_zones: list[int] = Field(default_factory=list[int])
+    hr_zone_names: list[str] = Field(default_factory=list[str])
+    hr_load_type: str | None = None
+    hrrc_min_percent: float | None = None
+
+    # Pace
     pace_threshold: float | None = None
     swim_threshold: float | None = None
+    pace_zones: list[float] = Field(default_factory=list[float])
+    pace_zone_names: list[str] = Field(default_factory=list[str])
+
+    @field_validator(
+        "power_zones",
+        "power_zone_names",
+        "hr_zones",
+        "hr_zone_names",
+        "pace_zones",
+        "pace_zone_names",
+        mode="before",
+    )
+    @classmethod
+    def _coerce_zone_lists(cls, v: Any) -> list[Any]:
+        # The API sends null (not []) for zone sets a sport doesn't use — e.g. a Run
+        # record carries power_zones: null.
+        return v or []
 
     @model_validator(mode="before")
     @classmethod

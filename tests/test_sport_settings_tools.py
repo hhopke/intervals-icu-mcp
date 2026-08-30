@@ -14,12 +14,41 @@ from intervals_icu_mcp.tools.sport_settings import (
     update_sport_settings,
 )
 
+# Zone data mirrors the live API: HR zones are absolute bpm, power zones are %FTP with a
+# 999 open-ended sentinel on the top zone, and a sport that uses no power carries null.
 RIDE_SETTINGS = {
     "id": 1,
     "types": ["Ride", "VirtualRide"],
     "ftp": 250,
     "indoor_ftp": 235,
     "lthr": 165,
+    "max_hr": 204,
+    "hr_zones": [138, 153, 160, 171, 176, 181, 204],
+    "hr_zone_names": [
+        "Recovery",
+        "Aerobic",
+        "Tempo",
+        "SubThreshold",
+        "SuperThreshold",
+        "Aerobic Capacity",
+        "Anaerobic",
+    ],
+    "hr_load_type": "HRSS",
+    "hrrc_min_percent": 100.0,
+    "power_zones": [55, 75, 90, 105, 120, 150, 999],
+    "power_zone_names": [
+        "Active Recovery",
+        "Endurance",
+        "Tempo",
+        "Threshold",
+        "VO2 Max",
+        "Anaerobic",
+        "Neuromuscular",
+    ],
+    "sweet_spot_min": 84,
+    "sweet_spot_max": 97,
+    "warmup_time": 1200,
+    "cooldown_time": 600,
 }
 RUN_SETTINGS = {
     "id": 2,
@@ -28,6 +57,10 @@ RUN_SETTINGS = {
     "threshold_pace": 4.5,
     "pace_units": "MINS_KM",
     "pace_load_type": "RUN",
+    "power_zones": None,
+    "power_zone_names": None,
+    "pace_zones": [77.5, 87.7, 94.3, 100.0, 103.4, 111.5, 999.0],
+    "pace_zone_names": ["Zone 1", "Zone 2"],
 }
 SWIM_SETTINGS = {
     "id": 3,
@@ -67,6 +100,111 @@ class TestSportSettingsTools:
         assert settings[1]["pace_threshold"] == "4:30 /km"
         assert settings[2]["swim_threshold"] == "1:30 /100m"
         assert response["metadata"]["count"] == 3
+
+    async def test_get_sport_settings_exposes_hr_zones(self, patch_config, respx_mock):
+        """HR zones render as named, contiguous bpm ranges (the API sends upper bounds)."""
+        respx_mock.get("/athlete/i123456/sport-settings").mock(
+            return_value=Response(200, json=[RIDE_SETTINGS])
+        )
+
+        result = await get_sport_settings()
+
+        ride = json.loads(result)["data"]["sport_settings"][0]
+        assert ride["max_hr_bpm"] == 204
+        assert ride["hr_load_type"] == "HRSS"
+        assert ride["hrrc_min_percent"] == 100.0
+        zones = ride["hr_zones"]
+        assert len(zones) == 7
+        assert zones[0] == {"zone": "Z1", "name": "Recovery", "min_bpm": 0, "max_bpm": 138}
+        # Bands are inclusive, so each zone starts one bpm above the previous upper bound.
+        assert zones[1] == {"zone": "Z2", "name": "Aerobic", "min_bpm": 139, "max_bpm": 153}
+        assert zones[-1]["max_bpm"] == 204
+        assert "unbounded" not in zones[-1]
+
+    async def test_get_sport_settings_exposes_power_zones_with_open_top(
+        self, patch_config, respx_mock
+    ):
+        """Power zones are %FTP, and the 999 sentinel renders as unbounded, not a 999% cap."""
+        respx_mock.get("/athlete/i123456/sport-settings").mock(
+            return_value=Response(200, json=[RIDE_SETTINGS])
+        )
+
+        result = await get_sport_settings()
+
+        ride = json.loads(result)["data"]["sport_settings"][0]
+        zones = ride["power_zones_percent_ftp"]
+        assert zones[0] == {
+            "zone": "Z1",
+            "name": "Active Recovery",
+            "min_percent_ftp": 0,
+            "max_percent_ftp": 55,
+        }
+        assert zones[-1] == {
+            "zone": "Z7",
+            "name": "Neuromuscular",
+            "min_percent_ftp": 151,
+            "unbounded": True,
+        }
+        assert ride["sweet_spot_min_percent_ftp"] == 84
+        assert ride["sweet_spot_max_percent_ftp"] == 97
+        assert ride["warmup_seconds"] == 1200
+        assert ride["cooldown_seconds"] == 600
+
+    async def test_get_sport_settings_pace_zones_share_float_boundaries(
+        self, patch_config, respx_mock
+    ):
+        """Pace zones are float % of threshold pace, so bands share bounds instead of +1."""
+        respx_mock.get("/athlete/i123456/sport-settings").mock(
+            return_value=Response(200, json=[RUN_SETTINGS])
+        )
+
+        result = await get_sport_settings()
+
+        run = json.loads(result)["data"]["sport_settings"][0]
+        zones = run["pace_zones_percent_threshold"]
+        assert zones[0]["max_percent"] == 77.5
+        assert zones[1]["min_percent"] == 77.5
+        assert zones[-1]["unbounded"] is True
+        assert "max_percent" not in zones[-1]
+
+    async def test_get_sport_settings_omits_unset_zone_sets(self, patch_config, respx_mock):
+        """A sport with no power zones sends null, which must not become an empty key."""
+        respx_mock.get("/athlete/i123456/sport-settings").mock(
+            return_value=Response(200, json=[RUN_SETTINGS])
+        )
+
+        result = await get_sport_settings()
+
+        run = json.loads(result)["data"]["sport_settings"][0]
+        assert "power_zones_percent_ftp" not in run
+        assert "sweet_spot_min_percent_ftp" not in run
+
+    async def test_get_sport_settings_tolerates_short_zone_name_list(
+        self, patch_config, respx_mock
+    ):
+        """Name arrays can be shorter than the limits array; unnamed zones just omit `name`."""
+        respx_mock.get("/athlete/i123456/sport-settings").mock(
+            return_value=Response(200, json=[RUN_SETTINGS])
+        )
+
+        result = await get_sport_settings()
+
+        zones = json.loads(result)["data"]["sport_settings"][0]["pace_zones_percent_threshold"]
+        assert zones[1]["name"] == "Zone 2"
+        assert "name" not in zones[2]
+
+    async def test_update_sport_settings_response_shows_recalculated_zones(
+        self, patch_config, respx_mock
+    ):
+        """The update response carries zones too — that is where recalc_hr_zones is visible."""
+        respx_mock.put("/athlete/i123456/sport-settings/1").mock(
+            return_value=Response(200, json=RIDE_SETTINGS)
+        )
+
+        result = await update_sport_settings(sport_id=1, fthr=165)
+
+        data = json.loads(result)["data"]
+        assert data["hr_zones"][0]["max_bpm"] == 138
 
     async def test_get_sport_settings_empty(self, patch_config, respx_mock):
         """Empty result returns a friendly message with count=0."""

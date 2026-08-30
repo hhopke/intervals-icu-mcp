@@ -182,7 +182,7 @@ The threaded notes/comments shown under an activity — the user's own training 
 
 | Tool                    | Description                                             |
 | ----------------------- | ------------------------------------------------------- |
-| `icu_get_sport_settings`    | Get sport-specific settings and thresholds              |
+| `icu_get_sport_settings`    | Get per-sport thresholds plus configured power/HR/pace zones |
 | `icu_update_sport_settings` | Update outdoor/indoor FTP, FTHR, or pace/swim thresholds |
 | `icu_apply_sport_settings`  | Recompute historical activity metrics from current sport settings |
 | `icu_create_sport_settings` | Create new sport-specific settings                      |
