@@ -54,7 +54,7 @@ lint/pyright: ## Run pyright type checker
 lint/package: ## Validate PyPI package metadata and README rendering (twine + pyroma)
 	rm -rf dist/
 	uv build
-	uvx twine==6.2.0 check --strict dist/*
+	uvx twine==7.0.0 check --strict dist/*
 	uvx pyroma==5.0.1 --min=10 .
 
 fmt: format
