@@ -123,6 +123,38 @@ class TestAthleteProfileSportSettings:
         swim = next(s for s in sports if s["type"] == "Swim")
         assert swim["swim_threshold"] == "2:00 /100m"
 
+    async def test_profile_omits_zones(self, mock_config, respx_mock):
+        """Zones are deliberately excluded here — they cost ~1k tokens on a real account,
+        and icu_get_sport_settings is the tool that returns them."""
+        respx_mock.get("/athlete/i123456").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": "i123456",
+                    "name": "Test",
+                    "sportSettings": [
+                        {
+                            "id": 1,
+                            "types": ["Ride"],
+                            "ftp": 260,
+                            "lthr": 165,
+                            "max_hr": 204,
+                            "hr_zones": [138, 153, 160, 171, 176, 181, 204],
+                            "power_zones": [55, 75, 90, 105, 120, 150, 999],
+                        }
+                    ],
+                },
+            )
+        )
+
+        result = await get_athlete_profile(ctx=_ctx(mock_config))
+
+        ride = json.loads(result)["data"]["sports"][0]
+        assert ride["ftp_watts"] == 260
+        assert "hr_zones" not in ride
+        assert "power_zones_percent_ftp" not in ride
+        assert "max_hr_bpm" not in ride
+
 
 class TestAthleteProfileErrors:
     async def test_api_error_includes_suggestion(self, mock_config, respx_mock):

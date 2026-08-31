@@ -537,6 +537,57 @@ class TestSportSettingsModelMapping:
         assert settings.swim_threshold == pytest.approx(1.5)
         assert settings.pace_threshold is None
 
+    def test_sport_settings_coerces_null_zone_arrays(self):
+        from intervals_icu_mcp.models import SportSettings
+
+        # A Run record carries power_zones: null, not [].
+        settings = SportSettings.model_validate(
+            {
+                "id": 2,
+                "types": ["Run"],
+                "power_zones": None,
+                "power_zone_names": None,
+                "hr_zones": [145, 153],
+                "pace_zones": None,
+            }
+        )
+
+        assert settings.power_zones == []
+        assert settings.power_zone_names == []
+        assert settings.pace_zones == []
+        assert settings.hr_zones == [145, 153]
+
+    def test_sport_settings_parses_zone_config(self):
+        from intervals_icu_mcp.models import SportSettings
+
+        settings = SportSettings.model_validate(
+            {
+                "id": 1,
+                "types": ["Ride"],
+                "max_hr": 204,
+                "hr_zones": [138, 204],
+                "hr_zone_names": ["Recovery", "Anaerobic"],
+                "hr_load_type": "HRSS",
+                "hrrc_min_percent": 100.0,
+                "power_zones": [55, 999],
+                "sweet_spot_min": 84,
+                "sweet_spot_max": 97,
+                "warmup_time": 1200,
+                "cooldown_time": 600,
+            }
+        )
+
+        assert settings.max_hr == 204
+        assert settings.hr_zones == [138, 204]
+        assert settings.hr_zone_names == ["Recovery", "Anaerobic"]
+        assert settings.hr_load_type == "HRSS"
+        assert settings.hrrc_min_percent == 100.0
+        assert settings.power_zones == [55, 999]
+        assert settings.sweet_spot_min == 84
+        assert settings.sweet_spot_max == 97
+        assert settings.warmup_time == 1200
+        assert settings.cooldown_time == 600
+
     def test_build_sport_settings_api_payload_swim_sends_mps(self):
         from intervals_icu_mcp.sport_settings_format import build_sport_settings_api_payload
 
