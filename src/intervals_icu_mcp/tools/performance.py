@@ -132,7 +132,7 @@ async def get_power_curves(
                     "newest": curve.end_date_local,
                 }
 
-            # Calculate FTP and power zones (based on 20-min power)
+            # Estimate FTP from 20-min power
             ftp_analysis = None
             twenty_min = _find_value_at_duration(secs, vals, 1200)
             if twenty_min:
@@ -140,34 +140,13 @@ async def get_power_curves(
                 estimated_ftp = int(twenty_min_watts * 0.95)
 
                 if estimated_ftp > 0:
-                    # DEPRECATED (#119): these bands are a fixed percentage table applied
-                    # to the estimated FTP above, not the athlete's configured zones, so
-                    # they disagree with the zones Intervals.icu computes training load
-                    # from. Scheduled for removal in the next major; use
-                    # icu_get_sport_settings for the athlete's real zones. twenty_min_power
-                    # and estimated_ftp are genuine measurements and survive that removal.
-                    zones = {
-                        "recovery": (0, 0.55),
-                        "endurance": (0.56, 0.75),
-                        "tempo": (0.76, 0.90),
-                        "threshold": (0.91, 1.05),
-                        "vo2max": (1.06, 1.20),
-                        "anaerobic": (1.21, 1.50),
-                    }
-
-                    power_zones: dict[str, dict[str, int]] = {}
-                    for zone_name, (low, high) in zones.items():
-                        power_zones[zone_name] = {
-                            "min_watts": int(estimated_ftp * low),
-                            "max_watts": int(estimated_ftp * high),
-                            "min_percent_ftp": int(low * 100),
-                            "max_percent_ftp": int(high * 100),
-                        }
-
+                    # estimated_ftp is a real signal the sport-settings tool cannot give
+                    # ("your recent data suggests 195W but you are set to 185W"). The
+                    # zone bands derived from it were removed in 5.0.0 — see #119 and
+                    # icu_get_sport_settings for the athlete's configured zones.
                     ftp_analysis = {
                         "twenty_min_power": twenty_min_watts,
                         "estimated_ftp": estimated_ftp,
-                        "power_zones": power_zones,
                     }
 
             result_data: dict[str, Any] = {

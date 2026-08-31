@@ -25,18 +25,6 @@ GEAR_TYPES = [
 # previously taught.
 _GEAR_TYPE_LOOKUP = {v.upper(): v for v in GEAR_TYPES} | {"SHOE": "Shoes"}
 
-def _ignored_params_note(**params: Any) -> str | None:
-    """Warning for tool params with no API-side field — accepted for
-    compatibility, reported as ignored (#110; removal deferred to next major)."""
-    ignored = [name for name, value in params.items() if value]
-    if not ignored:
-        return None
-    return (
-        f"Ignored parameter(s) {', '.join(ignored)}: the Intervals.icu API has no "
-        "brand/model/primary fields on gear. Put such details in the gear name."
-    )
-
-
 async def get_gear_list(
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
@@ -144,10 +132,7 @@ async def create_gear(
         "Apparel, Computer. Components: Chain, Cassette, Wheel, Tyre, Frame, "
         "Pedals, PowerMeter, and more.",
     ],
-    brand: Annotated[str | None, "IGNORED — the API has no brand field; put it in the name"] = None,
-    model: Annotated[str | None, "IGNORED — the API has no model field; put it in the name"] = None,
     active: Annotated[bool, "Whether this gear is actively used (False = retired)"] = True,
-    primary: Annotated[bool | None, "IGNORED — the API has no primary flag on gear"] = None,
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
@@ -184,9 +169,6 @@ async def create_gear(
                 "type": "gear_created",
                 "message": "Gear item created successfully",
             }
-            note = _ignored_params_note(brand=brand, model=model, primary=primary)
-            if note:
-                metadata["warning"] = note
 
             return ResponseBuilder.build_response(result, metadata=metadata)
 
@@ -202,12 +184,9 @@ async def update_gear(
     gear_type: Annotated[
         str | None, "Updated type, case-insensitive (Bike, Shoes, Trainer, Chain, ...)"
     ] = None,
-    brand: Annotated[str | None, "IGNORED — the API has no brand field; put it in the name"] = None,
-    model: Annotated[str | None, "IGNORED — the API has no model field; put it in the name"] = None,
     active: Annotated[
         bool | None, "False retires the gear (dated today); True un-retires it"
     ] = None,
-    primary: Annotated[bool | None, "IGNORED — the API has no primary flag on gear"] = None,
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
@@ -274,9 +253,6 @@ async def update_gear(
                 "type": "gear_updated",
                 "message": "Gear item updated successfully",
             }
-            note = _ignored_params_note(brand=brand, model=model, primary=primary)
-            if note:
-                metadata["warning"] = note
 
             return ResponseBuilder.build_response(result, metadata=metadata)
 

@@ -581,13 +581,13 @@ class TestEventTools:
                     "start_date_local": "2026-04-01",
                     "name": "Mon Workout",
                     "category": "workout",
-                    "type": "Ride",
+                    "event_type": "Ride",
                 },
                 {
                     "start_date_local": "2026-04-03",
                     "name": "Wed Workout",
                     "category": "WORKOUT",
-                    "type": "Ride",
+                    "event_type": "Ride",
                 },
             ]
         )
@@ -1002,8 +1002,8 @@ class TestWorkoutParseEcho:
         assert "workout_parse_hint" not in data
 
 
-class TestBulkEventTypeAlias:
-    """bulk_create_events accepts `event_type` as an alias for the API `type` field."""
+class TestBulkFieldNameUnification:
+    """bulk_create_events takes the same field names as icu_create_event (5.0.0)."""
 
     async def test_event_type_alias_mapped_to_api_type(self, mock_config, respx_mock):
         mock_ctx = MagicMock()
@@ -1041,7 +1041,36 @@ class TestBulkEventTypeAlias:
         assert sent[0]["type"] == "Run"
         assert "event_type" not in sent[0]
 
-    async def test_raw_type_wins_when_both_present(self, mock_config, respx_mock):
+    async def test_raw_api_names_are_rejected(self, mock_config, respx_mock):
+        """5.0.0: raw API names are refused, not ignored. Every one of them would
+        otherwise pass straight through to the API and keep working, leaving a second
+        undocumented vocabulary alive."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+        route = respx_mock.post("/athlete/i123456/events/bulk").mock(
+            return_value=Response(200, json=[])
+        )
+        result = await bulk_create_events(
+            events=json.dumps(
+                [
+                    {
+                        "start_date_local": "2026-03-20",
+                        "name": "R",
+                        "category": "WORKOUT",
+                        "moving_time": 3600,
+                    }
+                ]
+            ),
+            ctx=mock_ctx,
+        )
+        response = json.loads(result)
+        assert response["error"]["type"] == "validation_error"
+        # The error names the replacement rather than just refusing.
+        assert "moving_time -> duration_seconds" in response["error"]["message"]
+        assert not route.calls
+
+    async def test_friendly_names_map_to_api_fields(self, mock_config, respx_mock):
+        """duration_seconds/distance_meters/training_load reach the API under its names."""
         mock_ctx = MagicMock()
         mock_ctx.get_state = AsyncMock(return_value=mock_config)
         route = respx_mock.post("/athlete/i123456/events/bulk").mock(
@@ -1054,16 +1083,22 @@ class TestBulkEventTypeAlias:
                         "start_date_local": "2026-03-20",
                         "name": "R",
                         "category": "WORKOUT",
-                        "type": "Ride",
-                        "event_type": "Run",
+                        "event_type": "Ride",
+                        "duration_seconds": 3600,
+                        "distance_meters": 40000,
+                        "training_load": 75,
                     }
                 ]
             ),
             ctx=mock_ctx,
         )
-        sent = json.loads(route.calls.last.request.content)
-        assert sent[0]["type"] == "Ride"
-        assert "event_type" not in sent[0]
+        sent = json.loads(route.calls.last.request.content)[0]
+        assert sent["type"] == "Ride"
+        assert sent["moving_time"] == 3600
+        assert sent["distance"] == 40000
+        assert sent["icu_training_load"] == 75
+        for friendly in ("event_type", "duration_seconds", "distance_meters", "training_load"):
+            assert friendly not in sent
 
     async def test_race_accepts_event_type_alias(self, mock_config, respx_mock):
         mock_ctx = MagicMock()
