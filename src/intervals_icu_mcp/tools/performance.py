@@ -140,6 +140,9 @@ async def get_power_curves(
                 estimated_ftp = int(twenty_min_watts * 0.95)
 
                 if estimated_ftp > 0:
+                    # DEPRECATED: fixed percentages of an estimated FTP, not the athlete's
+                    # configured zones — use icu_get_sport_settings (#119; removal deferred
+                    # to next major). estimated_ftp and twenty_min_power survive it.
                     zones = {
                         "recovery": (0, 0.55),
                         "endurance": (0.56, 0.75),

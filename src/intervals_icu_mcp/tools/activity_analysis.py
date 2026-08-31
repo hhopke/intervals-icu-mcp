@@ -14,7 +14,7 @@ async def get_activity_streams(
     activity_id: Annotated[str, "Activity ID to fetch streams for"],
     streams: Annotated[
         list[str] | None,
-        "List of stream types (e.g., ['watts', 'heartrate', 'cadence']). If not specified, the activity's default streams are fetched — which does NOT include raw_heartrate or fixed_heartrate; ask for those by name.",
+        "List of stream types (e.g., ['watts', 'heartrate', 'cadence']). If not specified, the activity's default streams are fetched, which exclude raw_heartrate and fixed_heartrate — ask for those by name.",
     ] = None,
     ctx: Context | None = None,
 ) -> str:
@@ -29,12 +29,10 @@ async def get_activity_streams(
     velocity_smooth, altitude, distance, time, latlng, temp, moving,
     grade_smooth, raw_heartrate, fixed_heartrate.
 
-    `heartrate` is CORRECTED data: Intervals.icu replaces readings above the
-    athlete's configured max HR with an interpolated line at import, so it can
-    never exceed that setting. `raw_heartrate` is the uncorrected trace and is
-    the only way to see a genuine new max that was clipped away — the platform
-    never raises the setting on its own. Request it explicitly; it is not in
-    the default set.
+    `heartrate` is CORRECTED: Intervals.icu clips readings above the athlete's
+    configured max HR at import, so it can never exceed that setting.
+    `raw_heartrate` is the uncorrected trace — the only way to see a genuine
+    new max that was clipped away.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")

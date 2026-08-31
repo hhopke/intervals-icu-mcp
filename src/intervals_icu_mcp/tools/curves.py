@@ -112,10 +112,8 @@ async def get_hr_curves(
                         effort["activity_id"] = curve.activity_id[idx]
                     peak_efforts[label] = effort
 
-            # Calculate summary statistics. This is the highest value on THIS curve, which
-            # is not the athlete's max HR: Intervals.icu clips HR above the configured max
-            # at import, so the curve can only ever echo a past value of that setting.
-            # icu_get_sport_settings is the source of the real max HR (#119).
+            # Peak of THIS curve, not the athlete's max HR: Intervals.icu clips HR above
+            # the configured max at import. icu_get_sport_settings has the real one (#119).
             peak_hr = max(vals) if vals else 0
             peak_hr_idx = vals.index(peak_hr) if vals else 0
 
@@ -135,10 +133,8 @@ async def get_hr_curves(
                     "newest": curve.end_date_local,
                 }
 
-            # DEPRECATED (#119): these bands are a fixed percentage of the curve peak
-            # above, not of the athlete's max HR or threshold, so they disagree with the
-            # zones Intervals.icu computes training load from. Scheduled for removal in
-            # the next major; use icu_get_sport_settings for the athlete's real zones.
+            # DEPRECATED: fixed percentages of the curve peak, not the athlete's configured
+            # zones — use icu_get_sport_settings (#119; removal deferred to next major).
             hr_zones: dict[str, dict[str, int]] | None = None
             if peak_hr > 0:
                 zones = {
