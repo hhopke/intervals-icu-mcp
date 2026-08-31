@@ -132,7 +132,7 @@ async def get_power_curves(
                     "newest": curve.end_date_local,
                 }
 
-            # Calculate FTP and power zones (based on 20-min power)
+            # Estimate FTP from 20-min power
             ftp_analysis = None
             twenty_min = _find_value_at_duration(secs, vals, 1200)
             if twenty_min:
