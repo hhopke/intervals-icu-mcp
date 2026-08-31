@@ -1,5 +1,6 @@
 """Pydantic models for Intervals.icu API responses."""
 
+import math
 from datetime import datetime
 from typing import Any, Literal, cast
 
@@ -205,13 +206,50 @@ class Activity(ActivitySummary):
     hrss: float | None = None
     trimp: float | None = None
     feel: int | None = None
-    perceived_exertion: int | None = None
+    # Intervals.icu stores the athlete-entered RPE in `icu_rpe` (int 1-10).
+    # `perceived_exertion` is the Strava-imported mirror of the same rating and
+    # is a float in the API spec, so it is only read as a fallback — otherwise a
+    # fractional import would shadow the native value. `_resolve_rpe` below does
+    # the actual falling back; the alias order only covers a response that omits
+    # `icu_rpe` entirely.
+    perceived_exertion: int | None = Field(
+        default=None,
+        validation_alias=AliasChoices("icu_rpe", "perceived_exertion"),
+    )
     compliance: float | None = None
     avg_lr_balance: float | None = None
     commute: bool | None = None
     trainer: bool | None = None
     indoor: bool | None = None
     analyzed: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _resolve_rpe(cls, data: Any) -> Any:
+        """Fall back to the Strava-imported RPE when the native one is null.
+
+        The API always sends `icu_rpe`, explicitly null when the athlete has not
+        entered an RPE, and `AliasChoices` resolves on key presence rather than
+        null-ness — so on its own the fallback would never fire in production.
+        """
+        if not isinstance(data, dict):
+            return data
+
+        raw = cast(dict[str, Any], data)
+        if raw.get("icu_rpe") is None and raw.get("perceived_exertion") is not None:
+            resolved: dict[str, Any] = dict(raw)
+            resolved["icu_rpe"] = resolved["perceived_exertion"]
+            return resolved
+        return raw
+
+    @field_validator("perceived_exertion", mode="before")
+    @classmethod
+    def _round_perceived_exertion(cls, v: Any) -> Any:
+        """RPE is a whole number on the 1-10 scale, but `perceived_exertion` is
+        typed float by the API. Round rather than fail the whole activity."""
+        if isinstance(v, float):
+            return math.floor(v + 0.5) if math.isfinite(v) else None
+        return v
 
 
 class ActivitySearchResult(BaseModel):
