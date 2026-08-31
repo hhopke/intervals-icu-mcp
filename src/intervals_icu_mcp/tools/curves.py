@@ -53,9 +53,12 @@ async def get_hr_curves(
 ) -> str:
     """Fetch the HR-vs-duration curve — best (highest) sustained HR across durations from 5s up to 1h, aggregated over the chosen window.
 
-    Use for cardiovascular-fitness trends and HR-zone calibration. For
-    time-in-zone *distribution* within a single activity, use
-    get_hr_histogram instead.
+    Use for cardiovascular-fitness trends. Do NOT use it to calibrate zones:
+    the hr_zones block below is deprecated and pending removal — it is a fixed
+    percentage of the curve peak, which Intervals.icu has already clipped to
+    the athlete's configured max HR at import. Call icu_get_sport_settings for
+    the real zones and max HR. For time-in-zone *distribution* within a single
+    activity, use get_hr_histogram instead.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
