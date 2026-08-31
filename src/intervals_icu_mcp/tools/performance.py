@@ -140,6 +140,12 @@ async def get_power_curves(
                 estimated_ftp = int(twenty_min_watts * 0.95)
 
                 if estimated_ftp > 0:
+                    # DEPRECATED (#119): these bands are a fixed percentage table applied
+                    # to the estimated FTP above, not the athlete's configured zones, so
+                    # they disagree with the zones Intervals.icu computes training load
+                    # from. Scheduled for removal in the next major; use
+                    # icu_get_sport_settings for the athlete's real zones. twenty_min_power
+                    # and estimated_ftp are genuine measurements and survive that removal.
                     zones = {
                         "recovery": (0, 0.55),
                         "endurance": (0.56, 0.75),

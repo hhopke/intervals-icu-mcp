@@ -53,9 +53,12 @@ async def get_hr_curves(
 ) -> str:
     """Fetch the HR-vs-duration curve — best (highest) sustained HR across durations from 5s up to 1h, aggregated over the chosen window.
 
-    Use for cardiovascular-fitness trends and HR-zone calibration. For
-    time-in-zone *distribution* within a single activity, use
-    get_hr_histogram instead.
+    Use for cardiovascular-fitness trends. Do NOT use it to calibrate zones:
+    the hr_zones block below is deprecated and pending removal — it is a fixed
+    percentage of the curve peak, which Intervals.icu has already clipped to
+    the athlete's configured max HR at import. Call icu_get_sport_settings for
+    the real zones and max HR. For time-in-zone *distribution* within a single
+    activity, use get_hr_histogram instead.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
@@ -112,14 +115,17 @@ async def get_hr_curves(
                         effort["activity_id"] = curve.activity_id[idx]
                     peak_efforts[label] = effort
 
-            # Calculate summary statistics
-            max_hr = max(vals) if vals else 0
-            max_hr_idx = vals.index(max_hr) if vals else 0
+            # Calculate summary statistics. This is the highest value on THIS curve, which
+            # is not the athlete's max HR: Intervals.icu clips HR above the configured max
+            # at import, so the curve can only ever echo a past value of that setting.
+            # icu_get_sport_settings is the source of the real max HR (#119).
+            peak_hr = max(vals) if vals else 0
+            peak_hr_idx = vals.index(peak_hr) if vals else 0
 
             summary: dict[str, Any] = {
                 "total_data_points": len(secs),
-                "max_hr_bpm": max_hr,
-                "max_hr_duration_seconds": secs[max_hr_idx] if secs else 0,
+                "peak_hr_bpm": peak_hr,
+                "peak_hr_duration_seconds": secs[peak_hr_idx] if secs else 0,
                 "duration_range": {
                     "min_seconds": min(secs) if secs else 0,
                     "max_seconds": max(secs) if secs else 0,
@@ -132,9 +138,12 @@ async def get_hr_curves(
                     "newest": curve.end_date_local,
                 }
 
-            # Calculate HR zones (based on max HR if available)
+            # DEPRECATED (#119): these bands are a fixed percentage of the curve peak
+            # above, not of the athlete's max HR or threshold, so they disagree with the
+            # zones Intervals.icu computes training load from. Scheduled for removal in
+            # the next major; use icu_get_sport_settings for the athlete's real zones.
             hr_zones: dict[str, dict[str, int]] | None = None
-            if max_hr > 0:
+            if peak_hr > 0:
                 zones = {
                     "zone_1_recovery": (0.50, 0.60),
                     "zone_2_endurance": (0.60, 0.70),
@@ -146,8 +155,8 @@ async def get_hr_curves(
                 hr_zones = {}
                 for zone_name, (low, high) in zones.items():
                     hr_zones[zone_name] = {
-                        "min_bpm": int(max_hr * low),
-                        "max_bpm": int(max_hr * high),
+                        "min_bpm": int(peak_hr * low),
+                        "max_bpm": int(peak_hr * high),
                         "min_percent_max": int(low * 100),
                         "max_percent_max": int(high * 100),
                     }
