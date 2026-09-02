@@ -52,7 +52,11 @@ gh release view vPREVIOUS --json body --jq .body
 
 Adopt these conventions:
 
-- **Title has a tagline:** `vX.Y.Z – Headline Theme One & Headline Theme Two` (not plain `vX.Y.Z`). Same theme(s) you'd put in a tweet.
+- **Title has a tagline:** `vX.Y.Z – Headline Theme` (not plain `vX.Y.Z`). Same theme you'd put in a tweet.
+  - **Default to one theme.** A second (`Theme One & Theme Two`) is allowed only when both are independently headline-worthy — the shape of v2.0.0 and v4.4.0. Don't reach for a second half to fill out the line; the best titles here are the single-theme ones (v4.3.2, v1.2.0). Aim for ≤ 45 chars including the `vX.Y.Z – ` prefix.
+  - **Name the user's benefit, in the user's vocabulary.** No repo-internal process terms — "deferred cleanups", "the drained list", milestone or issue-tracker names. A reader on the Releases tab has no referent for them, and they describe maintainer bookkeeping rather than anything the reader's data now does differently. If a phrase would only parse to someone who has read CLAUDE.md, it fails.
+  - **Breaking changes are not a headline theme.** Upgrade cost belongs in the `## Upgrading from vX.Y` section, not the title — even on a major.
+  - Keep the shape flat: a noun phrase, optionally two joined by `&`. No trailing appositives or comma clauses (`… & The Deferred Cleanups, Drained` is the failure case).
 - **Body uses narrative section headers**, not CHANGELOG-style category buckets. Examples from past releases: `## New features`, `## Improvements`, `## Notes`, or headline-named sections like `## Delete Safety Mode`. **DO NOT use `### Added / ### Fixed / ### Changed`** — that's CHANGELOG style; the release notes are different.
 - **Body fits a hard word budget** (see step 3). Never size the notes as a percentage of the CHANGELOG — a long CHANGELOG is exactly when the notes must stay short.
 - **Top callout (`> [!NOTE]`) only when there's a measured headline number** — token savings, accuracy gain, perf improvement. Skip for routine releases.
