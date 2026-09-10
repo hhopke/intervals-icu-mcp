@@ -14,6 +14,11 @@ that preserve the information (key renames, restructuring, added fields) ship in
 clients. (Releases up to and including 4.0.0 treated any response-shape change as
 breaking; this narrower contract applies from the next release onward.)
 
+## [Unreleased]
+
+### Fixed
+- `event_type` was documented as an eight-value list — `Ride`, `Run`, `Swim`, `Walk`, `Hike`, `VirtualRide`, `VirtualRun`, `Other` — everywhere a model could look: the parameter hints on `icu_create_event` / `icu_update_event` / `icu_bulk_create_events`, and the `intervals-icu://event-categories` resource. The API accepts 60 disciplines. Nothing in the server rejected the missing ones — the tools pass `event_type` through unchanged, and `WeightTraining`, `Padel`, `TrailRun`, `Velomobile`, and `Yoga` were all confirmed against the live API to create and read back correctly — so the gap was purely one of discoverability, and it was silent: a model planning a gym session found no strength discipline in the list (`WeightTraining`, `Crossfit`, `HighIntensityIntervalTraining`, `Workout`, `Pilates`, `Yoga` were all absent) and fell back to `Other`, producing an untyped calendar event with no error to signal that a correct value existed. `models.ActivityType` now mirrors the complete enum from `openapi-spec.json`, the event-categories resource renders that list as its single source of truth (and documents the server's 422 `Invalid type` response for values outside it), and the parameter hint keeps a curated common set plus a pointer to the resource — the pattern the `category` parameter already used. A test pins the mirror against the spec, so the weekly OpenAPI sync surfaces enum drift rather than letting the list go stale again. Contributed by @jakuborlowski (#128).
+
 ## [5.0.0] — 2026-08-31
 
 First major since the narrowed SemVer contract, and it drains the whole deferred-breaking-changes
