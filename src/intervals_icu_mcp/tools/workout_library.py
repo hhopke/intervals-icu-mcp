@@ -57,10 +57,12 @@ def _workout_to_dict(workout: Workout) -> dict[str, Any]:
         "type": workout.type,
         "day": workout.day,
         "description": workout.description,
-        "duration_seconds": workout.moving_time,
-        "distance_meters": workout.distance,
-        "training_load": workout.icu_training_load,
-        "intensity_factor": workout.icu_intensity,
+        # Zero metrics are omitted, as in icu_get_workouts_in_folder: the API returns
+        # distance 0.0 for workouts with no distance (live-verified on a Ride).
+        "duration_seconds": workout.moving_time or None,
+        "distance_meters": workout.distance or None,
+        "training_load": workout.icu_training_load or None,
+        "intensity_factor": workout.icu_intensity or None,
         "target": workout.target,
         "indoor": workout.indoor,
         "color": workout.color,

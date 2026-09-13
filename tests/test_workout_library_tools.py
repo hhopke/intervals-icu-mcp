@@ -349,6 +349,34 @@ class TestCreateWorkout:
         assert route.called
         assert json.loads(result)["data"]["id"] == 9
 
+    async def test_zero_metrics_omitted_but_day_zero_kept(self, mock_config, respx_mock):
+        """The API returns distance 0.0 for a Ride; zero metrics drop, day 0 stays."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.post("/athlete/i123456/workouts").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 10,
+                    "name": "Ride",
+                    "folder_id": 7,
+                    "type": "Ride",
+                    "day": 0,
+                    "distance": 0.0,
+                    "moving_time": 1800,
+                    "icu_training_load": 0,
+                },
+            )
+        )
+
+        result = await create_workout(folder_id=7, name="Ride", day=0, ctx=mock_ctx)
+        data = json.loads(result)["data"]
+        assert "distance_meters" not in data
+        assert "training_load" not in data
+        assert data["duration_seconds"] == 1800
+        assert data["day"] == 0
+
     async def test_api_error(self, mock_config, respx_mock):
         mock_ctx = MagicMock()
         mock_ctx.get_state = AsyncMock(return_value=mock_config)
