@@ -1,16 +1,18 @@
 """Workout library tools for Intervals.icu MCP server."""
 
-from typing import Annotated, Any
+import json
+from typing import Annotated, Any, cast
 
 from fastmcp import Context
 
 from ..auth import ICUConfig
 from ..client import ICUAPIError, ICUClient
-from ..models import Workout
+from ..models import Folder, Workout
 from ..response_builder import ResponseBuilder
 from .event_management import ACTIVITY_TYPES_HINT, WORKOUT_SYNTAX_HINT, workout_doc_parse_info
 
 VALID_TARGETS = ("AUTO", "POWER", "HR", "PACE")
+VALID_FOLDER_TYPES = ("FOLDER", "PLAN")
 
 # Library workouts use the same field names as icu_create_event (workout_type standing in
 # for event_type) and are translated to the API's names at the boundary.
@@ -20,6 +22,9 @@ _WORKOUT_FIELD_MAP = {
     "distance_meters": "distance",
     "training_load": "icu_training_load",
 }
+# Raw API names are rejected in bulk payloads rather than passed through, so a payload has
+# exactly one vocabulary — the same rule icu_bulk_create_events enforces.
+_WORKOUT_RAW_FIELDS = {api: friendly for friendly, api in _WORKOUT_FIELD_MAP.items()}
 
 
 def _workout_payload(fields: dict[str, Any]) -> tuple[dict[str, Any], str | None]:
@@ -269,9 +274,10 @@ async def create_workout(
 ) -> str:
     """Save ONE new reusable workout into a LIBRARY folder or training plan — it does not go on the calendar.
 
-    To schedule a workout on a date use icu_create_event. To change a saved
-    workout use icu_update_workout. Put a plan's workouts on the calendar with
-    icu_apply_training_plan.
+    To schedule a workout on a date use icu_create_event. For two or more
+    library workouts use icu_bulk_create_workouts; to change a saved one use
+    icu_update_workout. Make a new folder or plan with icu_create_workout_folder,
+    and put a plan's workouts on the calendar with icu_apply_training_plan.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
@@ -408,6 +414,166 @@ async def delete_workout(
                 data={"deleted": deleted, "deleted_count": len(deleted)},
                 query_type="delete_workout",
                 metadata={"message": f"Deleted workout {workout_id} from the library"},
+            )
+
+    except ICUAPIError as e:
+        return ResponseBuilder.build_error_response(e.message, error_type="api_error")
+    except Exception as e:
+        return ResponseBuilder.build_error_response(
+            f"Unexpected error: {str(e)}", error_type="internal_error"
+        )
+
+
+def _bulk_item_payload(item: dict[str, Any]) -> tuple[dict[str, Any], str | None]:
+    """Validate one icu_bulk_create_workouts item and translate it to an API payload.
+
+    JSON items are untyped, so this checks what icu_create_workout's signature
+    enforces (folder_id and name present, day an integer) before the shared
+    _workout_payload translation.
+    """
+    raw = [f for f in _WORKOUT_RAW_FIELDS if f in item]
+    if raw:
+        renames = ", ".join(f"{f} -> {_WORKOUT_RAW_FIELDS[f]}" for f in raw)
+        return {}, f"use the tool field names, not raw Intervals.icu names: {renames}"
+
+    fields = dict(item)
+    # Models reuse icu_create_event's vocabulary; accept event_type as an alias.
+    event_type = fields.pop("event_type", None)
+    if fields.get("workout_type") is None:
+        fields["workout_type"] = event_type
+
+    folder_id = fields.get("folder_id")
+    if not isinstance(folder_id, int) or isinstance(folder_id, bool):
+        return {}, "folder_id is required (integer ID from icu_get_workout_library)"
+    name = fields.get("name")
+    if not isinstance(name, str) or not name.strip():
+        return {}, "name is required"
+    day = fields.get("day")
+    if day is not None and (not isinstance(day, int) or isinstance(day, bool)):
+        return {}, "day must be a non-negative integer (day offset within a plan)"
+    return _workout_payload(fields)
+
+
+def _folder_to_dict(folder: Folder) -> dict[str, Any]:
+    """Build the tool response dict for a created folder or plan."""
+    result: dict[str, Any] = {"id": folder.id, "name": folder.name}
+    if folder.type:
+        result["type"] = folder.type
+    if folder.description:
+        result["description"] = folder.description
+    if folder.num_workouts is not None:
+        result["num_workouts"] = folder.num_workouts
+    return result
+
+
+async def bulk_create_workouts(
+    workouts: Annotated[
+        str,
+        "JSON array of workout objects, each shaped like an icu_create_workout call. "
+        "Required per workout: folder_id, name. Optional: description, workout_type, day, "
+        "duration_seconds, distance_meters, training_load, target, indoor, color, tags. "
+        + WORKOUT_SYNTAX_HINT,
+    ],
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
+    ctx: Context | None = None,
+) -> str:
+    """Save MANY new reusable workouts into LIBRARY folders or plans in one call — e.g. filling out a training plan.
+
+    Each item is shaped like an icu_create_workout call. Nothing lands on the
+    calendar: for dated calendar workouts use icu_bulk_create_events, and to
+    schedule a finished plan use icu_apply_training_plan.
+    """
+    assert ctx is not None
+    config: ICUConfig = await ctx.get_state("config")
+
+    try:
+        parsed: Any = json.loads(workouts)
+    except json.JSONDecodeError as e:
+        return ResponseBuilder.build_error_response(
+            f"Invalid JSON format: {str(e)}", error_type="validation_error"
+        )
+
+    if not isinstance(parsed, list) or not parsed:
+        return ResponseBuilder.build_error_response(
+            "workouts must be a non-empty JSON array", error_type="validation_error"
+        )
+
+    payloads: list[dict[str, Any]] = []
+    for i, item in enumerate(cast(list[Any], parsed)):
+        if not isinstance(item, dict):
+            return ResponseBuilder.build_error_response(
+                f"Workout {i}: must be a JSON object", error_type="validation_error"
+            )
+        payload, error = _bulk_item_payload(cast(dict[str, Any], item))
+        if error:
+            return ResponseBuilder.build_error_response(
+                f"Workout {i}: {error}", error_type="validation_error"
+            )
+        payloads.append(payload)
+
+    try:
+        async with ICUClient(config) as client:
+            created = await client.bulk_create_workouts(payloads, athlete_id=athlete_id)
+
+            return ResponseBuilder.build_response(
+                data={"workouts": [_workout_to_dict(w) for w in created]},
+                query_type="bulk_create_workouts",
+                metadata={
+                    "message": f"Saved {len(created)} workouts to the library",
+                    "count": len(created),
+                },
+            )
+
+    except ICUAPIError as e:
+        return ResponseBuilder.build_error_response(e.message, error_type="api_error")
+    except Exception as e:
+        return ResponseBuilder.build_error_response(
+            f"Unexpected error: {str(e)}", error_type="internal_error"
+        )
+
+
+async def create_workout_folder(
+    name: Annotated[str, "Folder or plan name"],
+    folder_type: Annotated[
+        str,
+        "FOLDER (a plain collection of workouts) or PLAN (a training plan whose workouts "
+        "sit on plan days, schedulable with icu_apply_training_plan)",
+    ] = "FOLDER",
+    description: Annotated[str | None, "Folder or plan description"] = None,
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
+    ctx: Context | None = None,
+) -> str:
+    """Create a new LIBRARY folder or training PLAN to hold workouts — not a calendar item.
+
+    Pass the returned id as folder_id to icu_create_workout or
+    icu_bulk_create_workouts. To browse existing folders use icu_get_workout_library.
+    """
+    assert ctx is not None
+    config: ICUConfig = await ctx.get_state("config")
+
+    if not name.strip():
+        return ResponseBuilder.build_error_response(
+            "name is required", error_type="validation_error"
+        )
+    normalized_type = folder_type.upper()
+    if normalized_type not in VALID_FOLDER_TYPES:
+        return ResponseBuilder.build_error_response(
+            f"Invalid folder_type. Must be one of: {', '.join(VALID_FOLDER_TYPES)}",
+            error_type="validation_error",
+        )
+
+    folder_data: dict[str, Any] = {"name": name, "type": normalized_type}
+    if description:
+        folder_data["description"] = description
+
+    try:
+        async with ICUClient(config) as client:
+            folder = await client.create_workout_folder(folder_data, athlete_id=athlete_id)
+
+            return ResponseBuilder.build_response(
+                data=_folder_to_dict(folder),
+                query_type="create_workout_folder",
+                metadata={"message": f"Created {normalized_type.lower()}: {name}"},
             )
 
     except ICUAPIError as e:

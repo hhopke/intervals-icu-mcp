@@ -6,7 +6,9 @@ from unittest.mock import AsyncMock, MagicMock
 from httpx import Response
 
 from intervals_icu_mcp.tools.workout_library import (
+    bulk_create_workouts,
     create_workout,
+    create_workout_folder,
     delete_workout,
     get_workout_library,
     get_workouts_in_folder,
@@ -470,4 +472,176 @@ class TestDeleteWorkout:
         respx_mock.delete("/athlete/i123456/workouts/999").mock(return_value=Response(404, json={}))
 
         result = await delete_workout(workout_id=999, ctx=mock_ctx)
+        assert json.loads(result)["error"]["type"] == "api_error"
+
+
+class TestBulkCreateWorkouts:
+    async def test_success_with_event_type_alias(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.post("/athlete/i123456/workouts/bulk").mock(
+            return_value=Response(
+                200,
+                json=[
+                    {"id": 1, "name": "Easy", "folder_id": 5, "type": "Ride", "day": 0},
+                    {"id": 2, "name": "Tempo", "folder_id": 5, "type": "Run", "day": 2},
+                ],
+            )
+        )
+
+        payload = [
+            {"folder_id": 5, "name": "Easy", "workout_type": "Ride", "day": 0},
+            {
+                "folder_id": 5,
+                "name": "Tempo",
+                "event_type": "Run",
+                "day": 2,
+                "duration_seconds": 3000,
+            },
+        ]
+        result = await bulk_create_workouts(workouts=json.dumps(payload), ctx=mock_ctx)
+
+        sent = json.loads(route.calls[0].request.content)
+        assert sent[0] == {"folder_id": 5, "name": "Easy", "type": "Ride", "day": 0}
+        assert sent[1] == {
+            "folder_id": 5,
+            "name": "Tempo",
+            "type": "Run",
+            "day": 2,
+            "moving_time": 3000,
+        }
+        response = json.loads(result)
+        assert [w["day"] for w in response["data"]["workouts"]] == [0, 2]
+        assert response["metadata"]["count"] == 2
+
+    async def test_invalid_json(self, mock_config):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        result = await bulk_create_workouts(workouts="not json", ctx=mock_ctx)
+        assert json.loads(result)["error"]["type"] == "validation_error"
+
+    async def test_not_an_array(self, mock_config):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        result = await bulk_create_workouts(workouts='{"name": "X"}', ctx=mock_ctx)
+        assert json.loads(result)["error"]["type"] == "validation_error"
+
+    async def test_missing_name_reports_index(self, mock_config):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        payload = [{"folder_id": 5, "name": "Ok"}, {"folder_id": 5}]
+        result = await bulk_create_workouts(workouts=json.dumps(payload), ctx=mock_ctx)
+        error = json.loads(result)["error"]
+        assert error["type"] == "validation_error"
+        assert error["message"].startswith("Workout 1:")
+        assert "name" in error["message"]
+
+    async def test_missing_folder_id(self, mock_config):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        result = await bulk_create_workouts(workouts='[{"name": "X"}]', ctx=mock_ctx)
+        error = json.loads(result)["error"]
+        assert error["type"] == "validation_error"
+        assert "folder_id" in error["message"]
+
+    async def test_non_integer_day_rejected(self, mock_config):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        payload = [{"folder_id": 5, "name": "X", "day": "monday"}]
+        result = await bulk_create_workouts(workouts=json.dumps(payload), ctx=mock_ctx)
+        assert json.loads(result)["error"]["type"] == "validation_error"
+
+    async def test_raw_api_field_rejected(self, mock_config):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        payload = [{"folder_id": 5, "name": "X", "moving_time": 3600}]
+        result = await bulk_create_workouts(workouts=json.dumps(payload), ctx=mock_ctx)
+        error = json.loads(result)["error"]
+        assert error["type"] == "validation_error"
+        assert "moving_time -> duration_seconds" in error["message"]
+
+    async def test_api_error(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.post("/athlete/i123456/workouts/bulk").mock(return_value=Response(500, json={}))
+
+        result = await bulk_create_workouts(
+            workouts='[{"folder_id": 5, "name": "X"}]', ctx=mock_ctx
+        )
+        assert json.loads(result)["error"]["type"] == "api_error"
+
+
+class TestCreateWorkoutFolder:
+    async def test_success_plan(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.post("/athlete/i123456/folders").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 42,
+                    "name": "Base Build",
+                    "type": "PLAN",
+                    "description": "4 weeks",
+                    "num_workouts": 0,
+                },
+            )
+        )
+
+        result = await create_workout_folder(
+            name="Base Build", folder_type="plan", description="4 weeks", ctx=mock_ctx
+        )
+
+        sent = json.loads(route.calls[0].request.content)
+        assert sent == {"name": "Base Build", "type": "PLAN", "description": "4 weeks"}
+        data = json.loads(result)["data"]
+        assert data == {
+            "id": 42,
+            "name": "Base Build",
+            "type": "PLAN",
+            "description": "4 weeks",
+            "num_workouts": 0,
+        }
+
+    async def test_defaults_to_folder(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.post("/athlete/i123456/folders").mock(
+            return_value=Response(200, json={"id": 43, "name": "Saved", "type": "FOLDER"})
+        )
+
+        await create_workout_folder(name="Saved", ctx=mock_ctx)
+        assert json.loads(route.calls[0].request.content) == {"name": "Saved", "type": "FOLDER"}
+
+    async def test_invalid_folder_type(self, mock_config):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        result = await create_workout_folder(name="X", folder_type="BLOCK", ctx=mock_ctx)
+        assert json.loads(result)["error"]["type"] == "validation_error"
+
+    async def test_blank_name_rejected(self, mock_config):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        result = await create_workout_folder(name="  ", ctx=mock_ctx)
+        assert json.loads(result)["error"]["type"] == "validation_error"
+
+    async def test_api_error(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.post("/athlete/i123456/folders").mock(return_value=Response(403, json={}))
+
+        result = await create_workout_folder(name="X", ctx=mock_ctx)
         assert json.loads(result)["error"]["type"] == "api_error"

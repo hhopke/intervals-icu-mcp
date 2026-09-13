@@ -94,7 +94,9 @@ from .tools.sport_settings import (
 )
 from .tools.wellness import get_wellness_data, get_wellness_for_date, update_wellness
 from .tools.workout_library import (
+    bulk_create_workouts,
     create_workout,
+    create_workout_folder,
     delete_workout,
     get_workout_library,
     get_workouts_in_folder,
@@ -541,6 +543,24 @@ if _DELETE_MODE in ("safe", "full"):
             "openWorldHint": True,
         },
     )(delete_workout)
+mcp.tool(
+    name="icu_bulk_create_workouts",
+    annotations={
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": True,
+    },
+)(bulk_create_workouts)
+mcp.tool(
+    name="icu_create_workout_folder",
+    annotations={
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": True,
+    },
+)(create_workout_folder)
 
 # Register gear management tools
 mcp.tool(
@@ -766,8 +786,9 @@ async def workout_syntax_resource() -> str:
 
     Complete specification for writing structured workouts using Intervals.icu
     plain-text format. Use this when creating WORKOUT events via create_event
-    or bulk_create_events, or library workouts via create_workout or
-    update_workout - place the workout text in the 'description' field.
+    or bulk_create_events, or library workouts via create_workout,
+    bulk_create_workouts, or update_workout - place the workout text in the
+    'description' field.
 
     Covers: durations, distances, power/HR/pace targets, zones, ramps, repeats,
     cadence, rest intervals, and text prompts for cycling, running, and swimming.

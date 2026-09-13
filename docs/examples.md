@@ -86,6 +86,7 @@ _Note: The athlete profile resource (`intervals-icu://athlete/profile`) automati
 "What workouts are in my threshold folder?"
 "Save a 3x10min threshold session to my Threshold folder"
 "Make my Recovery Week workout 30 minutes shorter"
+"Build a 4-week sweet-spot training plan in my library"
 ```
 
 ## Gear Management

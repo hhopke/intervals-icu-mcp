@@ -1,6 +1,6 @@
 # Tool, Resource, and Prompt Reference
 
-Complete inventory of everything the Intervals.icu MCP server exposes: up to 65 tools across 11 categories, 4 MCP Resources, and 7 MCP Prompts.
+Complete inventory of everything the Intervals.icu MCP server exposes: up to 67 tools across 11 categories, 4 MCP Resources, and 7 MCP Prompts.
 
 ## Delete Safety Mode
 
@@ -8,9 +8,9 @@ Destructive tools are gated by the optional `INTERVALS_ICU_DELETE_MODE` env var.
 
 | Mode | Registered tools | Events | Activities | Gear | Library workouts | Sport settings | Custom items |
 |---|---|---|---|---|---|---|---|
-| `safe` (default) | 62 | tomorrow or later | ✗ | ✓ | ✓ | ✗ | ✗ |
-| `full` | 65 | any date | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `none` | 58 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| `safe` (default) | 64 | tomorrow or later | ✗ | ✓ | ✓ | ✗ | ✗ |
+| `full` | 67 | any date | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `none` | 60 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 
 In `safe` mode, `icu_delete_event` and `icu_bulk_delete_events` return a uniform envelope showing what was deleted and what was skipped:
 
@@ -162,7 +162,7 @@ The threaded notes/comments shown under an activity — the user's own training 
 | `icu_get_hr_curves`    | Analyze heart rate curves with HR zones                  |
 | `icu_get_pace_curves`  | Analyze running/swimming pace curves with optional GAP   |
 
-### Workout Library (5 tools)
+### Workout Library (7 tools)
 
 | Tool                     | Description                               |
 | ------------------------ | ----------------------------------------- |
@@ -171,6 +171,8 @@ The threaded notes/comments shown under an activity — the user's own training 
 | `icu_create_workout`         | Save a reusable workout to an existing folder or plan (optional plan `day`) |
 | `icu_update_workout`         | Change fields on a library workout (only provided fields are sent) |
 | `icu_delete_workout`         | Delete a library workout *(registered in `safe` and `full` modes)* |
+| `icu_bulk_create_workouts`   | Save multiple library workouts in a single operation (e.g. filling out a plan) |
+| `icu_create_workout_folder`  | Create a new workout folder (`FOLDER`) or training plan (`PLAN`) |
 
 ### Gear Management (6 tools)
 

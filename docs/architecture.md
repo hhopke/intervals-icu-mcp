@@ -90,7 +90,7 @@ Tools are organized into 11 categories in `src/intervals_icu_mcp/tools/`:
 6. **event_management.py** — Create/update/delete events
 7. **performance.py** — Power/HR/pace curves
 8. **curves.py** — HR and pace curve analysis
-9. **workout_library.py** — Browse workout folders and plans; create, update, and delete library workouts
+9. **workout_library.py** — Browse and create workout folders and plans; create, update, and delete library workouts
 10. **gear.py** — Manage gear and reminders
 11. **sport_settings.py** — FTP, FTHR, pace thresholds
 
