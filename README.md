@@ -12,6 +12,7 @@ A Model Context Protocol (MCP) server for Intervals.icu integration. Access your
 [![intervals-icu-mcp MCP server](https://glama.ai/mcp/servers/hhopke/intervals-icu-mcp/badges/score.svg)](https://glama.ai/mcp/servers/hhopke/intervals-icu-mcp)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/hhopke/intervals-icu-mcp/blob/main/LICENSE)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-blue?logo=docker)](https://github.com/hhopke/intervals-icu-mcp/pkgs/container/intervals-icu-mcp)
+[![Sponsor](https://img.shields.io/badge/sponsor-%E2%9D%A4-ff69b4?logo=githubsponsors)](https://github.com/sponsors/hhopke)
 
 ## Overview
 
@@ -254,6 +255,10 @@ See [docs/remote-deployment.md](https://github.com/hhopke/intervals-icu-mcp/blob
 ## Contributing
 
 Issues and pull requests are welcome. Before opening a PR, run `make can-release` locally to match what CI enforces (ruff, pyright, pytest). For new tools, follow the pattern in [`.claude/skills/add-tool/SKILL.md`](https://github.com/hhopke/intervals-icu-mcp/blob/main/.claude/skills/add-tool/SKILL.md) and add a respx-mocked test file alongside the implementation.
+
+## Sponsor
+
+This server is developed and maintained in my spare time, and it's free under the MIT License. If it saves you time or makes your training data more useful, you can support continued development through [GitHub Sponsors](https://github.com/sponsors/hhopke). Sponsorship is entirely optional — bug reports and pull requests help just as much.
 
 ## License
 
