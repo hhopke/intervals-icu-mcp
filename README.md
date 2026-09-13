@@ -252,28 +252,19 @@ See [docs/remote-deployment.md](https://github.com/hhopke/intervals-icu-mcp/blob
 - [Changelog](CHANGELOG.md) — release history
 - [Adding a new tool](https://github.com/hhopke/intervals-icu-mcp/blob/main/.claude/skills/add-tool/SKILL.md) — step-by-step workflow for contributors
 
-## Feedback & Discussion
+## Feedback
 
-**How are you actually using this?** That's the single most useful thing you can tell me — which tools you lean on, what your prompts look like, which part of your training workflow it replaced, and where it gets in your way. Real usage reports shape the roadmap far more than my own guesses do.
+**How are you using this?** Which tools you lean on, what your prompts look like, where it gets in your way — that shapes the roadmap more than my own guesses do.
 
-- [Show and tell](https://github.com/hhopke/intervals-icu-mcp/discussions/categories/show-and-tell) — your setup, your prompts, the analysis you got out of it
-- [Q&A](https://github.com/hhopke/intervals-icu-mcp/discussions/categories/q-a) — anything you're unsure about; no question is too basic
-- [Ideas](https://github.com/hhopke/intervals-icu-mcp/discussions/categories/ideas) — a tool or analysis you wish existed
-- [General](https://github.com/hhopke/intervals-icu-mcp/discussions/categories/general) — everything else, including "this was useful"
-
-Reproducible bugs and concrete feature requests are better as [issues](https://github.com/hhopke/intervals-icu-mcp/issues/new/choose).
+[Show and tell](https://github.com/hhopke/intervals-icu-mcp/discussions/categories/show-and-tell) · [Q&A](https://github.com/hhopke/intervals-icu-mcp/discussions/categories/q-a) · [Ideas](https://github.com/hhopke/intervals-icu-mcp/discussions/categories/ideas) · [General](https://github.com/hhopke/intervals-icu-mcp/discussions/categories/general) — or [open an issue](https://github.com/hhopke/intervals-icu-mcp/issues/new/choose) for a reproducible bug.
 
 ## Contributing
 
-**Contributions are very welcome, and no contribution is too small.** A typo fix, a clearer parameter description, an extra test, a whole new tool category — all of it lands. You do not need to be a Python expert or an MCP expert; several tools here started as a rough PR from someone who just wanted their own use case to work.
-
-Read [CONTRIBUTING.md](https://github.com/hhopke/intervals-icu-mcp/blob/main/CONTRIBUTING.md) for the full workflow. The short version: run `make can-release` locally to match what CI enforces (ruff, pyright, pytest), and for new tools follow the pattern in [`.claude/skills/add-tool/SKILL.md`](https://github.com/hhopke/intervals-icu-mcp/blob/main/.claude/skills/add-tool/SKILL.md) with a respx-mocked test alongside the implementation. Don't touch `CHANGELOG.md` — that's maintained at merge time.
-
-New here? [Good first issues](https://github.com/hhopke/intervals-icu-mcp/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) are scoped to be a gentle landing, and an unfinished PR you open as a draft is a perfectly good way to ask for help.
+**Contributions are very welcome, and none is too small** — a typo, a clearer parameter description, an extra test, a whole new tool. No Python or MCP expertise assumed. See [CONTRIBUTING.md](https://github.com/hhopke/intervals-icu-mcp/blob/main/CONTRIBUTING.md); in short, run `make can-release` before opening a PR. [Good first issues](https://github.com/hhopke/intervals-icu-mcp/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) are a gentle place to start.
 
 ## Sponsor
 
-This server is developed and maintained in my spare time, and it's free under the MIT License. If it saves you time or makes your training data more useful, you can support continued development through [GitHub Sponsors](https://github.com/sponsors/hhopke). Sponsorship is entirely optional — bug reports and pull requests help just as much.
+Free under the MIT License, maintained in my spare time. If it's useful to you, [GitHub Sponsors](https://github.com/sponsors/hhopke) supports continued development — entirely optional, and feedback or a PR helps just as much.
 
 ## License
 

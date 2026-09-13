@@ -2,13 +2,13 @@ blank_issues_enabled: false
 contact_links:
   - name: Share how you're using it
     url: https://github.com/hhopke/intervals-icu-mcp/discussions/categories/show-and-tell
-    about: Using this server in your training workflow? Tell us about your setup, your prompts, and what you got out of it. Usage reports shape the roadmap more than anything else.
+    about: Which tools you lean on, what your prompts look like, where it gets in your way.
   - name: Questions & general discussion
     url: https://github.com/hhopke/intervals-icu-mcp/discussions/categories/q-a
-    about: Not sure whether something is a bug, or just want to ask how to do something? Start here — no question is too basic.
-  - name: Ideas & half-formed feature thoughts
+    about: Not sure it's a bug, or just want to ask how to do something? Start here.
+  - name: Ideas
     url: https://github.com/hhopke/intervals-icu-mcp/discussions/categories/ideas
-    about: For a tool or analysis you wish existed but haven't fully specified yet. Concrete, well-scoped requests are better as a Feature request issue.
+    about: A tool or analysis you wish existed, even half-formed.
   - name: Intervals.icu API questions
     url: https://forum.intervals.icu/
     about: For questions about the Intervals.icu API itself, ask on the official Intervals.icu forum. This tracker is only for issues with the MCP server.
