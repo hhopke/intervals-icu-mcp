@@ -472,6 +472,11 @@ class Workout(BaseModel):
     indoor: bool | None = None
     color: str | None = None
     type: str | None = None
+    day: int | None = None  # Day offset within a PLAN folder
+    target: str | None = None
+    tags: list[str] | None = None
+    # Parsed structured-workout doc; `steps` is empty when the description did not parse.
+    workout_doc: dict[str, Any] | None = None
 
     model_config = ConfigDict(populate_by_name=True)
 

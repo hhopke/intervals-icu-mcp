@@ -31,10 +31,10 @@ class TestInMemoryTransport:
             assert client.is_connected()
 
     async def test_all_default_mode_tools_registered(self):
-        """Default delete_mode=safe registers 59 tools (3 destructive tools gated)."""
+        """Default delete_mode=safe registers 62 tools (3 destructive tools gated)."""
         async with Client(mcp) as client:
             tools = await client.list_tools()
-            assert len(tools) == 59
+            assert len(tools) == 62
             names = {t.name for t in tools}
             # Spot-check tools from different modules / tiers
             assert "icu_get_recent_activities" in names
@@ -66,7 +66,12 @@ class TestInMemoryTransport:
         """MCP tool annotations communicate risk to the LLM."""
         async with Client(mcp) as client:
             tools = await client.list_tools()
-            destructive_names = {"icu_delete_activity", "icu_delete_event", "icu_delete_gear"}
+            destructive_names = {
+                "icu_delete_activity",
+                "icu_delete_event",
+                "icu_delete_gear",
+                "icu_delete_workout",
+            }
             for tool in tools:
                 if tool.name in destructive_names:
                     assert tool.annotations is not None
@@ -202,5 +207,5 @@ class TestHTTPTransport:
                 tools_body = (await tools_resp.aread()).decode()
                 tools_payload = self._parse_sse_response(tools_body)
                 tool_names = {t["name"] for t in tools_payload["result"]["tools"]}
-                assert len(tool_names) == 59  # safe mode default
+                assert len(tool_names) == 62  # safe mode default
                 assert "icu_get_recent_activities" in tool_names

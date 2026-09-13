@@ -76,6 +76,7 @@ class TestConditionalRegistration:
         assert "icu_delete_event" in names
         assert "icu_bulk_delete_events" in names
         assert "icu_delete_gear" in names
+        assert "icu_delete_workout" in names
         assert "icu_delete_activity" not in names
         assert "icu_delete_sport_settings" not in names
         assert "icu_delete_custom_item" not in names
@@ -87,6 +88,7 @@ class TestConditionalRegistration:
             "icu_delete_event",
             "icu_bulk_delete_events",
             "icu_delete_gear",
+            "icu_delete_workout",
             "icu_delete_activity",
             "icu_delete_sport_settings",
             "icu_delete_custom_item",
@@ -100,6 +102,7 @@ class TestConditionalRegistration:
             "icu_delete_event",
             "icu_bulk_delete_events",
             "icu_delete_gear",
+            "icu_delete_workout",
             "icu_delete_activity",
             "icu_delete_sport_settings",
             "icu_delete_custom_item",
