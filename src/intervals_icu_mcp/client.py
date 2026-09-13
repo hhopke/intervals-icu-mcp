@@ -987,6 +987,45 @@ class ICUClient:
         result: list[int] = response.json()
         return result
 
+    async def bulk_create_workouts(
+        self,
+        workouts_data: list[dict[str, Any]],
+        athlete_id: str | None = None,
+    ) -> list[Workout]:
+        """Create multiple library workouts in a single request.
+
+        Args:
+            workouts_data: List of workout data dictionaries (each must include folder_id)
+            athlete_id: Athlete ID (uses config default if not provided)
+
+        Returns:
+            List of created Workout objects
+        """
+        athlete_id = athlete_id or self.config.intervals_icu_athlete_id
+        response = await self._request(
+            "POST", f"/athlete/{athlete_id}/workouts/bulk", json=workouts_data
+        )
+        adapter = TypeAdapter(list[Workout])
+        return adapter.validate_python(response.json())
+
+    async def create_workout_folder(
+        self,
+        folder_data: dict[str, Any],
+        athlete_id: str | None = None,
+    ) -> Folder:
+        """Create a workout folder or training plan.
+
+        Args:
+            folder_data: Folder data dictionary (name, type FOLDER/PLAN, description)
+            athlete_id: Athlete ID (uses config default if not provided)
+
+        Returns:
+            Created Folder object
+        """
+        athlete_id = athlete_id or self.config.intervals_icu_athlete_id
+        response = await self._request("POST", f"/athlete/{athlete_id}/folders", json=folder_data)
+        return Folder(**response.json())
+
     # ==================== Event Write Operations ====================
 
     async def create_event(

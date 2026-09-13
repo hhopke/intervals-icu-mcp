@@ -486,6 +486,7 @@ class Folder(BaseModel):
 
     id: int
     athlete_id: str | None = Field(None, alias="athlete_id")
+    type: str | None = None  # FOLDER or PLAN
     name: str | None = None
     description: str | None = None
     num_workouts: int | None = Field(None, alias="num_workouts")
