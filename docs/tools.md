@@ -1,16 +1,16 @@
 # Tool, Resource, and Prompt Reference
 
-Complete inventory of everything the Intervals.icu MCP server exposes: up to 62 tools across 11 categories, 4 MCP Resources, and 7 MCP Prompts.
+Complete inventory of everything the Intervals.icu MCP server exposes: up to 67 tools across 11 categories, 4 MCP Resources, and 7 MCP Prompts.
 
 ## Delete Safety Mode
 
 Destructive tools are gated by the optional `INTERVALS_ICU_DELETE_MODE` env var. The gate sits **outside the model's reach** — tools that aren't registered cannot be invoked by any prompt or parameter.
 
-| Mode | Registered tools | Events | Activities | Gear | Sport settings | Custom items |
-|---|---|---|---|---|---|---|
-| `safe` (default) | 59 | tomorrow or later | ✗ | ✓ | ✗ | ✗ |
-| `full` | 62 | any date | ✓ | ✓ | ✓ | ✓ |
-| `none` | 56 | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Mode | Registered tools | Events | Activities | Gear | Library workouts | Sport settings | Custom items |
+|---|---|---|---|---|---|---|---|
+| `safe` (default) | 64 | tomorrow or later | ✗ | ✓ | ✓ | ✗ | ✗ |
+| `full` | 67 | any date | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `none` | 60 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 
 In `safe` mode, `icu_delete_event` and `icu_bulk_delete_events` return a uniform envelope showing what was deleted and what was skipped:
 
@@ -45,6 +45,8 @@ Set the mode in your client config alongside the credentials:
 **Why today is treated as past:** Safe mode only deletes events dated *strictly after today* in the server's local timezone. The one-day buffer absorbs server-vs-athlete TZ skew. If you run the server in Docker (defaults to UTC) and live in a different timezone, set the container's `TZ` env var to match your athlete profile (e.g., `TZ=Europe/Berlin`) so "today" lines up.
 
 **Why sport settings and custom items are full-only:** Sport-settings deletion shifts retroactive chart math (current FTP/zones drive past activity calculations on Intervals.icu, so deleting them re-renders historical training load). Custom items can be data-bearing fields whose values are stored across activities. Neither is recoverable by re-creating the deleted record.
+
+**Why library workouts are allowed in safe mode:** A library workout is a reusable template. Deleting one leaves calendar events (including ones created from it by `icu_apply_training_plan`) and recorded activities untouched, and the template can be rebuilt from its workout text — the same low-stakes profile as gear.
 
 ## Tools
 
@@ -160,12 +162,17 @@ The threaded notes/comments shown under an activity — the user's own training 
 | `icu_get_hr_curves`    | Analyze heart rate curves with HR zones                  |
 | `icu_get_pace_curves`  | Analyze running/swimming pace curves with optional GAP   |
 
-### Workout Library (2 tools)
+### Workout Library (7 tools)
 
 | Tool                     | Description                               |
 | ------------------------ | ----------------------------------------- |
 | `icu_get_workout_library`    | Browse workout folders and training plans |
-| `icu_get_workouts_in_folder` | View all workouts in a specific folder    |
+| `icu_get_workouts_in_folder` | View all workouts in a specific folder (includes plan `day`) |
+| `icu_create_workout`         | Save a reusable workout to an existing folder or plan (optional plan `day`) |
+| `icu_update_workout`         | Change fields on a library workout (only provided fields are sent) |
+| `icu_delete_workout`         | Delete a library workout *(registered in `safe` and `full` modes)* |
+| `icu_bulk_create_workouts`   | Save multiple library workouts in a single operation (e.g. filling out a plan) |
+| `icu_create_workout_folder`  | Create a new workout folder (`FOLDER`) or training plan (`PLAN`) |
 
 ### Gear Management (6 tools)
 

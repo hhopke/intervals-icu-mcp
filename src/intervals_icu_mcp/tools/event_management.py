@@ -203,18 +203,30 @@ def _swim_work_lacks_intensity(steps: list[Any]) -> bool:
 
 
 def _workout_parse_info(event: Event) -> dict[str, Any] | None:
-    """Echo whether a WORKOUT `description` parsed into a structured workout.
+    """Parse signal for a calendar event; None for non-WORKOUT categories."""
+    if event.category != "WORKOUT":
+        return None
+    return workout_doc_parse_info(event.description, event.workout_doc, event.type)
+
+
+def workout_doc_parse_info(
+    description: str | None,
+    workout_doc: dict[str, Any] | None,
+    sport_type: str | None,
+) -> dict[str, Any] | None:
+    """Echo whether a workout `description` parsed into a structured workout.
 
     Intervals.icu always returns a workout_doc object, but its `steps` list is
     empty when the description could not be parsed (prose, or a non-native format
     a model invented). Surfacing this lets the caller tell a real structured
     workout — one that syncs to devices and gets a computed load — from free text
-    stored verbatim, instead of a silent "success". Returns None for non-WORKOUT
-    events or WORKOUT events with no description (nothing to parse).
+    stored verbatim, instead of a silent "success". Shared by WORKOUT calendar
+    events and library workouts, which parse the same syntax. Returns None when
+    there is no description (nothing to parse).
     """
-    if event.category != "WORKOUT" or not event.description:
+    if not description:
         return None
-    doc: dict[str, Any] = event.workout_doc or {}
+    doc: dict[str, Any] = workout_doc or {}
     steps: list[Any] = doc.get("steps") or []
     if steps:
         info: dict[str, Any] = {
@@ -226,7 +238,7 @@ def _workout_parse_info(event: Event) -> dict[str, Any] | None:
         # targets load fine off swim FTHR. Key on whether the *work* steps carry an
         # intensity target rather than on total load — a warmup pace zone or a stray
         # misapplied zone can leave a token load on an otherwise intensity-less set.
-        if event.type == "Swim" and _swim_work_lacks_intensity(steps):
+        if sport_type == "Swim" and _swim_work_lacks_intensity(steps):
             info["workout_load_hint"] = (
                 "Swim parsed but its work steps have no recognized pace or HR target, "
                 "so it gets no meaningful training load. Common causes: the words "

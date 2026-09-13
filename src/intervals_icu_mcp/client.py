@@ -928,6 +928,104 @@ class ICUClient:
         workouts = adapter.validate_python(response.json())
         return [w for w in workouts if w.folder_id == folder_id]
 
+    async def create_workout(
+        self,
+        workout_data: dict[str, Any],
+        athlete_id: str | None = None,
+    ) -> Workout:
+        """Create a workout in a library folder or training plan.
+
+        Args:
+            workout_data: Workout data dictionary (must include folder_id)
+            athlete_id: Athlete ID (uses config default if not provided)
+
+        Returns:
+            Created Workout object
+        """
+        athlete_id = athlete_id or self.config.intervals_icu_athlete_id
+        response = await self._request("POST", f"/athlete/{athlete_id}/workouts", json=workout_data)
+        return Workout(**response.json())
+
+    async def update_workout(
+        self,
+        workout_id: int,
+        workout_data: dict[str, Any],
+        athlete_id: str | None = None,
+    ) -> Workout:
+        """Update an existing library workout.
+
+        Args:
+            workout_id: Workout ID
+            workout_data: Updated workout data dictionary
+            athlete_id: Athlete ID (uses config default if not provided)
+
+        Returns:
+            Updated Workout object
+        """
+        athlete_id = athlete_id or self.config.intervals_icu_athlete_id
+        response = await self._request(
+            "PUT", f"/athlete/{athlete_id}/workouts/{workout_id}", json=workout_data
+        )
+        return Workout(**response.json())
+
+    async def delete_workout(
+        self,
+        workout_id: int,
+        athlete_id: str | None = None,
+    ) -> list[int]:
+        """Delete a library workout.
+
+        Args:
+            workout_id: Workout ID
+            athlete_id: Athlete ID (uses config default if not provided)
+
+        Returns:
+            IDs of the deleted workout(s)
+        """
+        athlete_id = athlete_id or self.config.intervals_icu_athlete_id
+        response = await self._request("DELETE", f"/athlete/{athlete_id}/workouts/{workout_id}")
+        result: list[int] = response.json()
+        return result
+
+    async def bulk_create_workouts(
+        self,
+        workouts_data: list[dict[str, Any]],
+        athlete_id: str | None = None,
+    ) -> list[Workout]:
+        """Create multiple library workouts in a single request.
+
+        Args:
+            workouts_data: List of workout data dictionaries (each must include folder_id)
+            athlete_id: Athlete ID (uses config default if not provided)
+
+        Returns:
+            List of created Workout objects
+        """
+        athlete_id = athlete_id or self.config.intervals_icu_athlete_id
+        response = await self._request(
+            "POST", f"/athlete/{athlete_id}/workouts/bulk", json=workouts_data
+        )
+        adapter = TypeAdapter(list[Workout])
+        return adapter.validate_python(response.json())
+
+    async def create_workout_folder(
+        self,
+        folder_data: dict[str, Any],
+        athlete_id: str | None = None,
+    ) -> Folder:
+        """Create a workout folder or training plan.
+
+        Args:
+            folder_data: Folder data dictionary (name, type FOLDER/PLAN, description)
+            athlete_id: Athlete ID (uses config default if not provided)
+
+        Returns:
+            Created Folder object
+        """
+        athlete_id = athlete_id or self.config.intervals_icu_athlete_id
+        response = await self._request("POST", f"/athlete/{athlete_id}/folders", json=folder_data)
+        return Folder(**response.json())
+
     # ==================== Event Write Operations ====================
 
     async def create_event(
