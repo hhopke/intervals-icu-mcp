@@ -252,9 +252,24 @@ See [docs/remote-deployment.md](https://github.com/hhopke/intervals-icu-mcp/blob
 - [Changelog](CHANGELOG.md) — release history
 - [Adding a new tool](https://github.com/hhopke/intervals-icu-mcp/blob/main/.claude/skills/add-tool/SKILL.md) — step-by-step workflow for contributors
 
+## Feedback & Discussion
+
+**How are you actually using this?** That's the single most useful thing you can tell me — which tools you lean on, what your prompts look like, which part of your training workflow it replaced, and where it gets in your way. Real usage reports shape the roadmap far more than my own guesses do.
+
+- [Show and tell](https://github.com/hhopke/intervals-icu-mcp/discussions/categories/show-and-tell) — your setup, your prompts, the analysis you got out of it
+- [Q&A](https://github.com/hhopke/intervals-icu-mcp/discussions/categories/q-a) — anything you're unsure about; no question is too basic
+- [Ideas](https://github.com/hhopke/intervals-icu-mcp/discussions/categories/ideas) — a tool or analysis you wish existed
+- [General](https://github.com/hhopke/intervals-icu-mcp/discussions/categories/general) — everything else, including "this was useful"
+
+Reproducible bugs and concrete feature requests are better as [issues](https://github.com/hhopke/intervals-icu-mcp/issues/new/choose).
+
 ## Contributing
 
-Issues and pull requests are welcome. Before opening a PR, run `make can-release` locally to match what CI enforces (ruff, pyright, pytest). For new tools, follow the pattern in [`.claude/skills/add-tool/SKILL.md`](https://github.com/hhopke/intervals-icu-mcp/blob/main/.claude/skills/add-tool/SKILL.md) and add a respx-mocked test file alongside the implementation.
+**Contributions are very welcome, and no contribution is too small.** A typo fix, a clearer parameter description, an extra test, a whole new tool category — all of it lands. You do not need to be a Python expert or an MCP expert; several tools here started as a rough PR from someone who just wanted their own use case to work.
+
+Read [CONTRIBUTING.md](https://github.com/hhopke/intervals-icu-mcp/blob/main/CONTRIBUTING.md) for the full workflow. The short version: run `make can-release` locally to match what CI enforces (ruff, pyright, pytest), and for new tools follow the pattern in [`.claude/skills/add-tool/SKILL.md`](https://github.com/hhopke/intervals-icu-mcp/blob/main/.claude/skills/add-tool/SKILL.md) with a respx-mocked test alongside the implementation. Don't touch `CHANGELOG.md` — that's maintained at merge time.
+
+New here? [Good first issues](https://github.com/hhopke/intervals-icu-mcp/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) are scoped to be a gentle landing, and an unfinished PR you open as a draft is a perfectly good way to ask for help.
 
 ## Sponsor
 
