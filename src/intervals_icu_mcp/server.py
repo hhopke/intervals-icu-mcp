@@ -93,7 +93,13 @@ from .tools.sport_settings import (
     update_sport_settings,
 )
 from .tools.wellness import get_wellness_data, get_wellness_for_date, update_wellness
-from .tools.workout_library import get_workout_library, get_workouts_in_folder
+from .tools.workout_library import (
+    create_workout,
+    delete_workout,
+    get_workout_library,
+    get_workouts_in_folder,
+    update_workout,
+)
 
 # Register activity tools
 mcp.tool(
@@ -507,6 +513,34 @@ mcp.tool(
         "openWorldHint": True,
     },
 )(get_workouts_in_folder)
+mcp.tool(
+    name="icu_create_workout",
+    annotations={
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": True,
+    },
+)(create_workout)
+mcp.tool(
+    name="icu_update_workout",
+    annotations={
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+)(update_workout)
+if _DELETE_MODE in ("safe", "full"):
+    mcp.tool(
+        name="icu_delete_workout",
+        annotations={
+            "readOnlyHint": False,
+            "destructiveHint": True,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        },
+    )(delete_workout)
 
 # Register gear management tools
 mcp.tool(
@@ -732,7 +766,8 @@ async def workout_syntax_resource() -> str:
 
     Complete specification for writing structured workouts using Intervals.icu
     plain-text format. Use this when creating WORKOUT events via create_event
-    or bulk_create_events - place the workout text in the 'description' field.
+    or bulk_create_events, or library workouts via create_workout or
+    update_workout - place the workout text in the 'description' field.
 
     Covers: durations, distances, power/HR/pace targets, zones, ramps, repeats,
     cadence, rest intervals, and text prompts for cycling, running, and swimming.

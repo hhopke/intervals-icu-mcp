@@ -6,8 +6,11 @@ from unittest.mock import AsyncMock, MagicMock
 from httpx import Response
 
 from intervals_icu_mcp.tools.workout_library import (
+    create_workout,
+    delete_workout,
     get_workout_library,
     get_workouts_in_folder,
+    update_workout,
 )
 
 
@@ -212,3 +215,259 @@ class TestGetWorkoutsInFolder:
         result = await get_workouts_in_folder(folder_id=1, ctx=mock_ctx)
         response = json.loads(result)
         assert response["error"]["type"] == "api_error"
+
+    async def test_plan_day_emitted(self, mock_config, respx_mock):
+        """Plan workouts expose their day offset; day 0 is kept, not dropped as falsy."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.get("/athlete/i123456/workouts").mock(
+            return_value=Response(
+                200,
+                json=[
+                    {"id": 1, "name": "Day one", "folder_id": 5, "day": 0},
+                    {"id": 2, "name": "Week two", "folder_id": 5, "day": 7},
+                ],
+            )
+        )
+
+        result = await get_workouts_in_folder(folder_id=5, ctx=mock_ctx)
+        workouts = json.loads(result)["data"]["workouts"]
+        assert [w["day"] for w in workouts] == [0, 7]
+
+
+class TestCreateWorkout:
+    async def test_success_translates_fields_and_echoes_parse(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        steps_text = "Main 3x\n- 10m 95%\n- 5m 55%"
+        route = respx_mock.post("/athlete/i123456/workouts").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 500,
+                    "name": "Threshold 3x10",
+                    "folder_id": 7,
+                    "type": "Ride",
+                    "day": 3,
+                    "description": steps_text,
+                    "moving_time": 2700,
+                    "icu_training_load": 60,
+                    "target": "POWER",
+                    "tags": ["threshold"],
+                    "workout_doc": {
+                        "steps": [{"reps": 3, "steps": [{"duration": 600}, {"duration": 300}]}]
+                    },
+                },
+            )
+        )
+
+        result = await create_workout(
+            folder_id=7,
+            name="Threshold 3x10",
+            description=steps_text,
+            workout_type="Ride",
+            day=3,
+            duration_seconds=2700,
+            target="power",
+            tags=["threshold"],
+            ctx=mock_ctx,
+        )
+
+        sent = json.loads(route.calls[0].request.content)
+        assert sent == {
+            "folder_id": 7,
+            "name": "Threshold 3x10",
+            "description": steps_text,
+            "type": "Ride",
+            "day": 3,
+            "moving_time": 2700,
+            "target": "POWER",
+            "tags": ["threshold"],
+        }
+        data = json.loads(result)["data"]
+        assert data["id"] == 500
+        assert data["folder_id"] == 7
+        assert data["day"] == 3
+        assert data["duration_seconds"] == 2700
+        assert data["training_load"] == 60
+        assert data["tags"] == ["threshold"]
+        assert data["workout_parsed"] is True
+        assert data["workout_steps"] == 6
+
+    async def test_unparsed_description_flagged(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.post("/athlete/i123456/workouts").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 501,
+                    "name": "Prose",
+                    "folder_id": 7,
+                    "description": "do some hard efforts",
+                    "workout_doc": {"steps": []},
+                },
+            )
+        )
+
+        result = await create_workout(
+            folder_id=7, name="Prose", description="do some hard efforts", ctx=mock_ctx
+        )
+        data = json.loads(result)["data"]
+        assert data["workout_parsed"] is False
+        assert "workout_parse_hint" in data
+
+    async def test_invalid_target_rejected(self, mock_config):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        result = await create_workout(folder_id=7, name="X", target="WATTS", ctx=mock_ctx)
+        response = json.loads(result)
+        assert response["error"]["type"] == "validation_error"
+        assert "target" in response["error"]["message"]
+
+    async def test_negative_day_rejected(self, mock_config):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        result = await create_workout(folder_id=7, name="X", day=-1, ctx=mock_ctx)
+        response = json.loads(result)
+        assert response["error"]["type"] == "validation_error"
+
+    async def test_athlete_id_override(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.post("/athlete/i999/workouts").mock(
+            return_value=Response(200, json={"id": 9, "name": "X", "folder_id": 7})
+        )
+
+        result = await create_workout(folder_id=7, name="X", athlete_id="i999", ctx=mock_ctx)
+        assert route.called
+        assert json.loads(result)["data"]["id"] == 9
+
+    async def test_zero_metrics_omitted_but_day_zero_kept(self, mock_config, respx_mock):
+        """The API returns distance 0.0 for a Ride; zero metrics drop, day 0 stays."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.post("/athlete/i123456/workouts").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 10,
+                    "name": "Ride",
+                    "folder_id": 7,
+                    "type": "Ride",
+                    "day": 0,
+                    "distance": 0.0,
+                    "moving_time": 1800,
+                    "icu_training_load": 0,
+                },
+            )
+        )
+
+        result = await create_workout(folder_id=7, name="Ride", day=0, ctx=mock_ctx)
+        data = json.loads(result)["data"]
+        assert "distance_meters" not in data
+        assert "training_load" not in data
+        assert data["duration_seconds"] == 1800
+        assert data["day"] == 0
+
+    async def test_api_error(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.post("/athlete/i123456/workouts").mock(return_value=Response(422, json={}))
+
+        result = await create_workout(folder_id=7, name="X", ctx=mock_ctx)
+        assert json.loads(result)["error"]["type"] == "api_error"
+
+
+class TestUpdateWorkout:
+    async def test_sends_only_provided_fields(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.put("/athlete/i123456/workouts/500").mock(
+            return_value=Response(
+                200,
+                json={"id": 500, "name": "Shorter Recovery", "folder_id": 7, "moving_time": 1800},
+            )
+        )
+
+        result = await update_workout(
+            workout_id=500,
+            name="Shorter Recovery",
+            duration_seconds=1800,
+            target="hr",
+            ctx=mock_ctx,
+        )
+
+        sent = json.loads(route.calls[0].request.content)
+        assert sent == {"name": "Shorter Recovery", "moving_time": 1800, "target": "HR"}
+        data = json.loads(result)["data"]
+        assert data["name"] == "Shorter Recovery"
+        assert data["duration_seconds"] == 1800
+
+    async def test_no_fields_rejected(self, mock_config):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        result = await update_workout(workout_id=500, ctx=mock_ctx)
+        response = json.loads(result)
+        assert response["error"]["type"] == "validation_error"
+        assert "No fields" in response["error"]["message"]
+
+    async def test_invalid_target_rejected(self, mock_config):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        result = await update_workout(workout_id=500, target="WATTS", ctx=mock_ctx)
+        assert json.loads(result)["error"]["type"] == "validation_error"
+
+    async def test_api_error_not_found(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.put("/athlete/i123456/workouts/999").mock(return_value=Response(404, json={}))
+
+        result = await update_workout(workout_id=999, name="X", ctx=mock_ctx)
+        assert json.loads(result)["error"]["type"] == "api_error"
+
+
+class TestDeleteWorkout:
+    async def test_success(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.delete("/athlete/i123456/workouts/500").mock(
+            return_value=Response(200, json=[500])
+        )
+
+        result = await delete_workout(workout_id=500, ctx=mock_ctx)
+        data = json.loads(result)["data"]
+        assert data == {"deleted": [500], "deleted_count": 1}
+
+    async def test_athlete_id_override(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.delete("/athlete/i999/workouts/500").mock(
+            return_value=Response(200, json=[500])
+        )
+
+        await delete_workout(workout_id=500, athlete_id="i999", ctx=mock_ctx)
+        assert route.called
+
+    async def test_api_error_not_found(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.delete("/athlete/i123456/workouts/999").mock(return_value=Response(404, json={}))
+
+        result = await delete_workout(workout_id=999, ctx=mock_ctx)
+        assert json.loads(result)["error"]["type"] == "api_error"
