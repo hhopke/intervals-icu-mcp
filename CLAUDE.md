@@ -130,7 +130,7 @@ Follow SemVer with the narrowed contract defined in the CHANGELOG header. **Majo
 
 Running list of deferred breaking cleanups (do together in the next major; keep this list current as more are found):
 
-- _(empty — the accumulated items were drained in 5.0.0: create/bulk field-name unification, the no-op gear params, and the synthesized curve zone blocks. Add new entries here as they are found.)_
+- Rename `icu_get_upcoming_workouts` → `icu_get_upcoming_workout_events`, and its response key `workouts` → `events`. The tool returns dated **calendar events** of category `WORKOUT`, but its name reads as workout-library content, and the collision got sharper once the library gained `icu_create_workout` / `icu_update_workout` / `icu_delete_workout` (which take a library `workout_id`, not the event ID this tool returns). The description was sharpened in #132 as the non-breaking stopgap; the rename itself needs a major.
 
 ## Important Files
 
