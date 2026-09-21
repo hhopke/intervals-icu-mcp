@@ -1346,3 +1346,111 @@ class TestSwimLoadHint:
             },
         ]
         assert _swim_work_lacks_intensity(steps) is False
+
+
+class TestEventTags:
+    """Tags round-trip through create/update/bulk and back in responses (#16)."""
+
+    @staticmethod
+    def _ctx(mock_config):
+        ctx = MagicMock()
+        ctx.get_state = AsyncMock(return_value=mock_config)
+        return ctx
+
+    @staticmethod
+    def _event_json(**extra):
+        return {
+            "id": 1001,
+            "name": "Sweet Spot",
+            "start_date_local": "2026-03-20",
+            "category": "WORKOUT",
+            **extra,
+        }
+
+    async def test_create_event_sends_and_returns_tags(self, mock_config, respx_mock):
+        route = respx_mock.post("/athlete/i123456/events").mock(
+            return_value=Response(200, json=self._event_json(tags=["sweet-spot", "indoor"]))
+        )
+
+        result = await create_event(
+            start_date="2026-03-20",
+            name="Sweet Spot",
+            category="WORKOUT",
+            tags=["sweet-spot", "indoor"],
+            ctx=self._ctx(mock_config),
+        )
+
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["tags"] == ["sweet-spot", "indoor"]
+        assert json.loads(result)["data"]["tags"] == ["sweet-spot", "indoor"]
+
+    async def test_create_event_omits_tags_when_not_provided(self, mock_config, respx_mock):
+        route = respx_mock.post("/athlete/i123456/events").mock(
+            return_value=Response(200, json=self._event_json())
+        )
+
+        result = await create_event(
+            start_date="2026-03-20",
+            name="Sweet Spot",
+            category="WORKOUT",
+            ctx=self._ctx(mock_config),
+        )
+
+        sent = json.loads(route.calls.last.request.content)
+        assert "tags" not in sent
+        assert "tags" not in json.loads(result)["data"]
+
+    async def test_update_event_tags_alone_is_a_valid_update(self, mock_config, respx_mock):
+        route = respx_mock.put("/athlete/i123456/events/1001").mock(
+            return_value=Response(200, json=self._event_json(tags=["vo2max"]))
+        )
+
+        result = await update_event(event_id=1001, tags=["vo2max"], ctx=self._ctx(mock_config))
+
+        sent = json.loads(route.calls.last.request.content)
+        assert sent == {"tags": ["vo2max"]}
+        assert json.loads(result)["data"]["tags"] == ["vo2max"]
+
+    async def test_update_event_empty_list_is_sent_to_clear_tags(self, mock_config, respx_mock):
+        route = respx_mock.put("/athlete/i123456/events/1001").mock(
+            return_value=Response(200, json=self._event_json(tags=[]))
+        )
+
+        result = await update_event(event_id=1001, tags=[], ctx=self._ctx(mock_config))
+
+        sent = json.loads(route.calls.last.request.content)
+        assert sent == {"tags": []}
+        assert "tags" not in json.loads(result)["data"]
+
+    async def test_update_event_omits_tags_when_not_provided(self, mock_config, respx_mock):
+        route = respx_mock.put("/athlete/i123456/events/1001").mock(
+            return_value=Response(200, json=self._event_json())
+        )
+
+        await update_event(event_id=1001, name="Sweet Spot", ctx=self._ctx(mock_config))
+
+        sent = json.loads(route.calls.last.request.content)
+        assert "tags" not in sent
+
+    async def test_bulk_create_events_passes_tags_through(self, mock_config, respx_mock):
+        route = respx_mock.post("/athlete/i123456/events/bulk").mock(
+            return_value=Response(200, json=[self._event_json(tags=["sweet-spot"])])
+        )
+
+        result = await bulk_create_events(
+            events=json.dumps(
+                [
+                    {
+                        "start_date_local": "2026-03-20",
+                        "name": "Sweet Spot",
+                        "category": "WORKOUT",
+                        "tags": ["sweet-spot"],
+                    }
+                ]
+            ),
+            ctx=self._ctx(mock_config),
+        )
+
+        sent = json.loads(route.calls.last.request.content)
+        assert sent[0]["tags"] == ["sweet-spot"]
+        assert json.loads(result)["data"]["events"][0]["tags"] == ["sweet-spot"]

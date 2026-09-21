@@ -332,3 +332,54 @@ class TestGetEvent:
         result = await get_event(event_id=999, ctx=_make_ctx(mock_config))
         response = json.loads(result)
         assert response["error"]["type"] == "api_error"
+
+
+class TestEventTagsOnRead:
+    """Tags set in the Intervals.icu UI are surfaced by every read tool (#16)."""
+
+    @staticmethod
+    def _event(event_id: int, days: int, **extra):
+        return {
+            "id": event_id,
+            "start_date_local": _date_offset(days),
+            "category": "WORKOUT",
+            "name": f"Workout {event_id}",
+            **extra,
+        }
+
+    async def test_calendar_events_surface_tags(self, mock_config, respx_mock):
+        respx_mock.get("/athlete/i123456/events").mock(
+            return_value=Response(
+                200,
+                json=[self._event(1, 1, tags=["vo2max"]), self._event(2, 2, tags=[])],
+            )
+        )
+
+        result = await get_calendar_events(days_ahead=7, ctx=_make_ctx(mock_config))
+        by_date = json.loads(result)["data"]["events_by_date"]
+
+        assert by_date[_date_offset(1)][0]["tags"] == ["vo2max"]
+        assert "tags" not in by_date[_date_offset(2)][0]
+
+    async def test_upcoming_workouts_surface_tags(self, mock_config, respx_mock):
+        respx_mock.get("/athlete/i123456/events").mock(
+            return_value=Response(
+                200,
+                json=[self._event(1, 1, tags=["vo2max"]), self._event(2, 2)],
+            )
+        )
+
+        result = await get_upcoming_workouts(ctx=_make_ctx(mock_config))
+        workouts = json.loads(result)["data"]["workouts"]
+
+        assert workouts[0]["tags"] == ["vo2max"]
+        assert "tags" not in workouts[1]
+
+    async def test_get_event_surfaces_tags(self, mock_config, respx_mock):
+        respx_mock.get("/athlete/i123456/events/1").mock(
+            return_value=Response(200, json=self._event(1, 1, tags=["vo2max", "indoor"]))
+        )
+
+        result = await get_event(event_id=1, ctx=_make_ctx(mock_config))
+
+        assert json.loads(result)["data"]["tags"] == ["vo2max", "indoor"]
