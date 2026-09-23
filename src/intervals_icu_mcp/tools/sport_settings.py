@@ -1,13 +1,17 @@
 """Sport-specific settings tools for FTP, FTHR, pace thresholds, and zones."""
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastmcp import Context
 
 from ..auth import load_config, validate_credentials
 from ..client import ICUAPIError, ICUClient
 from ..response_builder import ResponseBuilder
-from ..sport_settings_format import build_sport_settings_api_payload, format_sport_settings_entry
+from ..sport_settings_format import (
+    build_sport_settings_api_payload,
+    build_zone_api_payload,
+    format_sport_settings_entry,
+)
 
 
 async def get_sport_settings(
@@ -21,8 +25,8 @@ async def get_sport_settings(
     zones as % of threshold pace) with their names.
 
     This is the ONLY source of the athlete's real zones. Intervals.icu derives them from
-    the threshold and stamps them into every activity at import, so time-in-zone, HRSS and
-    TSS are all computed from these — reasoning about zones from any other number puts the
+    the threshold (unless set explicitly) and stamps them into every activity at import,
+    so time-in-zone, HRSS and TSS are all computed from these — reasoning about zones from any other number puts the
     answer at odds with the athlete's own charts. Zones are not derived from curve data.
     """
     config = load_config()
@@ -70,12 +74,35 @@ async def update_sport_settings(
         float | None, "Swim threshold in min/100m (e.g., 1.5 for 1:30/100m)"
     ] = None,
     recalc_hr_zones: Annotated[
-        bool, "Recalculate HR zones from the updated threshold heart rate"
+        bool,
+        "Rescale HR zones when fthr changes. Explicit lab zones are rescaled too; pass "
+        "false to keep them. Zones sent in the same call are kept either way",
     ] = True,
+    hr_zones: Annotated[
+        list[int] | None,
+        "Explicit HR zone upper bounds in bpm, strictly increasing (e.g. lab VT1/VT2). "
+        "The last bound becomes max_hr",
+    ] = None,
+    hr_zone_names: Annotated[list[str] | None, "One name per hr_zones bound"] = None,
+    max_hr: Annotated[int | None, "Max HR in bpm; must equal the last hr_zones bound"] = None,
+    power_zones_percent_ftp: Annotated[
+        list[int] | None,
+        "Explicit power zone upper bounds as % of FTP (not watts), strictly increasing; "
+        "999 as the last value makes the top zone open-ended",
+    ] = None,
+    power_zone_names: Annotated[
+        list[str] | None, "One name per power_zones_percent_ftp bound"
+    ] = None,
+    sweet_spot_min: Annotated[int | None, "Sweet spot lower bound, % of FTP"] = None,
+    sweet_spot_max: Annotated[int | None, "Sweet spot upper bound, % of FTP"] = None,
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
-    """Update an existing per-sport threshold record (outdoor/indoor FTP, FTHR, pace, swim)."""
+    """Update a per-sport record: FTP, FTHR, pace/swim thresholds, or explicit zone bounds.
+
+    Explicit zones replace the threshold-derived ones (e.g. to match a lab test).
+    Changes apply from now on; past activities keep the zones they were analysed with.
+    """
     config = load_config()
     if not validate_credentials(config):
         return (
@@ -91,6 +118,17 @@ async def update_sport_settings(
                 pace_threshold=pace_threshold,
                 swim_threshold=swim_threshold,
             )
+            settings_data.update(
+                build_zone_api_payload(
+                    hr_zones=hr_zones,
+                    hr_zone_names=hr_zone_names,
+                    max_hr=max_hr,
+                    power_zones_percent_ftp=power_zones_percent_ftp,
+                    power_zone_names=power_zone_names,
+                    sweet_spot_min=sweet_spot_min,
+                    sweet_spot_max=sweet_spot_max,
+                )
+            )
 
             if not settings_data:
                 return ResponseBuilder.build_error_response(
@@ -104,12 +142,20 @@ async def update_sport_settings(
                 recalc_hr_zones=recalc_hr_zones,
             )
 
+            metadata: dict[str, Any] = {
+                "type": "sport_settings_updated",
+                "message": "Sport settings updated successfully",
+            }
+            if max_hr is not None and settings.max_hr != max_hr:
+                # The API overwrites max_hr with the last stored HR bound (live-verified).
+                metadata["warning"] = (
+                    f"max_hr {max_hr} was not kept; Intervals.icu stored {settings.max_hr}, "
+                    "the top of the current HR zones. Send hr_zones ending at the new max_hr."
+                )
+
             return ResponseBuilder.build_response(
                 format_sport_settings_entry(settings, include_zones=True),
-                metadata={
-                    "type": "sport_settings_updated",
-                    "message": "Sport settings updated successfully",
-                },
+                metadata=metadata,
             )
 
     except ValueError as e:

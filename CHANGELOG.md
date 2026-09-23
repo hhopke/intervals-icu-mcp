@@ -14,6 +14,11 @@ that preserve the information (key renames, restructuring, added fields) ship in
 clients. (Releases up to and including 4.0.0 treated any response-shape change as
 breaking; this narrower contract applies from the next release onward.)
 
+## [Unreleased]
+
+### Added
+- `icu_update_sport_settings` can now write explicit zone boundaries: `hr_zones` (bpm), `hr_zone_names`, `max_hr`, `power_zones_percent_ftp`, `power_zone_names`, `sweet_spot_min`, and `sweet_spot_max`. Previously the only way to change zones was to set a threshold and let Intervals.icu derive them as percentages, which cannot put a boundary on a separately measured value such as a lab VT1 — so lab results had to be entered by hand in the web UI. The MCP rejects input the API would mishandle, with errors that name the fix: bounds that are not strictly increasing, a names/bounds count mismatch (the API answers a bare 422), power bounds that look like watts rather than % of FTP, and a `max_hr` that differs from the last HR bound (the API silently overwrites `max_hr` with it). Zones sent in the same call as `fthr` are kept even with `recalc_hr_zones=true`; a *later* `fthr` change with recalculation on rescales them, which the `recalc_hr_zones` description now says. All behaviour live-verified against the API (#137).
+
 ## [5.1.0] — 2026-09-16
 
 ### Added

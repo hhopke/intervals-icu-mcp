@@ -170,3 +170,96 @@ def build_sport_settings_api_payload(
         payload["pace_units"] = "SECS_100M"
         payload["pace_load_type"] = "SWIM"
     return payload
+
+
+# Power zone bounds are % of FTP. Anything above this (bar the open-ended top) is almost
+# certainly a watt value copied from a lab report, which the API would store verbatim.
+_MAX_PLAUSIBLE_POWER_PERCENT = 200
+
+
+def _validate_bounds(name: str, bounds: Sequence[int]) -> None:
+    if not bounds:
+        raise ValueError(f"{name} must contain at least one zone bound")
+    if any(b <= 0 for b in bounds):
+        raise ValueError(f"{name} bounds must be positive")
+    if any(later <= earlier for earlier, later in zip(bounds, bounds[1:], strict=False)):
+        raise ValueError(f"{name} must be strictly increasing upper bounds, got {list(bounds)}")
+
+
+def _validate_names(
+    name: str, names: Sequence[str] | None, bounds_name: str, bounds: Sequence[int] | None
+) -> None:
+    if names is None:
+        return
+    if bounds is None:
+        raise ValueError(f"{name} must be sent together with {bounds_name}")
+    if len(names) != len(bounds):
+        raise ValueError(
+            f"{name} has {len(names)} entries but {bounds_name} has {len(bounds)}; "
+            "give one name per zone"
+        )
+
+
+def build_zone_api_payload(
+    *,
+    hr_zones: Sequence[int] | None = None,
+    hr_zone_names: Sequence[str] | None = None,
+    max_hr: int | None = None,
+    power_zones_percent_ftp: Sequence[int] | None = None,
+    power_zone_names: Sequence[str] | None = None,
+    sweet_spot_min: int | None = None,
+    sweet_spot_max: int | None = None,
+) -> dict[str, Any]:
+    """Validate explicit zone boundaries and convert them to SportSettings JSON fields.
+
+    Live-verified against the API (#137): bounds are stored exactly as sent, zones sent in
+    the same call win over recalcHrZones, a names/bounds count mismatch is a bare 422
+    ("Invalid HR zone names"), and max_hr is silently overwritten by the last HR bound.
+    The checks here turn those into errors that say what to fix.
+    """
+    payload: dict[str, Any] = {}
+
+    if hr_zones is not None:
+        _validate_bounds("hr_zones", hr_zones)
+        payload["hr_zones"] = list(hr_zones)
+    _validate_names("hr_zone_names", hr_zone_names, "hr_zones", hr_zones)
+    if hr_zone_names is not None:
+        payload["hr_zone_names"] = list(hr_zone_names)
+
+    if max_hr is not None:
+        if max_hr <= 0:
+            raise ValueError("max_hr must be positive")
+        if hr_zones is not None and hr_zones[-1] != max_hr:
+            raise ValueError(
+                f"The last hr_zones bound ({hr_zones[-1]}) must equal max_hr ({max_hr}); "
+                "Intervals.icu would otherwise overwrite max_hr with the last bound"
+            )
+        payload["max_hr"] = max_hr
+
+    if power_zones_percent_ftp is not None:
+        bounds = power_zones_percent_ftp
+        _validate_bounds("power_zones_percent_ftp", bounds)
+        capped = bounds[:-1] if bounds[-1] == _UNBOUNDED_ZONE_LIMIT else bounds
+        if any(b > _MAX_PLAUSIBLE_POWER_PERCENT for b in capped):
+            raise ValueError(
+                "power_zones_percent_ftp are % of FTP, not watts; bounds above "
+                f"{_MAX_PLAUSIBLE_POWER_PERCENT} are only allowed as a final "
+                f"{_UNBOUNDED_ZONE_LIMIT} (open-ended top zone)"
+            )
+        payload["power_zones"] = list(bounds)
+    _validate_names(
+        "power_zone_names", power_zone_names, "power_zones_percent_ftp", power_zones_percent_ftp
+    )
+    if power_zone_names is not None:
+        payload["power_zone_names"] = list(power_zone_names)
+
+    if sweet_spot_min is not None and sweet_spot_max is not None:
+        if sweet_spot_min >= sweet_spot_max:
+            raise ValueError("sweet_spot_min must be below sweet_spot_max")
+    for key, value in (("sweet_spot_min", sweet_spot_min), ("sweet_spot_max", sweet_spot_max)):
+        if value is not None:
+            if not 0 < value <= _MAX_PLAUSIBLE_POWER_PERCENT:
+                raise ValueError(f"{key} is % of FTP and must be between 1 and 200")
+            payload[key] = value
+
+    return payload
