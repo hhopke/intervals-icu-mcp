@@ -106,5 +106,5 @@ _Note: The athlete profile resource (`intervals-icu://athlete/profile`) automati
 "Show my current FTP and thresholds for cycling"
 "Set my running threshold pace to 4:30 per kilometer"
 "My lab test put VT1 at 145 bpm and VT2 at 172 — set my Ride HR zones to 130/145/165/172/188"
-"Apply my new threshold settings to historical activities"
+"I entered my HR zones wrong last year — reapply the corrected zones to all my past rides"
 ```

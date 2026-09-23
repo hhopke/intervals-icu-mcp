@@ -171,10 +171,13 @@ async def apply_sport_settings(
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
-    """Recompute training load, zones, and derived metrics on HISTORICAL activities using the current sport settings.
+    """Overwrite the zones on EVERY past activity of this sport with the current settings' zones.
 
-    Different from update_sport_settings (which just stores new values).
-    Use after changing FTP/FTHR/pace to backfill chart math.
+    No date range: all matching activities are rewritten. FTP and other thresholds stored
+    on past activities are kept; for sports with HR zones, LTHR and max HR are updated.
+    Not needed after update_sport_settings — new values already apply to activities from
+    now on, and past ones keep the settings they were analysed with. Use only to correct
+    wrong settings across the whole history.
     """
     config = load_config()
     if not validate_credentials(config):
@@ -257,7 +260,7 @@ async def delete_sport_settings(
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
-    """Permanently delete a per-sport threshold record. Destructive — affects historical chart math; only registered when INTERVALS_ICU_DELETE_MODE=full."""
+    """Permanently delete a per-sport threshold record. Destructive — re-creating it starts from defaults, not the deleted values; only registered when INTERVALS_ICU_DELETE_MODE=full."""
     config = load_config()
     if not validate_credentials(config):
         return (

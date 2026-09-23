@@ -1263,7 +1263,7 @@ class ICUClient:
         sport_id: int,
         athlete_id: str | None = None,
     ) -> dict[str, Any]:
-        """Apply sport settings (zones, thresholds) to historical activities.
+        """Apply the current sport settings' zones to all matching past activities.
 
         Args:
             sport_id: Sport settings ID
