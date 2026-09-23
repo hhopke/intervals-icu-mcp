@@ -190,7 +190,7 @@ The threaded notes/comments shown under an activity — the user's own training 
 | Tool                    | Description                                             |
 | ----------------------- | ------------------------------------------------------- |
 | `icu_get_sport_settings`    | Get per-sport thresholds plus configured power/HR/pace zones |
-| `icu_update_sport_settings` | Update outdoor/indoor FTP, FTHR, or pace/swim thresholds |
+| `icu_update_sport_settings` | Update outdoor/indoor FTP, FTHR, or pace/swim thresholds, or set explicit HR/power zone bounds (e.g. from a lab test) |
 | `icu_apply_sport_settings`  | Overwrite zones on all past activities of a sport with the current zones (no date range) |
 | `icu_create_sport_settings` | Create new sport-specific settings                      |
 | `icu_delete_sport_settings` | Delete sport-specific settings *(only registered when `INTERVALS_ICU_DELETE_MODE=full`; past activities keep their analysed values, but re-creating the record starts from defaults)* |

@@ -308,6 +308,8 @@ def _event_to_dict(event: Event) -> dict[str, Any]:
         result["training_load"] = event.icu_training_load
     if event.training_availability:
         result["training_availability"] = event.training_availability
+    if event.tags:
+        result["tags"] = event.tags
     if event.color:
         result["color"] = event.color
     if event.show_as_note is not None:
@@ -355,6 +357,11 @@ async def create_event(
         str | None,
         "Training availability: NORMAL, LIMITED, or UNAVAILABLE. Typical for "
         "INJURED/SICK/HOLIDAY blocks.",
+    ] = None,
+    tags: Annotated[
+        list[str] | None,
+        "Calendar tags for grouping and filtering, without the leading # "
+        '(e.g. ["sweet-spot", "indoor"])',
     ] = None,
     color: Annotated[str | None, "Custom display color (hex string)"] = None,
     show_as_note: Annotated[bool | None, "Show event as a note marker on the fitness chart"] = None,
@@ -442,6 +449,8 @@ async def create_event(
             event_data["end_date_local"] = end_date
         if normalized_availability is not None:
             event_data["training_availability"] = normalized_availability
+        if tags is not None:
+            event_data["tags"] = tags
         if color is not None:
             event_data["color"] = color
         if show_as_note is not None:
@@ -480,6 +489,11 @@ async def update_event(
     end_date: Annotated[str | None, "Updated end date (YYYY-MM-DD)"] = None,
     training_availability: Annotated[
         str | None, "Updated training availability: NORMAL, LIMITED, or UNAVAILABLE"
+    ] = None,
+    tags: Annotated[
+        list[str] | None,
+        "Replacement tag list, without the leading # — overwrites existing tags, so "
+        "include any to keep. [] clears",
     ] = None,
     color: Annotated[str | None, "Updated color (hex string)"] = None,
     show_as_note: Annotated[bool | None, "Show event as a note on the fitness chart"] = None,
@@ -547,6 +561,8 @@ async def update_event(
             event_data["end_date_local"] = end_date
         if normalized_availability is not None:
             event_data["training_availability"] = normalized_availability
+        if tags is not None:
+            event_data["tags"] = tags
         if color is not None:
             event_data["color"] = color
         if show_as_note is not None:
@@ -649,7 +665,7 @@ async def bulk_create_events(
         "call. Required per event: start_date_local, name, category. Optional: "
         "description, event_type (activity discipline Ride/Run/Swim/…), "
         "duration_seconds, distance_meters, training_load, "
-        "end_date_local, training_availability, color, "
+        "end_date_local, training_availability, tags (no leading #), color, "
         "show_as_note, not_on_fitness_chart, show_on_ctl_line. See "
         "intervals-icu://event-categories for the category enum. " + WORKOUT_SYNTAX_HINT,
     ],

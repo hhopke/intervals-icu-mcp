@@ -475,3 +475,112 @@ class TestSportSettingsTools:
         response = json.loads(result)
         assert "error" in response
         assert "Resource not found" in response["error"]["message"]
+
+
+class TestExplicitZoneWrites:
+    """Explicit zone bounds on icu_update_sport_settings (#137).
+
+    Mocked behaviour mirrors live API checks: bounds are stored as sent, and max_hr is
+    overwritten by the last HR bound.
+    """
+
+    LAB_HR = [130, 145, 165, 172, 188]
+    LAB_HR_NAMES = ["Recovery", "Aerobic", "Tempo", "Threshold", "VO2max"]
+
+    def _mock_put(self, respx_mock, stored: dict):
+        return respx_mock.put("/athlete/i123456/sport-settings/1").mock(
+            return_value=Response(200, json={"id": 1, "types": ["Ride"], **stored})
+        )
+
+    async def test_writes_hr_zones_names_and_max_hr(self, patch_config, respx_mock):
+        route = self._mock_put(
+            respx_mock,
+            {"max_hr": 188, "hr_zones": self.LAB_HR, "hr_zone_names": self.LAB_HR_NAMES},
+        )
+
+        result = await update_sport_settings(
+            sport_id=1, hr_zones=self.LAB_HR, hr_zone_names=self.LAB_HR_NAMES, max_hr=188
+        )
+
+        body = json.loads(route.calls.last.request.content)
+        assert body == {
+            "hr_zones": self.LAB_HR,
+            "hr_zone_names": self.LAB_HR_NAMES,
+            "max_hr": 188,
+        }
+        response = json.loads(result)
+        assert response["data"]["hr_zones"][1] == {
+            "zone": "Z2",
+            "name": "Aerobic",
+            "min_bpm": 131,
+            "max_bpm": 145,
+        }
+        assert "warning" not in response["metadata"]
+
+    async def test_writes_power_zones_under_api_field_names(self, patch_config, respx_mock):
+        route = self._mock_put(respx_mock, {"power_zones": [55, 75, 90, 105, 120, 999]})
+
+        await update_sport_settings(
+            sport_id=1,
+            power_zones_percent_ftp=[55, 75, 90, 105, 120, 999],
+            power_zone_names=["Rec", "Aer", "Tempo", "Thr", "VO2", "Ana"],
+            sweet_spot_min=84,
+            sweet_spot_max=97,
+        )
+
+        body = json.loads(route.calls.last.request.content)
+        assert body == {
+            "power_zones": [55, 75, 90, 105, 120, 999],
+            "power_zone_names": ["Rec", "Aer", "Tempo", "Thr", "VO2", "Ana"],
+            "sweet_spot_min": 84,
+            "sweet_spot_max": 97,
+        }
+
+    async def test_zones_combine_with_threshold_and_keep_recalc_flag(
+        self, patch_config, respx_mock
+    ):
+        """Zones sent with fthr win over recalculation, so recalc is forwarded unchanged."""
+        route = self._mock_put(respx_mock, {"lthr": 172, "hr_zones": self.LAB_HR})
+
+        await update_sport_settings(sport_id=1, fthr=172, hr_zones=self.LAB_HR)
+
+        request = route.calls.last.request
+        assert json.loads(request.content) == {"lthr": 172, "hr_zones": self.LAB_HR}
+        assert request.url.params["recalcHrZones"] == "true"
+
+    async def test_warns_when_api_does_not_keep_max_hr(self, patch_config, respx_mock):
+        self._mock_put(respx_mock, {"max_hr": 188, "hr_zones": self.LAB_HR})
+
+        result = await update_sport_settings(sport_id=1, max_hr=192)
+
+        response = json.loads(result)
+        assert "192" in response["metadata"]["warning"]
+        assert "188" in response["metadata"]["warning"]
+
+    @pytest.mark.parametrize(
+        ("kwargs", "message"),
+        [
+            ({"hr_zones": [130, 145, 145, 188]}, "strictly increasing"),
+            ({"hr_zones": [0, 145]}, "positive"),
+            ({"hr_zones": []}, "at least one"),
+            ({"hr_zones": [130, 188], "hr_zone_names": ["A"]}, "one name per zone"),
+            ({"hr_zone_names": ["A", "B"]}, "together with hr_zones"),
+            ({"hr_zones": [130, 185], "max_hr": 188}, "must equal max_hr"),
+            ({"power_zones_percent_ftp": [150, 205, 245, 999]}, "not watts"),
+            ({"power_zones_percent_ftp": [55, 75, 250]}, "not watts"),
+            ({"power_zone_names": ["A"]}, "together with power_zones_percent_ftp"),
+            ({"sweet_spot_min": 97, "sweet_spot_max": 84}, "below sweet_spot_max"),
+            ({"sweet_spot_min": 250}, "between 1 and 200"),
+        ],
+    )
+    async def test_rejects_invalid_zone_input_without_calling_api(
+        self, patch_config, respx_mock, kwargs, message
+    ):
+        route = self._mock_put(respx_mock, {})
+
+        result = await update_sport_settings(sport_id=1, **kwargs)
+
+        response = json.loads(result)
+        assert response["error"]["type"] == "validation_error"
+        assert message in response["error"]["message"]
+        assert not route.called
