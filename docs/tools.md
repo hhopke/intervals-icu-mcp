@@ -44,7 +44,7 @@ Set the mode in your client config alongside the credentials:
 
 **Why today is treated as past:** Safe mode only deletes events dated *strictly after today* in the server's local timezone. The one-day buffer absorbs server-vs-athlete TZ skew. If you run the server in Docker (defaults to UTC) and live in a different timezone, set the container's `TZ` env var to match your athlete profile (e.g., `TZ=Europe/Berlin`) so "today" lines up.
 
-**Why sport settings and custom items are full-only:** Sport-settings deletion shifts retroactive chart math (current FTP/zones drive past activity calculations on Intervals.icu, so deleting them re-renders historical training load). Custom items can be data-bearing fields whose values are stored across activities. Neither is recoverable by re-creating the deleted record.
+**Why sport settings and custom items are full-only:** Sport-settings deletion removes the thresholds and zones that activities of that sport are analysed against from then on, and re-creating the record starts from defaults rather than restoring them. Custom items can be data-bearing fields whose values are stored across activities. Neither is recoverable by re-creating the deleted record.
 
 **Why library workouts are allowed in safe mode:** A library workout is a reusable template. Deleting one leaves calendar events (including ones created from it by `icu_apply_training_plan`) and recorded activities untouched, and the template can be rebuilt from its workout text — the same low-stakes profile as gear.
 
@@ -191,7 +191,7 @@ The threaded notes/comments shown under an activity — the user's own training 
 | ----------------------- | ------------------------------------------------------- |
 | `icu_get_sport_settings`    | Get per-sport thresholds plus configured power/HR/pace zones |
 | `icu_update_sport_settings` | Update outdoor/indoor FTP, FTHR, or pace/swim thresholds |
-| `icu_apply_sport_settings`  | Recompute historical activity metrics from current sport settings |
+| `icu_apply_sport_settings`  | Overwrite zones on all past activities of a sport with the current zones (no date range) |
 | `icu_create_sport_settings` | Create new sport-specific settings                      |
 | `icu_delete_sport_settings` | Delete sport-specific settings *(only registered when `INTERVALS_ICU_DELETE_MODE=full`; deletion shifts retroactive chart math)* |
 

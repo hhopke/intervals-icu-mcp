@@ -14,6 +14,11 @@ that preserve the information (key renames, restructuring, added fields) ship in
 clients. (Releases up to and including 4.0.0 treated any response-shape change as
 breaking; this narrower contract applies from the next release onward.)
 
+## [Unreleased]
+
+### Fixed
+- `icu_apply_sport_settings` told the model to run it "after changing FTP/FTHR/pace to backfill chart math", and claimed it recomputes training load. Neither is true: it overwrites the zones on *every* past activity of the sport — there is no date range — while FTP and other thresholds stored on those activities are kept. Following the old advice after a new threshold or lab test would rewrite the athlete's whole history with zones that did not exist yet. The description now says what it does and that it is not needed after `icu_update_sport_settings`, whose values apply from now on while past activities keep the settings they were analysed with. Behaviour confirmed against the Intervals.icu web UI's apply dialog (#137).
+
 ## [5.1.0] — 2026-09-16
 
 ### Added
