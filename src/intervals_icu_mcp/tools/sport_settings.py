@@ -177,7 +177,8 @@ async def apply_sport_settings(
     on past activities are kept; for sports with HR zones, LTHR and max HR are updated.
     Not needed after update_sport_settings — new values already apply to activities from
     now on, and past ones keep the settings they were analysed with. Use only to correct
-    wrong settings across the whole history.
+    wrong settings across the whole history. For selected activities or a date range, tell
+    the user to use Update zones in the Intervals.icu activity list view (not in the API).
     """
     config = load_config()
     if not validate_credentials(config):
