@@ -14,6 +14,11 @@ that preserve the information (key renames, restructuring, added fields) ship in
 clients. (Releases up to and including 4.0.0 treated any response-shape change as
 breaking; this narrower contract applies from the next release onward.)
 
+## [Unreleased]
+
+### Fixed
+- `icu_update_sport_settings` was hard to find and its zone parameters read ambiguously, found in a live end-to-end test through Claude. Its description said "per-sport record" and never "sport settings", so a client's tool search for "sport settings" surfaced `icu_apply_sport_settings`, `icu_create_sport_settings` and `icu_delete_sport_settings` but not the update tool; the description now leads with "Update sport settings" and names HR/power zones. `max_hr` now says it is optional alongside `hr_zones` (Intervals.icu takes it from the last bound), and `power_zones_percent_ftp` states the ≤ 200 % limit that was previously only visible in the validation error (#137).
+
 ## [5.2.0] — 2026-09-23
 
 ### Added
