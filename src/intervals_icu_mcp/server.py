@@ -69,6 +69,7 @@ from .tools.event_management import (
     apply_training_plan,
     bulk_create_events,
     bulk_delete_events,
+    bulk_update_event_access,
     create_event,
     delete_event,
     duplicate_events,
@@ -438,6 +439,15 @@ mcp.tool(
         "openWorldHint": True,
     },
 )(bulk_create_events)
+mcp.tool(
+    name="icu_bulk_update_event_access",
+    annotations={
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+)(bulk_update_event_access)
 if _DELETE_MODE in ("safe", "full"):
     mcp.tool(
         name="icu_bulk_delete_events",

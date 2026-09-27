@@ -67,6 +67,8 @@ _Note: The athlete profile resource (`intervals-icu://athlete/profile`) automati
 "Delete the workout on Saturday"
 "Duplicate this week's plan for next week"
 "Create 5 workouts for my build phase"
+"Hide my athlete's workouts for weeks 41 to 43 until I reveal them"   (coach)
+"Lock the FTP test and race-prep sessions so my athlete can't move them"   (coach)
 ```
 
 > **Structured Workouts**: The server includes a complete workout syntax reference (`intervals-icu://workout-syntax`) that enables LLMs to generate valid structured workouts with proper power/HR/pace targets, zones, ramps, repeats, and cadence for cycling, running, and swimming.

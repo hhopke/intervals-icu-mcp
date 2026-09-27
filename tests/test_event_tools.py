@@ -14,6 +14,7 @@ from intervals_icu_mcp.tools.event_management import (
     apply_training_plan,
     bulk_create_events,
     bulk_delete_events,
+    bulk_update_event_access,
     create_event,
     delete_event,
     duplicate_events,
@@ -1454,3 +1455,298 @@ class TestEventTags:
         sent = json.loads(route.calls.last.request.content)
         assert sent[0]["tags"] == ["sweet-spot"]
         assert json.loads(result)["data"]["events"][0]["tags"] == ["sweet-spot"]
+
+
+class TestEventAccessFlags:
+    """hide_from_athlete / athlete_cannot_edit on create, update, bulk create (#142)."""
+
+    @staticmethod
+    def _ctx(mock_config):
+        ctx = MagicMock()
+        ctx.get_state = AsyncMock(return_value=mock_config)
+        return ctx
+
+    @staticmethod
+    def _event_json(**extra):
+        return {
+            "id": 1001,
+            "name": "Threshold",
+            "start_date_local": "2026-10-12T00:00:00",
+            "category": "WORKOUT",
+            "hide_from_athlete": False,
+            "athlete_cannot_edit": False,
+            **extra,
+        }
+
+    async def test_create_event_sends_flags_and_returns_them(self, mock_config, respx_mock):
+        route = respx_mock.post("/athlete/i123456/events").mock(
+            return_value=Response(
+                200, json=self._event_json(hide_from_athlete=True, athlete_cannot_edit=True)
+            )
+        )
+
+        result = await create_event(
+            start_date="2026-10-12",
+            name="Threshold",
+            category="WORKOUT",
+            hide_from_athlete=True,
+            athlete_cannot_edit=True,
+            ctx=self._ctx(mock_config),
+        )
+
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["hide_from_athlete"] is True
+        assert sent["athlete_cannot_edit"] is True
+        data = json.loads(result)["data"]
+        assert data["hide_from_athlete"] is True
+        assert data["athlete_cannot_edit"] is True
+
+    async def test_create_event_omits_flags_when_not_passed(self, mock_config, respx_mock):
+        route = respx_mock.post("/athlete/i123456/events").mock(
+            return_value=Response(200, json=self._event_json())
+        )
+
+        await create_event(
+            start_date="2026-10-12",
+            name="Threshold",
+            category="WORKOUT",
+            ctx=self._ctx(mock_config),
+        )
+
+        sent = json.loads(route.calls.last.request.content)
+        assert "hide_from_athlete" not in sent
+        assert "athlete_cannot_edit" not in sent
+
+    async def test_update_event_single_flag_is_a_valid_update(self, mock_config, respx_mock):
+        route = respx_mock.put("/athlete/i123456/events/1001").mock(
+            return_value=Response(200, json=self._event_json(hide_from_athlete=True))
+        )
+
+        result = await update_event(
+            event_id=1001, hide_from_athlete=True, ctx=self._ctx(mock_config)
+        )
+
+        assert json.loads(route.calls.last.request.content) == {"hide_from_athlete": True}
+        assert json.loads(result)["data"]["hide_from_athlete"] is True
+
+    async def test_update_event_sends_false_to_reveal(self, mock_config, respx_mock):
+        route = respx_mock.put("/athlete/i123456/events/1001").mock(
+            return_value=Response(200, json=self._event_json())
+        )
+
+        await update_event(event_id=1001, hide_from_athlete=False, ctx=self._ctx(mock_config))
+
+        assert json.loads(route.calls.last.request.content) == {"hide_from_athlete": False}
+
+    async def test_bulk_create_passes_flags_through(self, mock_config, respx_mock):
+        route = respx_mock.post("/athlete/i123456/events/bulk").mock(
+            return_value=Response(200, json=[self._event_json(hide_from_athlete=True)])
+        )
+
+        await bulk_create_events(
+            events=json.dumps(
+                [
+                    {
+                        "start_date_local": "2026-10-12",
+                        "name": "Threshold",
+                        "category": "WORKOUT",
+                        "hide_from_athlete": True,
+                    }
+                ]
+            ),
+            ctx=self._ctx(mock_config),
+        )
+
+        sent = json.loads(route.calls.last.request.content)
+        assert sent[0]["hide_from_athlete"] is True
+
+
+class TestBulkUpdateEventAccess:
+    """icu_bulk_update_event_access: WORKOUT-only, partial, per-event results (#142)."""
+
+    @staticmethod
+    def _ctx(mock_config):
+        ctx = MagicMock()
+        ctx.get_state = AsyncMock(return_value=mock_config)
+        return ctx
+
+    @staticmethod
+    def _ev(event_id: int, category: str = "WORKOUT", **extra):
+        return {
+            "id": event_id,
+            "name": f"Event {event_id}",
+            "start_date_local": "2026-10-12T00:00:00",
+            "category": category,
+            "hide_from_athlete": False,
+            "athlete_cannot_edit": False,
+            **extra,
+        }
+
+    def _mock_put(self, respx_mock, event_id: int, **flags):
+        return respx_mock.put(f"/athlete/i123456/events/{event_id}").mock(
+            return_value=Response(200, json=self._ev(event_id, **flags))
+        )
+
+    async def test_range_updates_workouts_and_skips_other_categories(
+        self, mock_config, respx_mock
+    ):
+        list_route = respx_mock.get("/athlete/i123456/events").mock(
+            return_value=Response(
+                200,
+                json=[self._ev(1), self._ev(2, "NOTE"), self._ev(3, "RACE_A"), self._ev(4)],
+            )
+        )
+        put1 = self._mock_put(respx_mock, 1, hide_from_athlete=True)
+        put4 = self._mock_put(respx_mock, 4, hide_from_athlete=True)
+        put_note = self._mock_put(respx_mock, 2)
+        put_race = self._mock_put(respx_mock, 3)
+
+        result = await bulk_update_event_access(
+            oldest="2026-10-05",
+            newest="2026-10-25",
+            hide_from_athlete=True,
+            ctx=self._ctx(mock_config),
+        )
+
+        params = list_route.calls.last.request.url.params
+        assert params["oldest"] == "2026-10-05"
+        assert params["newest"] == "2026-10-25"
+        assert json.loads(put1.calls.last.request.content) == {"hide_from_athlete": True}
+        assert put4.called
+        assert not put_note.called
+        assert not put_race.called
+
+        data = json.loads(result)["data"]
+        assert [u["id"] for u in data["updated"]] == [1, 4]
+        assert data["updated"][0]["hide_from_athlete"] is True
+        assert {s["id"]: s["category"] for s in data["skipped"]} == {2: "NOTE", 3: "RACE_A"}
+        assert data["skipped"][0]["reason"] == "not_workout"
+        assert data["failed_count"] == 0
+
+    async def test_ids_mode_skips_non_workouts(self, mock_config, respx_mock):
+        respx_mock.get("/athlete/i123456/events/1").mock(
+            return_value=Response(200, json=self._ev(1))
+        )
+        respx_mock.get("/athlete/i123456/events/2").mock(
+            return_value=Response(200, json=self._ev(2, "TARGET"))
+        )
+        put1 = self._mock_put(respx_mock, 1, athlete_cannot_edit=True)
+        put2 = self._mock_put(respx_mock, 2)
+
+        result = await bulk_update_event_access(
+            event_ids="[1, 2]", athlete_cannot_edit=True, ctx=self._ctx(mock_config)
+        )
+
+        assert json.loads(put1.calls.last.request.content) == {"athlete_cannot_edit": True}
+        assert not put2.called
+        data = json.loads(result)["data"]
+        assert data["updated_count"] == 1
+        assert data["skipped"][0]["category"] == "TARGET"
+
+    async def test_already_set_events_are_unchanged_without_a_put(
+        self, mock_config, respx_mock
+    ):
+        respx_mock.get("/athlete/i123456/events").mock(
+            return_value=Response(
+                200, json=[self._ev(1, hide_from_athlete=True, athlete_cannot_edit=True)]
+            )
+        )
+        put1 = self._mock_put(respx_mock, 1)
+
+        result = await bulk_update_event_access(
+            oldest="2026-10-12",
+            newest="2026-10-12",
+            hide_from_athlete=True,
+            athlete_cannot_edit=True,
+            ctx=self._ctx(mock_config),
+        )
+
+        assert not put1.called
+        data = json.loads(result)["data"]
+        assert data["unchanged"] == [1]
+        assert data["updated_count"] == 0
+
+    async def test_one_missing_id_fails_and_the_rest_still_update(
+        self, mock_config, respx_mock
+    ):
+        respx_mock.get("/athlete/i123456/events/1").mock(
+            return_value=Response(200, json=self._ev(1))
+        )
+        respx_mock.get("/athlete/i123456/events/99").mock(
+            return_value=Response(404, json={"error": "Not found"})
+        )
+        put1 = self._mock_put(respx_mock, 1, hide_from_athlete=True)
+
+        result = await bulk_update_event_access(
+            event_ids="[1, 99]", hide_from_athlete=True, ctx=self._ctx(mock_config)
+        )
+
+        assert put1.called
+        data = json.loads(result)["data"]
+        assert data["updated_count"] == 1
+        assert [f["id"] for f in data["failed"]] == [99]
+
+    async def test_failed_put_is_reported_per_event(self, mock_config, respx_mock):
+        respx_mock.get("/athlete/i123456/events").mock(
+            return_value=Response(200, json=[self._ev(1), self._ev(2)])
+        )
+        self._mock_put(respx_mock, 1, hide_from_athlete=True)
+        respx_mock.put("/athlete/i123456/events/2").mock(
+            return_value=Response(403, json={"error": "Forbidden"})
+        )
+
+        result = await bulk_update_event_access(
+            oldest="2026-10-12",
+            newest="2026-10-12",
+            hide_from_athlete=True,
+            ctx=self._ctx(mock_config),
+        )
+
+        data = json.loads(result)["data"]
+        assert [u["id"] for u in data["updated"]] == [1]
+        assert [f["id"] for f in data["failed"]] == [2]
+
+    async def test_empty_range_is_not_an_error(self, mock_config, respx_mock):
+        respx_mock.get("/athlete/i123456/events").mock(return_value=Response(200, json=[]))
+
+        result = await bulk_update_event_access(
+            oldest="2026-10-12",
+            newest="2026-10-18",
+            hide_from_athlete=False,
+            ctx=self._ctx(mock_config),
+        )
+
+        response = json.loads(result)
+        assert "error" not in response
+        assert response["data"]["updated_count"] == 0
+
+    @pytest.mark.parametrize(
+        ("kwargs", "message"),
+        [
+            ({"hide_from_athlete": True}, "Select events"),
+            ({"event_ids": "[1]"}, "Pass hide_from_athlete"),
+            (
+                {"event_ids": "[1]", "oldest": "2026-10-12", "newest": "2026-10-12",
+                 "hide_from_athlete": True},
+                "not both",
+            ),
+            ({"oldest": "2026-10-12", "hide_from_athlete": True}, "both oldest and newest"),
+            (
+                {"oldest": "12.10.2026", "newest": "2026-10-18", "hide_from_athlete": True},
+                "Invalid date",
+            ),
+            (
+                {"oldest": "2026-10-18", "newest": "2026-10-12", "hide_from_athlete": True},
+                "on or before",
+            ),
+            ({"event_ids": '["a"]', "hide_from_athlete": True}, "JSON array of integers"),
+            ({"event_ids": "[]", "hide_from_athlete": True}, "JSON array of integers"),
+            ({"event_ids": "not json", "hide_from_athlete": True}, "JSON array of integers"),
+        ],
+    )
+    async def test_validation_errors(self, mock_config, respx_mock, kwargs, message):
+        result = await bulk_update_event_access(ctx=self._ctx(mock_config), **kwargs)
+
+        response = json.loads(result)
+        assert response["error"]["type"] == "validation_error"
+        assert message in response["error"]["message"]

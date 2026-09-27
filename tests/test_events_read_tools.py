@@ -383,3 +383,70 @@ class TestEventTagsOnRead:
         result = await get_event(event_id=1, ctx=_make_ctx(mock_config))
 
         assert json.loads(result)["data"]["tags"] == ["vo2max", "indoor"]
+
+
+class TestEventAccessFlagsOnRead:
+    """hide_from_athlete / athlete_cannot_edit reach the read tools (#142).
+
+    The API returns both on every event, defaulting to false. Lists only carry them
+    when true; the single-event read always carries them.
+    """
+
+    @staticmethod
+    def _event(event_id: int, days: int, **extra):
+        return {
+            "id": event_id,
+            "start_date_local": _date_offset(days),
+            "category": "WORKOUT",
+            "name": f"Workout {event_id}",
+            "hide_from_athlete": False,
+            "athlete_cannot_edit": False,
+            **extra,
+        }
+
+    async def test_calendar_events_show_flags_only_when_set(self, mock_config, respx_mock):
+        respx_mock.get("/athlete/i123456/events").mock(
+            return_value=Response(
+                200,
+                json=[
+                    self._event(1, 1, hide_from_athlete=True, athlete_cannot_edit=True),
+                    self._event(2, 2),
+                ],
+            )
+        )
+
+        result = await get_calendar_events(days_ahead=7, ctx=_make_ctx(mock_config))
+        by_date = json.loads(result)["data"]["events_by_date"]
+
+        flagged = by_date[_date_offset(1)][0]
+        assert flagged["hide_from_athlete"] is True
+        assert flagged["athlete_cannot_edit"] is True
+        plain = by_date[_date_offset(2)][0]
+        assert "hide_from_athlete" not in plain
+        assert "athlete_cannot_edit" not in plain
+
+    async def test_upcoming_workouts_show_flags_only_when_set(self, mock_config, respx_mock):
+        respx_mock.get("/athlete/i123456/events").mock(
+            return_value=Response(
+                200,
+                json=[self._event(1, 1, athlete_cannot_edit=True), self._event(2, 2)],
+            )
+        )
+
+        result = await get_upcoming_workouts(ctx=_make_ctx(mock_config))
+        workouts = json.loads(result)["data"]["workouts"]
+
+        assert workouts[0]["athlete_cannot_edit"] is True
+        assert "hide_from_athlete" not in workouts[0]
+        assert "athlete_cannot_edit" not in workouts[1]
+
+    async def test_get_event_always_shows_flags(self, mock_config, respx_mock):
+        respx_mock.get("/athlete/i123456/events/1").mock(
+            return_value=Response(200, json=self._event(1, 1, hide_from_athlete=True))
+        )
+
+        result = await get_event(event_id=1, ctx=_make_ctx(mock_config))
+        data = json.loads(result)["data"]
+
+        assert data["hide_from_athlete"] is True
+        assert data["athlete_cannot_edit"] is False

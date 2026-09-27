@@ -87,6 +87,11 @@ async def get_calendar_events(
                     event_item["type"] = event.type
                 if event.tags:
                     event_item["tags"] = event.tags
+                # Coach access flags: only when set, so lists don't carry two falses per event
+                if event.hide_from_athlete:
+                    event_item["hide_from_athlete"] = True
+                if event.athlete_cannot_edit:
+                    event_item["athlete_cannot_edit"] = True
 
                 # Workout details
                 if event.category == "WORKOUT":
@@ -164,7 +169,9 @@ async def get_upcoming_workouts(
     a calendar event ID: pass it to icu_get_event / icu_update_event /
     icu_delete_event, never to the icu_*_workout library tools. For every
     calendar entry type use icu_get_calendar_events; for reusable templates
-    stored in the library use icu_get_workouts_in_folder.
+    stored in the library use icu_get_workouts_in_folder. hide_from_athlete /
+    athlete_cannot_edit appear only when set (change them with
+    icu_bulk_update_event_access).
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
@@ -219,6 +226,10 @@ async def get_upcoming_workouts(
                     workout_item["type"] = workout.type
                 if workout.tags:
                     workout_item["tags"] = workout.tags
+                if workout.hide_from_athlete:
+                    workout_item["hide_from_athlete"] = True
+                if workout.athlete_cannot_edit:
+                    workout_item["athlete_cannot_edit"] = True
 
                 # Workout metrics
                 if workout.distance or workout.distance_target:
@@ -330,6 +341,10 @@ async def get_event(
                 event_data["not_on_fitness_chart"] = event.not_on_fitness_chart
             if event.show_on_ctl_line is not None:
                 event_data["show_on_ctl_line"] = event.show_on_ctl_line
+            if event.hide_from_athlete is not None:
+                event_data["hide_from_athlete"] = event.hide_from_athlete
+            if event.athlete_cannot_edit is not None:
+                event_data["athlete_cannot_edit"] = event.athlete_cannot_edit
 
             # Metadata
             if event.color:
