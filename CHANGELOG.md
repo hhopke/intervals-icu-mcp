@@ -22,6 +22,7 @@ breaking; this narrower contract applies from the next release onward.)
 These additions take the server from 67 tools to 68 — `safe` (the default) from 64 to 65, `none` from 60 to 61.
 
 ### Fixed
+- `icu_update_sport_settings` was hard to find and its zone parameters read ambiguously, found in a live end-to-end test through Claude. Its description said "per-sport record" and never "sport settings", so a client's tool search for "sport settings" surfaced `icu_apply_sport_settings`, `icu_create_sport_settings` and `icu_delete_sport_settings` but not the update tool; the description now leads with "Update sport settings" and names HR/power zones. `max_hr` now says it is optional alongside `hr_zones` (Intervals.icu takes it from the last bound), and `power_zones_percent_ftp` states the ≤ 200 % limit that was previously only visible in the validation error (#137).
 - The README and `docs/tools.md` listed 7 MCP prompts; 9 are registered. `verify_setup` and `verify_multi_athlete` are now in the prompt table.
 
 ## [5.2.0] — 2026-09-23

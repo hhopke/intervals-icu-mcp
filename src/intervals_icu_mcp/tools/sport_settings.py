@@ -81,14 +81,18 @@ async def update_sport_settings(
     hr_zones: Annotated[
         list[int] | None,
         "Explicit HR zone upper bounds in bpm, strictly increasing (e.g. lab VT1/VT2). "
-        "The last bound becomes max_hr",
+        "The last bound is the max HR: Intervals.icu sets max_hr to it",
     ] = None,
     hr_zone_names: Annotated[list[str] | None, "One name per hr_zones bound"] = None,
-    max_hr: Annotated[int | None, "Max HR in bpm; must equal the last hr_zones bound"] = None,
+    max_hr: Annotated[
+        int | None,
+        "Max HR in bpm. Optional with hr_zones (taken from the last bound); if sent, it must "
+        "equal that bound",
+    ] = None,
     power_zones_percent_ftp: Annotated[
         list[int] | None,
-        "Explicit power zone upper bounds as % of FTP (not watts), strictly increasing; "
-        "999 as the last value makes the top zone open-ended",
+        "Explicit power zone upper bounds as % of FTP (not watts), strictly increasing, "
+        "each <= 200; a final 999 makes the top zone open-ended",
     ] = None,
     power_zone_names: Annotated[
         list[str] | None, "One name per power_zones_percent_ftp bound"
@@ -98,7 +102,7 @@ async def update_sport_settings(
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
-    """Update a per-sport record: FTP, FTHR, pace/swim thresholds, or explicit zone bounds.
+    """Update sport settings: FTP, FTHR, pace/swim thresholds, or explicit HR/power zones.
 
     Explicit zones replace the threshold-derived ones (e.g. to match a lab test).
     Changes apply from now on; past activities keep the zones they were analysed with.
