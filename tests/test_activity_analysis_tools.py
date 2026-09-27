@@ -42,6 +42,76 @@ class TestGetActivityStreams:
         assert data["stream_lengths"]["watts"] == 3
         assert data["streams"]["heartrate"] == [120, 140, 160]
 
+    async def test_latlng_zips_longitude_from_data2(self, mock_config, respx_mock):
+        """latlng returns [lat, lng] pairs; an empty data2 on other streams is ignored."""
+        respx_mock.get("/activity/a1/streams.json").mock(
+            return_value=Response(
+                200,
+                json=[
+                    {"type": "time", "data": [0, 1, 2], "data2": []},
+                    {
+                        "type": "latlng",
+                        "data": [51.84981, None, 51.849823],
+                        "data2": [10.332473, None, 10.332453],
+                    },
+                ],
+            )
+        )
+
+        result = await get_activity_streams(
+            activity_id="a1", streams=["latlng", "time"], ctx=_make_ctx(mock_config)
+        )
+        data = json.loads(result)["data"]
+        assert data["streams"]["latlng"] == [[51.84981, 10.332473], None, [51.849823, 10.332453]]
+        assert data["streams"]["time"] == [0, 1, 2]
+        assert data["stream_lengths"]["latlng"] == 3
+
+    async def test_max_points_thins_all_streams_with_one_step(self, mock_config, respx_mock):
+        respx_mock.get("/activity/a1/streams.json").mock(
+            return_value=Response(
+                200,
+                json=[
+                    {"type": "time", "data": list(range(10))},
+                    {"type": "latlng", "data": list(range(10)), "data2": list(range(10, 20))},
+                ],
+            )
+        )
+
+        result = await get_activity_streams(
+            activity_id="a1", max_points=4, ctx=_make_ctx(mock_config)
+        )
+        data = json.loads(result)["data"]
+        # ceil(10 / 4) = 3 → indices 0, 3, 6, 9
+        assert data["streams"]["time"] == [0, 3, 6, 9]
+        assert data["streams"]["latlng"] == [[0, 10], [3, 13], [6, 16], [9, 19]]
+        assert data["stream_lengths"] == {"time": 4, "latlng": 4}
+        assert data["downsampling"]["step"] == 3
+        assert data["downsampling"]["original_length"] == 10
+
+    async def test_max_points_above_length_is_noop(self, mock_config, respx_mock):
+        respx_mock.get("/activity/a1/streams.json").mock(
+            return_value=Response(200, json=[{"type": "watts", "data": [1, 2, 3]}])
+        )
+
+        result = await get_activity_streams(
+            activity_id="a1", max_points=100, ctx=_make_ctx(mock_config)
+        )
+        data = json.loads(result)["data"]
+        assert data["streams"]["watts"] == [1, 2, 3]
+        assert "downsampling" not in data
+
+    async def test_max_points_below_one_rejected(self, mock_config, respx_mock):
+        route = respx_mock.get("/activity/a1/streams.json").mock(
+            return_value=Response(200, json=[])
+        )
+
+        result = await get_activity_streams(
+            activity_id="a1", max_points=0, ctx=_make_ctx(mock_config)
+        )
+        response = json.loads(result)
+        assert response["error"]["type"] == "validation_error"
+        assert not route.called
+
     async def test_with_stream_filter(self, mock_config, respx_mock):
         """Stream filter is forwarded as comma-separated `types` query param."""
         route = respx_mock.get("/activity/a1/streams.json").mock(

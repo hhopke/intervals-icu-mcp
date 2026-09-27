@@ -14,6 +14,14 @@ that preserve the information (key renames, restructuring, added fields) ship in
 clients. (Releases up to and including 4.0.0 treated any response-shape change as
 breaking; this narrower contract applies from the next release onward.)
 
+## [Unreleased]
+
+### Added
+- `icu_get_activity_streams` takes an optional `max_points` that thins every returned stream to at most that many samples, using one step for all streams so index *i* still lines up across them. The response reports the step and original length under `downsampling`. A full-resolution GPS or power stream runs to thousands of samples per activity, a heavy payload for an LLM client, and a few hundred points are enough to trace a route or see the shape of a ride (#145).
+
+### Fixed
+- `icu_get_activity_streams` returned only latitudes for the `latlng` stream. Intervals.icu puts latitude in `data` and longitude in a second array, `data2`, which the server ignored, so a GPS track could not be placed. `latlng` now comes back as `[lat, lng]` pairs, with `null` for samples without a GPS fix. Live-checked that `data2` has the same length as `data` (#145).
+
 ## [5.3.0] — 2026-09-27
 
 ### Added

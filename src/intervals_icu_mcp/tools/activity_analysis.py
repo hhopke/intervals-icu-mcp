@@ -1,6 +1,7 @@
 """Activity analysis tools for Intervals.icu MCP server."""
 
-from typing import Annotated, Any
+import math
+from typing import Annotated, Any, cast
 
 from fastmcp import Context
 
@@ -16,6 +17,10 @@ async def get_activity_streams(
         list[str] | None,
         "List of stream types (e.g., ['watts', 'heartrate', 'cadence']). If not specified, the activity's default streams are fetched — which does NOT include raw_heartrate or fixed_heartrate; ask for those by name.",
     ] = None,
+    max_points: Annotated[
+        int | None,
+        "Thin every returned stream to at most this many samples by keeping every Nth one (the same N for all streams, so indices stay aligned). Omit for full resolution. ~500 is plenty to trace a route or see the shape of a ride. Samples are not always 1 s apart, so include 'time' to know when each kept sample was recorded.",
+    ] = None,
     ctx: Context | None = None,
 ) -> str:
     """Fetch RAW per-sample time-series of one activity — second-by-second arrays for power, HR, cadence, speed, altitude, GPS, temperature, grade, etc.
@@ -29,6 +34,9 @@ async def get_activity_streams(
     velocity_smooth, altitude, distance, time, latlng, temp, moving,
     grade_smooth, raw_heartrate, fixed_heartrate.
 
+    `latlng` comes back as [lat, lng] pairs (null where the sample has no
+    GPS fix).
+
     `heartrate` is CORRECTED data: Intervals.icu replaces readings above the
     athlete's configured max HR with an interpolated line at import, so it can
     never exceed that setting. `raw_heartrate` is the uncorrected trace and is
@@ -38,6 +46,11 @@ async def get_activity_streams(
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
+
+    if max_points is not None and max_points < 1:
+        return ResponseBuilder.build_error_response(
+            "max_points must be at least 1", error_type="validation_error"
+        )
 
     try:
         async with ICUClient(config) as client:
@@ -57,23 +70,55 @@ async def get_activity_streams(
             # Build response from list of ActivityStream objects
             available_streams: list[str] = []
             streams_dict: dict[str, Any] = {}
-            stream_lengths: dict[str, int] = {}
 
             for s in stream_list:
                 name = s.type or s.name or "unknown"
                 available_streams.append(name)
-                if s.data is not None:
-                    streams_dict[name] = s.data
-                    data = s.data
-                    if isinstance(data, list):
-                        stream_lengths[name] = len(data)  # type: ignore[arg-type]
+                data: Any = s.data
+                data2: Any = s.data2
+                if data is None:
+                    continue
+                # latlng carries latitude in `data` and longitude in `data2`
+                if isinstance(data, list) and isinstance(data2, list) and data2:
+                    lats = cast(list[Any], data)
+                    lngs = cast(list[Any], data2)
+                    streams_dict[name] = [
+                        None if lat is None and lng is None else [lat, lng]
+                        for lat, lng in zip(lats, lngs, strict=False)
+                    ]
+                else:
+                    streams_dict[name] = data
 
-            result_data = {
+            full_length = max(
+                (len(d) for d in streams_dict.values() if isinstance(d, list)),  # type: ignore[arg-type]
+                default=0,
+            )
+            step = 1
+            if max_points is not None and full_length > max_points:
+                # Same step for every stream keeps index i aligned across streams
+                step = math.ceil(full_length / max_points)
+                for name, d in streams_dict.items():
+                    if isinstance(d, list):
+                        streams_dict[name] = d[::step]
+
+            stream_lengths = {
+                name: len(d)  # type: ignore[arg-type]
+                for name, d in streams_dict.items()
+                if isinstance(d, list)
+            }
+
+            result_data: dict[str, Any] = {
                 "activity_id": activity_id,
                 "streams": streams_dict,
                 "available_streams": available_streams,
                 "stream_lengths": stream_lengths,
             }
+            if step > 1:
+                result_data["downsampling"] = {
+                    "step": step,
+                    "original_length": full_length,
+                    "note": f"Index i here is original sample i*{step}.",
+                }
 
             return ResponseBuilder.build_response(
                 data=result_data,

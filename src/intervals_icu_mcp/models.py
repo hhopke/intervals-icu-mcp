@@ -629,6 +629,7 @@ class ActivityStream(BaseModel):
     type: str | None = None
     name: str | None = None
     data: Any = None
+    data2: Any = None  # Longitude for type latlng (latitude is in data)
 
 
 # ==================== Best Efforts Models ====================
