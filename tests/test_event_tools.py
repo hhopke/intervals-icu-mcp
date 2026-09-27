@@ -1643,6 +1643,20 @@ class TestBulkUpdateEventAccess:
         assert data["updated_count"] == 1
         assert data["skipped"][0]["category"] == "TARGET"
 
+    async def test_duplicate_ids_are_fetched_and_updated_once(self, mock_config, respx_mock):
+        get1 = respx_mock.get("/athlete/i123456/events/1").mock(
+            return_value=Response(200, json=self._ev(1))
+        )
+        put1 = self._mock_put(respx_mock, 1, hide_from_athlete=True)
+
+        result = await bulk_update_event_access(
+            event_ids="[1, 1, 1]", hide_from_athlete=True, ctx=self._ctx(mock_config)
+        )
+
+        assert get1.call_count == 1
+        assert put1.call_count == 1
+        assert json.loads(result)["data"]["updated_count"] == 1
+
     async def test_already_set_events_are_unchanged_without_a_put(
         self, mock_config, respx_mock
     ):

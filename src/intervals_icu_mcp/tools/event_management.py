@@ -829,7 +829,7 @@ async def bulk_create_events(
         )
 
 
-# Parallel PUTs are capped so revealing a multi-week block doesn't trip the API's 429.
+# Parallel requests are capped so revealing a multi-week block doesn't trip the API's 429.
 _ACCESS_UPDATE_CONCURRENCY = 5
 
 
@@ -922,7 +922,8 @@ async def bulk_update_event_access(
                 "event_ids must be a non-empty JSON array of integers (e.g., '[123, 456]')",
                 error_type="validation_error",
             )
-        ids_list = cast(list[int], parsed)
+        # Dedupe (order kept) so a repeated ID isn't fetched and PUT twice concurrently.
+        ids_list = list(dict.fromkeys(cast(list[int], parsed)))
 
     flags: dict[str, bool] = {}
     if hide_from_athlete is not None:
@@ -934,6 +935,13 @@ async def bulk_update_event_access(
 
     try:
         async with ICUClient(config) as client:
+            # One cap for the per-ID GETs and the PUTs alike.
+            semaphore = asyncio.Semaphore(_ACCESS_UPDATE_CONCURRENCY)
+
+            async def _get(event_id: int) -> Event:
+                async with semaphore:
+                    return await client.get_event(event_id, athlete_id=athlete_id)
+
             candidates: list[Event] = []
             if date_range is not None:
                 candidates = await client.get_events(
@@ -941,8 +949,7 @@ async def bulk_update_event_access(
                 )
             else:
                 fetched = await asyncio.gather(
-                    *(client.get_event(eid, athlete_id=athlete_id) for eid in ids_list),
-                    return_exceptions=True,
+                    *(_get(eid) for eid in ids_list), return_exceptions=True
                 )
                 for eid, result in zip(ids_list, fetched, strict=True):
                     if isinstance(result, ICUAPIError):
@@ -970,8 +977,6 @@ async def bulk_update_event_access(
                     unchanged.append(event.id)
                 else:
                     to_update.append(event)
-
-            semaphore = asyncio.Semaphore(_ACCESS_UPDATE_CONCURRENCY)
 
             async def _put(event: Event) -> Event:
                 async with semaphore:
