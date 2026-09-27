@@ -66,6 +66,18 @@ class TestGetActivityStreams:
         assert data["streams"]["time"] == [0, 1, 2]
         assert data["stream_lengths"]["latlng"] == 3
 
+    async def test_latlng_length_mismatch_pads_instead_of_truncating(self, mock_config, respx_mock):
+        respx_mock.get("/activity/a1/streams.json").mock(
+            return_value=Response(
+                200,
+                json=[{"type": "latlng", "data": [1.0, 2.0, 3.0], "data2": [10.0, 20.0]}],
+            )
+        )
+
+        result = await get_activity_streams(activity_id="a1", ctx=_make_ctx(mock_config))
+        data = json.loads(result)["data"]
+        assert data["streams"]["latlng"] == [[1.0, 10.0], [2.0, 20.0], [3.0, None]]
+
     async def test_max_points_thins_all_streams_with_one_step(self, mock_config, respx_mock):
         respx_mock.get("/activity/a1/streams.json").mock(
             return_value=Response(

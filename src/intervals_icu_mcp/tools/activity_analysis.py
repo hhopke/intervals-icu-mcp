@@ -1,6 +1,7 @@
 """Activity analysis tools for Intervals.icu MCP server."""
 
 import math
+from itertools import zip_longest
 from typing import Annotated, Any, cast
 
 from fastmcp import Context
@@ -78,13 +79,15 @@ async def get_activity_streams(
                 data2: Any = s.data2
                 if data is None:
                     continue
-                # latlng carries latitude in `data` and longitude in `data2`
+                # latlng carries latitude in `data` and longitude in `data2`.
+                # Paired for any stream with a data2 array so none of it is dropped;
+                # zip_longest pads a length mismatch with None instead of truncating.
                 if isinstance(data, list) and isinstance(data2, list) and data2:
                     lats = cast(list[Any], data)
                     lngs = cast(list[Any], data2)
                     streams_dict[name] = [
                         None if lat is None and lng is None else [lat, lng]
-                        for lat, lng in zip(lats, lngs, strict=False)
+                        for lat, lng in zip_longest(lats, lngs)
                     ]
                 else:
                     streams_dict[name] = data
