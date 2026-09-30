@@ -3,17 +3,30 @@
 import json
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from httpx import Response
 
+from intervals_icu_mcp.auth import ICUConfig
 from intervals_icu_mcp.tools.workout_library import (
     bulk_create_workouts,
     create_workout,
     create_workout_folder,
     delete_workout,
+    delete_workout_folder,
     get_workout_library,
     get_workouts_in_folder,
     update_workout,
 )
+
+
+@pytest.fixture
+def mock_config_full():
+    """Config with delete_mode=full for tests that bypass the safe-mode guard."""
+    return ICUConfig(
+        intervals_icu_api_key="test_api_key_12345",
+        intervals_icu_athlete_id="i123456",
+        intervals_icu_delete_mode="full",
+    )
 
 
 class TestGetWorkoutLibrary:
@@ -644,4 +657,160 @@ class TestCreateWorkoutFolder:
         respx_mock.post("/athlete/i123456/folders").mock(return_value=Response(403, json={}))
 
         result = await create_workout_folder(name="X", ctx=mock_ctx)
+        assert json.loads(result)["error"]["type"] == "api_error"
+
+
+# /folders entries shaped like the live API: an empty folder reports num_workouts
+# null alongside an empty children list (live-verified in #147).
+FOLDERS = [
+    {
+        "id": 42,
+        "athlete_id": "i123456",
+        "type": "PLAN",
+        "name": "Base Build",
+        "description": "4 weeks",
+        "num_workouts": 2,
+        "children": [
+            {"id": 501, "folder_id": 42, "name": "Easy", "day": 0},
+            {"id": 502, "folder_id": 42, "name": "Tempo", "day": 2},
+        ],
+        "canEdit": True,
+        "sharedWithCount": 0,
+        "visibility": "PRIVATE",
+    },
+    {
+        "id": 43,
+        "athlete_id": "i123456",
+        "type": "FOLDER",
+        "name": "Scratch",
+        "num_workouts": None,
+        "children": [],
+        "canEdit": True,
+        "sharedWithCount": 0,
+        "visibility": "PRIVATE",
+    },
+]
+
+
+class TestDeleteWorkoutFolder:
+    async def test_full_mode_deletes_folder_with_workouts(self, mock_config_full, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config_full)
+
+        respx_mock.get("/athlete/i123456/folders").mock(return_value=Response(200, json=FOLDERS))
+        route = respx_mock.delete("/athlete/i123456/folders/42").mock(
+            return_value=Response(200, json={})
+        )
+
+        result = await delete_workout_folder(folder_id=42, ctx=mock_ctx)
+
+        assert route.called
+        assert json.loads(result)["data"] == {
+            "deleted": [42],
+            "deleted_count": 1,
+            "skipped": [],
+            "skipped_count": 0,
+            "folder": {
+                "id": 42,
+                "name": "Base Build",
+                "type": "PLAN",
+                "description": "4 weeks",
+                "num_workouts": 2,
+            },
+        }
+
+    async def test_safe_mode_skips_folder_with_workouts(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.get("/athlete/i123456/folders").mock(return_value=Response(200, json=FOLDERS))
+        route = respx_mock.delete("/athlete/i123456/folders/42").mock(
+            return_value=Response(200, json={})
+        )
+
+        result = await delete_workout_folder(folder_id=42, ctx=mock_ctx)
+
+        assert not route.called
+        data = json.loads(result)["data"]
+        assert data["deleted"] == []
+        assert data["deleted_count"] == 0
+        assert data["skipped_count"] == 1
+        skipped = data["skipped"][0]
+        assert skipped["id"] == 42
+        assert skipped["reason"] == "folder_not_empty"
+        assert skipped["num_workouts"] == 2
+        assert "INTERVALS_ICU_DELETE_MODE=full" in skipped["hint"]
+
+    async def test_safe_mode_deletes_empty_folder(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.get("/athlete/i123456/folders").mock(return_value=Response(200, json=FOLDERS))
+        route = respx_mock.delete("/athlete/i123456/folders/43").mock(
+            return_value=Response(200, json={})
+        )
+
+        result = await delete_workout_folder(folder_id=43, ctx=mock_ctx)
+
+        assert route.called
+        data = json.loads(result)["data"]
+        assert data["deleted"] == [43]
+        assert data["skipped"] == []
+        assert data["folder"] == {"id": 43, "name": "Scratch", "type": "FOLDER"}
+
+    async def test_unknown_folder_rejected_without_delete(self, mock_config_full, respx_mock):
+        """The API answers 200 for a missing folder ID, so the lookup is the only guard."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config_full)
+
+        respx_mock.get("/athlete/i123456/folders").mock(return_value=Response(200, json=FOLDERS))
+        route = respx_mock.delete("/athlete/i123456/folders/999").mock(
+            return_value=Response(200, json={})
+        )
+
+        result = await delete_workout_folder(folder_id=999, ctx=mock_ctx)
+
+        assert not route.called
+        error = json.loads(result)["error"]
+        assert error["type"] == "validation_error"
+        assert "icu_get_workout_library" in error["message"]
+
+    async def test_athlete_id_override(self, mock_config_full, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config_full)
+
+        lookup = respx_mock.get("/athlete/i999/folders").mock(
+            return_value=Response(200, json=FOLDERS)
+        )
+        delete = respx_mock.delete("/athlete/i999/folders/43").mock(
+            return_value=Response(200, json={})
+        )
+
+        await delete_workout_folder(folder_id=43, athlete_id="i999", ctx=mock_ctx)
+
+        assert lookup.called
+        assert delete.called
+
+    async def test_lookup_error_skips_delete(self, mock_config_full, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config_full)
+
+        respx_mock.get("/athlete/i123456/folders").mock(return_value=Response(403, json={}))
+        route = respx_mock.delete("/athlete/i123456/folders/42").mock(
+            return_value=Response(200, json={})
+        )
+
+        result = await delete_workout_folder(folder_id=42, ctx=mock_ctx)
+
+        assert not route.called
+        assert json.loads(result)["error"]["type"] == "api_error"
+
+    async def test_delete_api_error(self, mock_config_full, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config_full)
+
+        respx_mock.get("/athlete/i123456/folders").mock(return_value=Response(200, json=FOLDERS))
+        respx_mock.delete("/athlete/i123456/folders/42").mock(return_value=Response(500, json={}))
+
+        result = await delete_workout_folder(folder_id=42, ctx=mock_ctx)
         assert json.loads(result)["error"]["type"] == "api_error"

@@ -99,6 +99,7 @@ from .tools.workout_library import (
     create_workout,
     create_workout_folder,
     delete_workout,
+    delete_workout_folder,
     get_workout_library,
     get_workouts_in_folder,
     update_workout,
@@ -571,6 +572,17 @@ mcp.tool(
         "openWorldHint": True,
     },
 )(create_workout_folder)
+# Safe mode registers it too; the tool itself refuses folders that still hold workouts.
+if _DELETE_MODE in ("safe", "full"):
+    mcp.tool(
+        name="icu_delete_workout_folder",
+        annotations={
+            "readOnlyHint": False,
+            "destructiveHint": True,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        },
+    )(delete_workout_folder)
 
 # Register gear management tools
 mcp.tool(

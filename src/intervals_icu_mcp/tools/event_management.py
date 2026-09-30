@@ -42,7 +42,7 @@ def _classify_event_date(start_date_local: str | None) -> str:
     return "future" if parsed > date.today() else "past"
 
 
-def _delete_envelope(
+def delete_envelope(
     deleted: list[int],
     skipped: list[dict[str, Any]],
 ) -> dict[str, Any]:
@@ -642,7 +642,7 @@ async def delete_event(
                 event = await client.get_event(event_id, athlete_id=athlete_id)
                 if _classify_event_date(event.start_date_local) != "future":
                     return ResponseBuilder.build_response(
-                        data=_delete_envelope(
+                        data=delete_envelope(
                             deleted=[],
                             skipped=[_skipped_entry_for(event_id, event)],
                         ),
@@ -657,7 +657,7 @@ async def delete_event(
                     error_type="api_error",
                 )
             return ResponseBuilder.build_response(
-                data=_delete_envelope(deleted=[event_id], skipped=[]),
+                data=delete_envelope(deleted=[event_id], skipped=[]),
                 query_type="delete_event",
                 metadata={"message": f"Successfully deleted event {event_id}"},
             )
@@ -1099,7 +1099,7 @@ async def bulk_delete_events(
                     await client.bulk_delete_events(ids_to_delete, athlete_id=athlete_id)
 
                 return ResponseBuilder.build_response(
-                    data=_delete_envelope(deleted=ids_to_delete, skipped=skipped),
+                    data=delete_envelope(deleted=ids_to_delete, skipped=skipped),
                     query_type="bulk_delete_events",
                     metadata={
                         "message": (
@@ -1111,7 +1111,7 @@ async def bulk_delete_events(
 
             await client.bulk_delete_events(ids_list, athlete_id=athlete_id)
             return ResponseBuilder.build_response(
-                data=_delete_envelope(deleted=ids_list, skipped=[]),
+                data=delete_envelope(deleted=ids_list, skipped=[]),
                 query_type="bulk_delete_events",
                 metadata={"message": f"Successfully deleted {len(ids_list)} events"},
             )

@@ -1,18 +1,18 @@
 # Tool, Resource, and Prompt Reference
 
-Complete inventory of everything the Intervals.icu MCP server exposes: up to 68 tools across 11 categories, 4 MCP Resources, and 9 MCP Prompts.
+Complete inventory of everything the Intervals.icu MCP server exposes: up to 69 tools across 11 categories, 4 MCP Resources, and 9 MCP Prompts.
 
 ## Delete Safety Mode
 
 Destructive tools are gated by the optional `INTERVALS_ICU_DELETE_MODE` env var. The gate sits **outside the model's reach** — tools that aren't registered cannot be invoked by any prompt or parameter.
 
-| Mode | Registered tools | Events | Activities | Gear | Library workouts | Sport settings | Custom items |
-|---|---|---|---|---|---|---|---|
-| `safe` (default) | 65 | tomorrow or later | ✗ | ✓ | ✓ | ✗ | ✗ |
-| `full` | 68 | any date | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `none` | 61 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Mode | Registered tools | Events | Activities | Gear | Library workouts | Library folders | Sport settings | Custom items |
+|---|---|---|---|---|---|---|---|---|
+| `safe` (default) | 66 | tomorrow or later | ✗ | ✓ | ✓ | empty only | ✗ | ✗ |
+| `full` | 69 | any date | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `none` | 61 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 
-In `safe` mode, `icu_delete_event` and `icu_bulk_delete_events` return a uniform envelope showing what was deleted and what was skipped:
+In `safe` mode, `icu_delete_event`, `icu_bulk_delete_events`, and `icu_delete_workout_folder` return a uniform envelope showing what was deleted and what was skipped (the folder tool also adds a `folder` summary):
 
 ```json
 {
@@ -47,6 +47,8 @@ Set the mode in your client config alongside the credentials:
 **Why sport settings and custom items are full-only:** Sport-settings deletion removes the thresholds and zones that activities of that sport are analysed against from then on, and re-creating the record starts from defaults rather than restoring them. Custom items can be data-bearing fields whose values are stored across activities. Neither is recoverable by re-creating the deleted record.
 
 **Why library workouts are allowed in safe mode:** A library workout is a reusable template. Deleting one leaves calendar events (including ones created from it by `icu_apply_training_plan`) and recorded activities untouched, and the template can be rebuilt from its workout text — the same low-stakes profile as gear.
+
+**Why non-empty library folders are full-only:** Deleting a folder or plan also deletes every workout in it, so a single `icu_delete_workout_folder` call can remove a whole multi-week plan. Deleting an empty folder destroys nothing, so safe mode allows that and reports a folder that still holds workouts as `skipped` (reason `folder_not_empty`). Either way, calendar events already created from a plan by `icu_apply_training_plan` stay on the calendar — they are separate records, removed with `icu_delete_event`.
 
 ## Tools
 
@@ -143,7 +145,7 @@ The threaded notes/comments shown under an activity — the user's own training 
 | Tool                    | Description                                                |
 | ----------------------- | ---------------------------------------------------------- |
 | `icu_get_calendar_events`   | Get planned events and workouts from calendar              |
-| `icu_get_upcoming_workouts` | Upcoming planned WORKOUT **calendar events** only — not workout-library templates (see [Workout Library](#workout-library-7-tools)); returns event IDs |
+| `icu_get_upcoming_workouts` | Upcoming planned WORKOUT **calendar events** only — not workout-library templates (see [Workout Library](#workout-library-8-tools)); returns event IDs |
 | `icu_get_annual_training_plan` | Read ATP periodization — weekly TSS targets, phases, ATP week notes (`week_note`; default: 365 days ahead; narrow with `days_ahead`/`days_back` for a specific month) |
 | `icu_get_event`             | Get details for a specific event                           |
 | `icu_create_event`          | Create new calendar events (workouts, races, notes, goals); optional `hide_from_athlete` / `athlete_cannot_edit` |
@@ -163,7 +165,7 @@ The threaded notes/comments shown under an activity — the user's own training 
 | `icu_get_hr_curves`    | Analyze heart rate curves with HR zones                  |
 | `icu_get_pace_curves`  | Analyze running/swimming pace curves with optional GAP   |
 
-### Workout Library (7 tools)
+### Workout Library (8 tools)
 
 | Tool                     | Description                               |
 | ------------------------ | ----------------------------------------- |
@@ -174,6 +176,7 @@ The threaded notes/comments shown under an activity — the user's own training 
 | `icu_delete_workout`         | Delete a library workout *(registered in `safe` and `full` modes)* |
 | `icu_bulk_create_workouts`   | Save multiple library workouts in a single operation (e.g. filling out a plan) |
 | `icu_create_workout_folder`  | Create a new workout folder (`FOLDER`) or training plan (`PLAN`) |
+| `icu_delete_workout_folder`  | Delete a folder or plan and every workout in it *(safe mode: empty folders only; envelope returns `deleted` / `skipped`)* |
 
 ### Gear Management (6 tools)
 

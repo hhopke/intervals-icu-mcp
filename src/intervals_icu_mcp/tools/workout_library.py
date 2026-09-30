@@ -9,10 +9,20 @@ from ..auth import ICUConfig
 from ..client import ICUAPIError, ICUClient
 from ..models import Folder, Workout
 from ..response_builder import ResponseBuilder
-from .event_management import ACTIVITY_TYPES_HINT, WORKOUT_SYNTAX_HINT, workout_doc_parse_info
+from .event_management import (
+    ACTIVITY_TYPES_HINT,
+    WORKOUT_SYNTAX_HINT,
+    delete_envelope,
+    workout_doc_parse_info,
+)
 
 VALID_TARGETS = ("AUTO", "POWER", "HR", "PACE")
 VALID_FOLDER_TYPES = ("FOLDER", "PLAN")
+FOLDER_NOT_EMPTY_HINT = (
+    "Folders and plans that still hold workouts require INTERVALS_ICU_DELETE_MODE=full, "
+    "because deleting one also deletes its workouts. This is a server-side env var set by "
+    "the operator, not a tool parameter."
+)
 
 # Library workouts use the same field names as icu_create_event (workout_type standing in
 # for event_type) and are translated to the API's names at the boundary.
@@ -574,6 +584,78 @@ async def create_workout_folder(
                 data=_folder_to_dict(folder),
                 query_type="create_workout_folder",
                 metadata={"message": f"Created {normalized_type.lower()}: {name}"},
+            )
+
+    except ICUAPIError as e:
+        return ResponseBuilder.build_error_response(e.message, error_type="api_error")
+    except Exception as e:
+        return ResponseBuilder.build_error_response(
+            f"Unexpected error: {str(e)}", error_type="internal_error"
+        )
+
+
+async def delete_workout_folder(
+    folder_id: Annotated[int, "Library folder or plan ID to delete (from icu_get_workout_library)"],
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
+    ctx: Context | None = None,
+) -> str:
+    """Permanently delete ONE library folder or training plan AND every workout in it.
+
+    Destructive — cannot be undone. Calendar events already applied from a plan
+    stay on the calendar (delete those with icu_delete_event); to remove a single
+    library workout use icu_delete_workout. In `safe` delete mode (default), a
+    folder that still holds workouts is refused and reported in the `skipped`
+    envelope. Confirm with the user before calling if unsure.
+    """
+    assert ctx is not None
+    config: ICUConfig = await ctx.get_state("config")
+
+    try:
+        async with ICUClient(config) as client:
+            # DELETE answers 200 even for a missing folder ID, so look the folder up first:
+            # it is the only way to report a bad ID and to know how many workouts go with it.
+            folders = await client.get_workout_folders(athlete_id=athlete_id)
+            folder = next((f for f in folders if f.id == folder_id), None)
+            if folder is None:
+                return ResponseBuilder.build_error_response(
+                    f"No folder or plan with ID {folder_id} in the workout library. "
+                    "Use icu_get_workout_library to list folder IDs.",
+                    error_type="validation_error",
+                )
+
+            kind = (folder.type or "folder").lower()
+            label = f"{kind} {folder.name or folder_id}"
+            # The API reports an empty folder's num_workouts as null, not 0.
+            num_workouts = folder.num_workouts or 0
+            if config.intervals_icu_delete_mode == "safe" and num_workouts:
+                skipped = {
+                    "id": folder_id,
+                    "reason": "folder_not_empty",
+                    "num_workouts": num_workouts,
+                    "hint": FOLDER_NOT_EMPTY_HINT,
+                }
+                return ResponseBuilder.build_response(
+                    data={
+                        **delete_envelope(deleted=[], skipped=[skipped]),
+                        "folder": _folder_to_dict(folder),
+                    },
+                    query_type="delete_workout_folder",
+                    metadata={"message": f"Skipped {label} in safe mode"},
+                )
+
+            await client.delete_workout_folder(folder_id, athlete_id=athlete_id)
+            if num_workouts:
+                plural = "" if num_workouts == 1 else "s"
+                message = f"Deleted {label} and its {num_workouts} workout{plural}"
+            else:
+                message = f"Deleted empty {label}"
+            return ResponseBuilder.build_response(
+                data={
+                    **delete_envelope(deleted=[folder_id], skipped=[]),
+                    "folder": _folder_to_dict(folder),
+                },
+                query_type="delete_workout_folder",
+                metadata={"message": message},
             )
 
     except ICUAPIError as e:

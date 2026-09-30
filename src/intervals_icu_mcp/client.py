@@ -1026,6 +1026,27 @@ class ICUClient:
         response = await self._request("POST", f"/athlete/{athlete_id}/folders", json=folder_data)
         return Folder(**response.json())
 
+    async def delete_workout_folder(
+        self,
+        folder_id: int,
+        athlete_id: str | None = None,
+    ) -> bool:
+        """Delete a workout folder or training plan, including all of its workouts.
+
+        The API answers 200 with an empty body even for a folder ID that does not
+        exist (live-verified), so callers must confirm the folder exists first.
+
+        Args:
+            folder_id: Folder ID
+            athlete_id: Athlete ID (uses config default if not provided)
+
+        Returns:
+            True if deletion was successful
+        """
+        athlete_id = athlete_id or self.config.intervals_icu_athlete_id
+        await self._request("DELETE", f"/athlete/{athlete_id}/folders/{folder_id}")
+        return True
+
     # ==================== Event Write Operations ====================
 
     async def create_event(
