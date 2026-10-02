@@ -41,6 +41,8 @@ Built-in prompt templates for common queries, available via prompt suggestions i
 ```
 "Show my current fitness metrics and training load"
 "Am I overtraining? Check my CTL, ATL, and TSB"
+"What do my athlete notes say?"
+"Add to my athlete notes that I'm rehabbing my left knee until November"
 ```
 
 _Note: The athlete profile resource (`intervals-icu://athlete/profile`) automatically provides ongoing context._

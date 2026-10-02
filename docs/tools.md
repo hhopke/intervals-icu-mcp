@@ -1,6 +1,6 @@
 # Tool, Resource, and Prompt Reference
 
-Complete inventory of everything the Intervals.icu MCP server exposes: up to 69 tools across 11 categories, 4 MCP Resources, and 9 MCP Prompts.
+Complete inventory of everything the Intervals.icu MCP server exposes: up to 70 tools across 11 categories, 4 MCP Resources, and 9 MCP Prompts.
 
 ## Delete Safety Mode
 
@@ -8,9 +8,9 @@ Destructive tools are gated by the optional `INTERVALS_ICU_DELETE_MODE` env var.
 
 | Mode | Registered tools | Events | Activities | Gear | Library workouts | Library folders | Sport settings | Custom items |
 |---|---|---|---|---|---|---|---|---|
-| `safe` (default) | 66 | tomorrow or later | ✗ | ✓ | ✓ | empty only | ✗ | ✗ |
-| `full` | 69 | any date | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `none` | 61 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| `safe` (default) | 67 | tomorrow or later | ✗ | ✓ | ✓ | empty only | ✗ | ✗ |
+| `full` | 70 | any date | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `none` | 62 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 
 In `safe` mode, `icu_delete_event`, `icu_bulk_delete_events`, and `icu_delete_workout_folder` return a uniform envelope showing what was deleted and what was skipped (the folder tool also adds a `folder` summary):
 
@@ -123,12 +123,13 @@ The threaded notes/comments shown under an activity — the user's own training 
 | `icu_get_activity_messages`    | Read notes/comments/coach feedback on a specific activity  |
 | `icu_add_activity_message`     | Post a note or comment on a specific activity              |
 
-### Athlete (4 tools)
+### Athlete (5 tools)
 
 | Tool                  | Description                                                     |
 | --------------------- | --------------------------------------------------------------- |
-| `icu_list_athletes` | List athletes this account can access (self, followed, coached) with each one's access level — use to resolve a name to an `athlete_id` |
-| `icu_get_athlete_profile` | Get athlete profile, fitness metrics, and outdoor/indoor FTP   |
+| `icu_list_athletes` | List athletes this account can access (self, followed, coached) with each one's access level, tags, and athlete notes — use to resolve a name to an `athlete_id` |
+| `icu_get_athlete_profile` | Get athlete profile, fitness metrics, outdoor/indoor FTP, and athlete notes |
+| `icu_update_athlete_notes` | Replace (or clear) the free-text Markdown notes on an athlete's record |
 | `icu_get_fitness_summary` | Get detailed CTL/ATL/TSB analysis with training recommendations |
 | `icu_get_fitness_chart` | Get PMC time-series (CTL/ATL/TSB) over a date window, including future projections from planned workouts |
 

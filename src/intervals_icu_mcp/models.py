@@ -204,6 +204,7 @@ class Athlete(BaseModel):
     atl: float | None = None
     tsb: float | None = None
     ramp_rate: float | None = None
+    icu_notes: str | None = None
     sport_settings: list[SportSettings] = Field(
         default_factory=list[SportSettings],
         validation_alias=AliasChoices("sport_settings", "sportSettings"),
