@@ -138,6 +138,24 @@ class ICUClient:
         response = await self._request("GET", f"/athlete/{athlete_id}")
         return Athlete(**response.json())
 
+    async def update_athlete(
+        self,
+        athlete_data: dict[str, Any],
+        athlete_id: str | None = None,
+    ) -> Athlete:
+        """Update an athlete record. Only the fields in athlete_data are changed.
+
+        Args:
+            athlete_data: Fields to update (e.g. {"icu_notes": "..."})
+            athlete_id: Athlete ID (uses config default if not provided)
+
+        Returns:
+            Updated Athlete model
+        """
+        athlete_id = athlete_id or self.config.intervals_icu_athlete_id
+        response = await self._request("PUT", f"/athlete/{athlete_id}", json=athlete_data)
+        return Athlete(**response.json())
+
     async def list_athletes(self) -> list[dict[str, Any]]:
         """List athletes this API key can reach — followed, coached, and the caller.
 

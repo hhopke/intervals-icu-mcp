@@ -56,6 +56,7 @@ from .tools.athlete import (
     get_fitness_chart,
     get_fitness_summary,
     list_athletes,
+    update_athlete_notes,
 )
 from .tools.curves import get_hr_curves, get_pace_curves
 from .tools.custom_items import (
@@ -318,6 +319,15 @@ mcp.tool(
         "openWorldHint": True,
     },
 )(get_athlete_profile)
+mcp.tool(
+    name="icu_update_athlete_notes",
+    annotations={
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+)(update_athlete_notes)
 mcp.tool(
     name="icu_get_fitness_summary",
     annotations={

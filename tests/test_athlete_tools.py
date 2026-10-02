@@ -11,6 +11,7 @@ from intervals_icu_mcp.tools.athlete import (
     get_fitness_chart,
     get_fitness_summary,
     list_athletes,
+    update_athlete_notes,
 )
 
 
@@ -64,6 +65,22 @@ class TestListAthletes:
         entry = response["data"]["athletes"][0]
 
         assert set(entry) == {"athlete_id", "name", "access", "can_write"}
+
+    async def test_surfaces_notes_only_when_set(self, mock_config, respx_mock):
+        """icu_notes comes through as `notes`; empty or missing notes add no key."""
+        roster = [
+            {**self.ROSTER[2], "icu_notes": "Returning from **injury**"},
+            {**self.ROSTER[0], "icu_notes": ""},
+            self.ROSTER[1],
+        ]
+        respx_mock.get("/athletes").mock(return_value=Response(200, json=roster))
+
+        response = json.loads(await list_athletes(ctx=_ctx(mock_config)))
+        by_id = {a["athlete_id"]: a for a in response["data"]["athletes"]}
+
+        assert by_id["i123456"]["notes"] == "Returning from **injury**"
+        assert "notes" not in by_id["i999888"]
+        assert "notes" not in by_id["i777666"]
 
     async def test_empty_roster(self, mock_config, respx_mock):
         respx_mock.get("/athletes").mock(return_value=Response(200, json=[]))
@@ -119,6 +136,89 @@ class TestGetAthleteProfile:
         assert response["data"]["profile"]["id"] == "i123456"
         assert response["data"]["profile"]["email"] == "test@example.com"
         assert response["data"]["profile"]["weight_kg"] == 70.0
+        assert "notes" not in response["data"]["profile"]
+
+    async def test_get_athlete_profile_includes_notes(
+        self, mock_config, respx_mock, mock_athlete_data
+    ):
+        """The athlete's icu_notes is returned as profile.notes."""
+        respx_mock.get("/athlete/i123456").mock(
+            return_value=Response(200, json={**mock_athlete_data, "icu_notes": "Prefers mornings"})
+        )
+
+        response = json.loads(await get_athlete_profile(ctx=_ctx(mock_config)))
+
+        assert response["data"]["profile"]["notes"] == "Prefers mornings"
+
+
+class TestUpdateAthleteNotes:
+    """Tests for the icu_update_athlete_notes tool."""
+
+    async def test_replaces_notes_sending_only_that_field(
+        self, mock_config, respx_mock, mock_athlete_data
+    ):
+        """Only icu_notes is sent, so the partial update leaves every other field alone."""
+        route = respx_mock.put("/athlete/i123456").mock(
+            return_value=Response(200, json={**mock_athlete_data, "icu_notes": "Knee rehab"})
+        )
+
+        response = json.loads(await update_athlete_notes(notes="Knee rehab", ctx=_ctx(mock_config)))
+
+        assert json.loads(route.calls.last.request.content) == {"icu_notes": "Knee rehab"}
+        assert response["data"] == {
+            "athlete_id": "i123456",
+            "name": "Test Athlete",
+            "notes": "Knee rehab",
+        }
+        assert response["metadata"]["message"] == "Athlete notes updated"
+
+    async def test_empty_string_clears_notes(self, mock_config, respx_mock, mock_athlete_data):
+        route = respx_mock.put("/athlete/i123456").mock(
+            return_value=Response(200, json={**mock_athlete_data, "icu_notes": ""})
+        )
+
+        response = json.loads(await update_athlete_notes(notes="", ctx=_ctx(mock_config)))
+
+        assert json.loads(route.calls.last.request.content) == {"icu_notes": ""}
+        assert response["data"]["notes"] == ""
+        assert response["metadata"]["message"] == "Athlete notes cleared"
+
+    async def test_reports_sent_notes_when_response_omits_them(
+        self, mock_config, respx_mock, mock_athlete_data
+    ):
+        """The spec's PUT response schema has no icu_notes; fall back to what was sent."""
+        respx_mock.put("/athlete/i123456").mock(return_value=Response(200, json=mock_athlete_data))
+
+        response = json.loads(await update_athlete_notes(notes="Knee rehab", ctx=_ctx(mock_config)))
+
+        assert response["data"]["notes"] == "Knee rehab"
+
+    async def test_athlete_id_override(self, mock_config, respx_mock, mock_athlete_data):
+        """A coach can target a managed athlete instead of the configured default."""
+        route = respx_mock.put("/athlete/i999888").mock(
+            return_value=Response(
+                200, json={**mock_athlete_data, "id": "i999888", "icu_notes": "Build phase"}
+            )
+        )
+
+        response = json.loads(
+            await update_athlete_notes(
+                notes="Build phase", athlete_id="i999888", ctx=_ctx(mock_config)
+            )
+        )
+
+        assert route.called
+        assert response["data"]["athlete_id"] == "i999888"
+
+    async def test_api_error(self, mock_config, respx_mock):
+        respx_mock.put("/athlete/i123456").mock(
+            return_value=Response(403, json={"error": "denied"})
+        )
+
+        response = json.loads(await update_athlete_notes(notes="x", ctx=_ctx(mock_config)))
+
+        assert response["error"]["type"] == "api_error"
+        assert any("coach access" in s for s in response["error"]["suggestions"])
 
 
 class TestGetFitnessSummary:
