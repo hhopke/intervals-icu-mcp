@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from httpx import Response
 
 from intervals_icu_mcp.tools.athlete import (
+    NOTES_PREVIEW_CHARS,
     get_athlete_profile,
     get_fitness_chart,
     get_fitness_summary,
@@ -79,8 +80,32 @@ class TestListAthletes:
         by_id = {a["athlete_id"]: a for a in response["data"]["athletes"]}
 
         assert by_id["i123456"]["notes"] == "Returning from **injury**"
+        assert "notes_truncated" not in by_id["i123456"]
         assert "notes" not in by_id["i999888"]
         assert "notes" not in by_id["i777666"]
+
+    async def test_long_notes_are_cut_to_a_preview(self, mock_config, respx_mock):
+        """A coach's roster must not carry every athlete's full notes on each name lookup."""
+        long_notes = "Left knee rehab until November. " * 10
+        assert len(long_notes) > NOTES_PREVIEW_CHARS
+        roster = [
+            {**self.ROSTER[0], "icu_notes": long_notes},
+            {**self.ROSTER[1], "icu_notes": "x" * NOTES_PREVIEW_CHARS},
+        ]
+        respx_mock.get("/athletes").mock(return_value=Response(200, json=roster))
+
+        response = json.loads(await list_athletes(ctx=_ctx(mock_config)))
+        by_id = {a["athlete_id"]: a for a in response["data"]["athletes"]}
+
+        cut = by_id["i999888"]
+        assert cut["notes_truncated"] is True
+        assert len(cut["notes"]) <= NOTES_PREVIEW_CHARS
+        assert long_notes.startswith(cut["notes"])
+        assert not cut["notes"].endswith(" ")
+        # Exactly at the limit is not a cut
+        exact = by_id["i777666"]
+        assert exact["notes"] == "x" * NOTES_PREVIEW_CHARS
+        assert "notes_truncated" not in exact
 
     async def test_empty_roster(self, mock_config, respx_mock):
         respx_mock.get("/athletes").mock(return_value=Response(200, json=[]))

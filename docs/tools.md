@@ -127,7 +127,7 @@ The threaded notes/comments shown under an activity — the user's own training 
 
 | Tool                  | Description                                                     |
 | --------------------- | --------------------------------------------------------------- |
-| `icu_list_athletes` | List athletes this account can access (self, followed, coached) with each one's access level, tags, and athlete notes — use to resolve a name to an `athlete_id` |
+| `icu_list_athletes` | List athletes this account can access (self, followed, coached) with each one's access level, tags, and a preview of their athlete notes (`notes_truncated: true` when cut; full text via `icu_get_athlete_profile`) — use to resolve a name to an `athlete_id` |
 | `icu_get_athlete_profile` | Get athlete profile, fitness metrics, outdoor/indoor FTP, and athlete notes |
 | `icu_update_athlete_notes` | Replace (or clear) the free-text Markdown notes on an athlete's record |
 | `icu_get_fitness_summary` | Get detailed CTL/ATL/TSB analysis with training recommendations |

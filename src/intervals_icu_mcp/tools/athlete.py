@@ -12,6 +12,9 @@ from ..response_builder import ResponseBuilder
 from ..sport_settings_format import format_sport_settings_entry
 
 MAX_FITNESS_CHART_DAYS = 365
+# icu_list_athletes is called on every name lookup, so a coach's roster must not
+# carry every athlete's full notes. Enough to spot "injured" or "prefers mornings".
+NOTES_PREVIEW_CHARS = 150
 _FITNESS_CHART_FIELDS = ["id", "ctl", "atl", "rampRate", "ctlLoad", "atlLoad"]
 
 
@@ -89,7 +92,9 @@ async def list_athletes(
     Call this FIRST whenever a request concerns someone other than the default
     athlete, to resolve a name to the athlete_id that other tools take. Returns
     each athlete's access level, so you know before calling whether a write will
-    be permitted, plus any tags and athlete notes.
+    be permitted, plus any tags and a short preview of the athlete notes. Entries
+    with notes_truncated=true have longer notes; icu_get_athlete_profile returns
+    the full text.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
@@ -116,8 +121,13 @@ async def list_athletes(
                     entry["is_default"] = True
                 if record.get("icu_tags"):
                     entry["tags"] = record["icu_tags"]
-                if record.get("icu_notes"):
-                    entry["notes"] = record["icu_notes"]
+                notes = record.get("icu_notes")
+                if notes:
+                    if len(notes) > NOTES_PREVIEW_CHARS:
+                        entry["notes"] = notes[:NOTES_PREVIEW_CHARS].rstrip()
+                        entry["notes_truncated"] = True
+                    else:
+                        entry["notes"] = notes
                 athletes.append(entry)
 
             # Default athlete first, then alphabetical — a coach's own account is
