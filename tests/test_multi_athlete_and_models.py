@@ -623,6 +623,15 @@ class TestSportSettingsModelMapping:
         assert payload["pace_units"] == "MINS_KM"
         assert payload["pace_load_type"] == "RUN"
 
+    def test_run_pace_threshold_round_trips_through_payload_and_model(self):
+        from intervals_icu_mcp.models import SportSettings
+        from intervals_icu_mcp.sport_settings_format import build_sport_settings_api_payload
+
+        payload = build_sport_settings_api_payload(pace_threshold=4.5)
+        settings = SportSettings.model_validate({"id": 2, "types": ["Run"], **payload})
+
+        assert settings.pace_threshold == pytest.approx(4.5)
+
     def test_build_sport_settings_api_payload_rejects_both_pace_params(self):
         from intervals_icu_mcp.sport_settings_format import build_sport_settings_api_payload
 

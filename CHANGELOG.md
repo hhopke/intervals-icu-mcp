@@ -17,7 +17,7 @@ breaking; this narrower contract applies from the next release onward.)
 ## [Unreleased]
 
 ### Fixed
-- Run threshold pace was misread and mis-written. The server treated `threshold_pace` as minutes per km, but Intervals.icu stores it as speed in m/s for every sport (`pace_units` only controls display), so a 4:40/km threshold (3.571 m/s) showed as "3:34 /km" in `icu_get_sport_settings` and `icu_get_athlete_profile`. Reads now convert m/s to min/km, and `icu_update_sport_settings` / `icu_create_sport_settings` convert `pace_threshold` from min/km to m/s before sending, so a value written with `pace_threshold=4.5` is stored as 4:30/km rather than about 3:42/km. Swim already used m/s (#88) (closes #152).
+- Run threshold pace was misread and mis-written. The server treated `threshold_pace` as minutes per km, but Intervals.icu stores it as speed in m/s for every sport (`pace_units` only controls display), so a 4:40/km threshold (3.571 m/s) showed as "3:34 /km" in `icu_get_sport_settings` and `icu_get_athlete_profile`. Reads now convert m/s to min/km, and `icu_update_sport_settings` / `icu_create_sport_settings` convert `pace_threshold` from min/km to m/s before sending, so a value written with `pace_threshold=4.5` is stored as 4:30/km rather than about 3:42/km. Swim already used m/s (#88). If you set a Run threshold pace with an earlier version, the stored value is wrong (4.5 was stored as 4.5 m/s, about 3:42/km), so set it again with `icu_update_sport_settings` or in the Intervals.icu UI (closes #152).
 
 ## [5.5.0] — 2026-10-02
 
