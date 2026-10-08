@@ -537,6 +537,23 @@ class TestSportSettingsModelMapping:
         assert settings.swim_threshold == pytest.approx(1.5)
         assert settings.pace_threshold is None
 
+    def test_sport_settings_maps_run_threshold_from_mps(self):
+        from intervals_icu_mcp.models import SportSettings
+
+        # Regression for #152: 4:40/km is stored as 1000/280 m/s (3.571), not as minutes.
+        settings = SportSettings.model_validate(
+            {
+                "id": 2,
+                "types": ["Run"],
+                "threshold_pace": 1000 / 280,
+                "pace_units": "MINS_KM",
+                "pace_load_type": "RUN",
+            }
+        )
+
+        assert settings.pace_threshold == pytest.approx(280 / 60)
+        assert settings.swim_threshold is None
+
     def test_sport_settings_coerces_null_zone_arrays(self):
         from intervals_icu_mcp.models import SportSettings
 
@@ -596,6 +613,24 @@ class TestSportSettingsModelMapping:
         assert payload["threshold_pace"] == pytest.approx(100 / 90)
         assert payload["pace_units"] == "SECS_100M"
         assert payload["pace_load_type"] == "SWIM"
+
+    def test_build_sport_settings_api_payload_run_sends_mps(self):
+        from intervals_icu_mcp.sport_settings_format import build_sport_settings_api_payload
+
+        # 4:30/km (4.5 min) is stored as SPEED: 1000 m / 270 s.
+        payload = build_sport_settings_api_payload(pace_threshold=4.5)
+        assert payload["threshold_pace"] == pytest.approx(1000 / 270)
+        assert payload["pace_units"] == "MINS_KM"
+        assert payload["pace_load_type"] == "RUN"
+
+    def test_run_pace_threshold_round_trips_through_payload_and_model(self):
+        from intervals_icu_mcp.models import SportSettings
+        from intervals_icu_mcp.sport_settings_format import build_sport_settings_api_payload
+
+        payload = build_sport_settings_api_payload(pace_threshold=4.5)
+        settings = SportSettings.model_validate({"id": 2, "types": ["Run"], **payload})
+
+        assert settings.pace_threshold == pytest.approx(4.5)
 
     def test_build_sport_settings_api_payload_rejects_both_pace_params(self):
         from intervals_icu_mcp.sport_settings_format import build_sport_settings_api_payload

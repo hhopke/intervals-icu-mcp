@@ -158,14 +158,15 @@ def build_sport_settings_api_payload(
     if fthr is not None:
         payload["lthr"] = fthr
     if pace_threshold is not None:
-        payload["threshold_pace"] = pace_threshold
+        # threshold_pace is SPEED in m/s for every sport: convert min/km -> m/s (#152).
+        payload["threshold_pace"] = 1000.0 / (pace_threshold * 60) if pace_threshold else 0.0
         payload["pace_units"] = "MINS_KM"
         payload["pace_load_type"] = "RUN"
     if swim_threshold is not None:
-        # Intervals.icu stores swim threshold as SPEED in m/s (unlike run, which is
-        # min/km). Convert min/100m -> m/s: 100 m / (minutes * 60) s. Sending the
-        # pace value directly stored a bogus speed (4.0 -> 4 m/s -> 0:25/100m); the
-        # old `* 60` sent seconds the API rejects with HTTP 422 (see #88).
+        # Intervals.icu stores swim threshold as SPEED in m/s (same as run). Convert
+        # min/100m -> m/s: 100 m / (minutes * 60) s. Sending the pace value directly
+        # stored a bogus speed (4.0 -> 4 m/s -> 0:25/100m); the old `* 60` sent seconds
+        # the API rejects with HTTP 422 (see #88).
         payload["threshold_pace"] = 100.0 / (swim_threshold * 60) if swim_threshold else 0.0
         payload["pace_units"] = "SECS_100M"
         payload["pace_load_type"] = "SWIM"

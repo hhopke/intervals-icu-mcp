@@ -88,7 +88,7 @@ class TestAthleteProfileSportSettings:
                             "id": 1,
                             "types": ["Run"],
                             "lthr": 170,
-                            "threshold_pace": 4.0,
+                            "threshold_pace": 1000 / 240,  # m/s for 4:00/km
                             "pace_units": "MINS_KM",
                             "pace_load_type": "RUN",
                         },
