@@ -14,7 +14,12 @@ that preserve the information (key renames, restructuring, added fields) ship in
 clients. (Releases up to and including 4.0.0 treated any response-shape change as
 breaking; this narrower contract applies from the next release onward.)
 
-## [Unreleased]
+## [5.6.0] — 2026-10-08
+
+### Added
+- `icu_update_athlete_notes` replaces or clears the free-text Markdown notes kept on an athlete's record, so standing context such as injuries, preferences and goals can be written back instead of edited in the web UI. It sends only `icu_notes` in a `PUT /athlete/{id}`; an empty string clears the note. The notes are returned by the existing read tools: `icu_get_athlete_profile` as `profile.notes` and `icu_list_athletes` as `notes` next to `tags`, omitted when no notes are set. `icu_list_athletes` responses grow for coaches with long rosters and long notes. Live-verified over stdio that the `PUT` changes only `icu_notes`. Contributed by @tpoole (#149).
+
+This takes the server from 69 tools to 70 — `safe` (the default) from 66 to 67, `none` from 61 to 62.
 
 ### Fixed
 - Run threshold pace was misread and mis-written. The server treated `threshold_pace` as minutes per km, but Intervals.icu stores it as speed in m/s for every sport (`pace_units` only controls display), so a 4:40/km threshold (3.571 m/s) showed as "3:34 /km" in `icu_get_sport_settings` and `icu_get_athlete_profile`. Reads now convert m/s to min/km, and `icu_update_sport_settings` / `icu_create_sport_settings` convert `pace_threshold` from min/km to m/s before sending, so a value written with `pace_threshold=4.5` is stored as 4:30/km rather than about 3:42/km. Swim already used m/s (#88). If you set a Run threshold pace with an earlier version, the stored value is wrong (4.5 was stored as 4.5 m/s, about 3:42/km), so set it again with `icu_update_sport_settings` or in the Intervals.icu UI (closes #152).
