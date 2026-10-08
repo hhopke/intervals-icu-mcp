@@ -54,7 +54,7 @@ RUN_SETTINGS = {
     "id": 2,
     "types": ["Run"],
     "lthr": 170,
-    "threshold_pace": 4.5,
+    "threshold_pace": 1000 / 270,  # m/s for 4:30/km
     "pace_units": "MINS_KM",
     "pace_load_type": "RUN",
     "power_zones": None,
@@ -301,7 +301,7 @@ class TestSportSettingsTools:
                     "id": 2,
                     "types": ["Run"],
                     "lthr": 172,
-                    "threshold_pace": 4.5,
+                    "threshold_pace": 1000 / 270,  # m/s for 4:30/km
                     "pace_units": "MINS_KM",
                     "pace_load_type": "RUN",
                 },
@@ -314,7 +314,7 @@ class TestSportSettingsTools:
         assert response["data"]["fthr_bpm"] == 172
         assert json.loads(route.calls.last.request.content) == {
             "lthr": 172,
-            "threshold_pace": 4.5,
+            "threshold_pace": pytest.approx(1000 / 270),
             "pace_units": "MINS_KM",
             "pace_load_type": "RUN",
         }
@@ -387,7 +387,7 @@ class TestSportSettingsTools:
                     "id": 7,
                     "types": ["Run"],
                     "lthr": 170,
-                    "threshold_pace": 4.5,
+                    "threshold_pace": 1000 / 270,  # m/s for 4:30/km
                     "pace_units": "MINS_KM",
                     "pace_load_type": "RUN",
                 },
@@ -407,7 +407,7 @@ class TestSportSettingsTools:
         assert json.loads(route.calls.last.request.content) == {
             "types": ["Run"],
             "lthr": 170,
-            "threshold_pace": 4.5,
+            "threshold_pace": pytest.approx(1000 / 270),
             "pace_units": "MINS_KM",
             "pace_load_type": "RUN",
         }
