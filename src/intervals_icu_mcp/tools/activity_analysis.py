@@ -38,6 +38,11 @@ async def get_activity_streams(
     `latlng` comes back as [lat, lng] pairs (null where the sample has no
     GPS fix).
 
+    `left_right_balance` (dual-sided power meters) is the RIGHT pedal's share
+    of power in percent (FIT convention), not the left's: a stream averaging
+    48 means L 52% / R 48%. The response adds a `stream_notes` entry saying so whenever the
+    stream is returned.
+
     `heartrate` is CORRECTED data: Intervals.icu replaces readings above the
     athlete's configured max HR with an interpolated line at import, so it can
     never exceed that setting. `raw_heartrate` is the uncorrected trace and is
@@ -116,6 +121,15 @@ async def get_activity_streams(
                 "available_streams": available_streams,
                 "stream_lengths": stream_lengths,
             }
+            if "left_right_balance" in streams_dict:
+                result_data["stream_notes"] = {
+                    "left_right_balance": (
+                        "Percent of power from the RIGHT pedal (FIT convention; consistent "
+                        "with a reported average of 48 showing as L 52% / R 48% in the "
+                        "Intervals.icu UI). Left = 100 - value. Cross-check against the "
+                        "activity's average L/R if the side matters."
+                    )
+                }
             if step > 1:
                 result_data["downsampling"] = {
                     "step": step,

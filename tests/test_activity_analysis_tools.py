@@ -66,6 +66,29 @@ class TestGetActivityStreams:
         assert data["streams"]["time"] == [0, 1, 2]
         assert data["stream_lengths"]["latlng"] == 3
 
+    async def test_left_right_balance_gets_side_note(self, mock_config, respx_mock):
+        """The raw balance stream is labelled as the right pedal's share (#153)."""
+        respx_mock.get("/activity/a1/streams.json").mock(
+            return_value=Response(200, json=[{"type": "left_right_balance", "data": [48, 47, 49]}])
+        )
+
+        result = await get_activity_streams(activity_id="a1", ctx=_make_ctx(mock_config))
+
+        data = json.loads(result)["data"]
+        assert data["streams"]["left_right_balance"] == [48, 47, 49]
+        note = data["stream_notes"]["left_right_balance"]
+        assert "RIGHT" in note
+        assert "100 - value" in note
+
+    async def test_no_stream_notes_without_balance(self, mock_config, respx_mock):
+        respx_mock.get("/activity/a1/streams.json").mock(
+            return_value=Response(200, json=[{"type": "watts", "data": [100, 110]}])
+        )
+
+        result = await get_activity_streams(activity_id="a1", ctx=_make_ctx(mock_config))
+
+        assert "stream_notes" not in json.loads(result)["data"]
+
     async def test_latlng_length_mismatch_pads_instead_of_truncating(self, mock_config, respx_mock):
         respx_mock.get("/activity/a1/streams.json").mock(
             return_value=Response(
