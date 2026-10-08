@@ -76,7 +76,9 @@ class TestGetActivityStreams:
 
         data = json.loads(result)["data"]
         assert data["streams"]["left_right_balance"] == [48, 47, 49]
-        assert "RIGHT" in data["stream_notes"]["left_right_balance"]
+        note = data["stream_notes"]["left_right_balance"]
+        assert "RIGHT" in note
+        assert "100 - value" in note
 
     async def test_no_stream_notes_without_balance(self, mock_config, respx_mock):
         respx_mock.get("/activity/a1/streams.json").mock(
@@ -346,14 +348,18 @@ class TestGetBestEfforts:
             )
         )
 
-        result = await get_best_efforts(activity_id="a1", duration=1200, ctx=_make_ctx(mock_config))
+        result = await get_best_efforts(
+            activity_id="a1", duration=1200, ctx=_make_ctx(mock_config)
+        )
         response = json.loads(result)
         assert response["data"]["count"] == 0
 
     async def test_api_error(self, mock_config, respx_mock):
         respx_mock.get("/activity/a1/best-efforts").mock(return_value=Response(401, json={}))
 
-        result = await get_best_efforts(activity_id="a1", duration=1200, ctx=_make_ctx(mock_config))
+        result = await get_best_efforts(
+            activity_id="a1", duration=1200, ctx=_make_ctx(mock_config)
+        )
         response = json.loads(result)
         assert response["error"]["type"] == "api_error"
 
