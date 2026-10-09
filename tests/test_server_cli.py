@@ -40,6 +40,22 @@ class TestParseArgs:
         with pytest.raises(SystemExit):
             _parse_args(["--port", "not-a-number"])
 
+    @pytest.mark.parametrize("path", ["/health", "/health/"])
+    @pytest.mark.parametrize("transport", ["http", "sse", "streamable-http"])
+    def test_rejects_health_path_for_http_transports(self, path, transport, capsys):
+        with pytest.raises(SystemExit) as exc_info:
+            _parse_args(["--transport", transport, "--path", path])
+
+        assert exc_info.value.code == 2
+        assert "--path cannot be /health" in capsys.readouterr().err
+
+    @pytest.mark.parametrize("path", ["/health", "/health/"])
+    def test_stdio_accepts_inert_health_path(self, path):
+        args = _parse_args(["--transport", "stdio", "--path", path])
+
+        assert args.transport == "stdio"
+        assert args.path == path
+
 
 class TestVerifyMultiAthletePrompt:
     """The verify_multi_athlete prompt renders an athlete id into every step.

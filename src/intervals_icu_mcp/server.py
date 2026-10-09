@@ -6,12 +6,21 @@ from typing import Any
 
 from dotenv import load_dotenv
 from fastmcp import FastMCP
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 # Load environment variables
 load_dotenv()
 
 # Initialize FastMCP server
 mcp = FastMCP("intervals_icu_mcp")
+
+
+@mcp.custom_route("/health", methods=["GET"], include_in_schema=False)
+async def health(request: Request) -> JSONResponse:
+    """Return static HTTP liveness without accessing MCP or upstream APIs."""
+    return JSONResponse({"status": "ok"})
+
 
 # Register middleware
 from .auth import load_config
@@ -1216,7 +1225,11 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="URL path to mount the server under (HTTP transports only).",
     )
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.transport != "stdio" and args.path is not None:
+        if args.path.removesuffix("/") == "/health":
+            parser.error("--path cannot be /health because it conflicts with the health route")
+    return args
 
 
 async def _count_registered_tools() -> int:
