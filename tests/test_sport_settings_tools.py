@@ -7,7 +7,6 @@ from httpx import Response
 
 from intervals_icu_mcp.tools import sport_settings as sport_settings_tool
 from intervals_icu_mcp.tools.sport_settings import (
-    apply_sport_settings,
     create_sport_settings,
     delete_sport_settings,
     get_sport_settings,
@@ -363,20 +362,6 @@ class TestSportSettingsTools:
         await update_sport_settings(sport_id=2, fthr=170, recalc_hr_zones=False)
 
         assert route.calls.last.request.url.params["recalcHrZones"] == "false"
-
-    async def test_apply_sport_settings_success(self, patch_config, respx_mock):
-        """Apply settings uses PUT and returns the API payload with metadata."""
-        respx_mock.put("/athlete/i123456/sport-settings/1/apply").mock(
-            return_value=Response(200, json={"applied": 42})
-        )
-
-        result = await apply_sport_settings(sport_id=1)
-
-        response = json.loads(result)
-        assert response["data"]["applied"] == 42
-        assert response["metadata"]["message"] == (
-            "Sport settings applied to activities successfully"
-        )
 
     async def test_create_sport_settings_success(self, patch_config, respx_mock):
         """Successfully creating a new Run settings object."""

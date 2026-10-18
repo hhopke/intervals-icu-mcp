@@ -97,7 +97,6 @@ from .tools.gear import (
 from .tools.performance import get_power_curves
 from .tools.periodization import get_annual_training_plan
 from .tools.sport_settings import (
-    apply_sport_settings,
     create_sport_settings,
     delete_sport_settings,
     get_sport_settings,
@@ -679,15 +678,6 @@ mcp.tool(
         "openWorldHint": True,
     },
 )(update_sport_settings)
-mcp.tool(
-    name="icu_apply_sport_settings",
-    annotations={
-        "readOnlyHint": False,
-        "destructiveHint": True,
-        "idempotentHint": False,
-        "openWorldHint": True,
-    },
-)(apply_sport_settings)
 mcp.tool(
     name="icu_create_sport_settings",
     annotations={

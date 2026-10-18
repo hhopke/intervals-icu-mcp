@@ -31,11 +31,11 @@ class TestInMemoryTransport:
             assert client.is_connected()
 
     async def test_all_default_mode_tools_registered(self):
-        """Default delete_mode=safe registers 67 tools (3 destructive tools gated)."""
+        """Default delete_mode=safe registers 66 tools (3 destructive tools gated)."""
         async with Client(mcp) as client:
             tools = await client.list_tools()
             names = {t.name for t in tools}
-            assert len(names) == 67
+            assert len(names) == 66
             # Spot-check tools from different modules / tiers
             assert "icu_get_recent_activities" in names
             assert "icu_get_athlete_profile" in names
@@ -46,6 +46,7 @@ class TestInMemoryTransport:
             assert "icu_get_activity_messages" in names  # Activity messages
             assert "icu_get_custom_items" in names  # Custom items
             assert "icu_update_sport_settings" in names
+            assert "icu_apply_sport_settings" not in names  # endpoint removed upstream
 
     async def test_sport_settings_tools_expose_indoor_ftp(self):
         """Create and update schemas accept the separate indoor power threshold."""
@@ -54,7 +55,6 @@ class TestInMemoryTransport:
             for name in {"icu_create_sport_settings", "icu_update_sport_settings"}:
                 assert "indoor_ftp" in tools[name].inputSchema["properties"]
             assert "recalc_hr_zones" in tools["icu_update_sport_settings"].inputSchema["properties"]
-            assert "oldest_date" not in tools["icu_apply_sport_settings"].inputSchema["properties"]
 
     async def test_tools_use_icu_prefix(self):
         """Every tool follows the naming convention documented in the README."""
@@ -238,5 +238,5 @@ class TestHTTPTransport:
                 tools_body = (await tools_resp.aread()).decode()
                 tools_payload = self._parse_sse_response(tools_body)
                 tool_names = {t["name"] for t in tools_payload["result"]["tools"]}
-                assert len(tool_names) == 67  # safe mode default
+                assert len(tool_names) == 66  # safe mode default
                 assert "icu_get_recent_activities" in tool_names

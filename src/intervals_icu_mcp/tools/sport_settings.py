@@ -106,6 +106,8 @@ async def update_sport_settings(
 
     Explicit zones replace the threshold-derived ones (e.g. to match a lab test).
     Changes apply from now on; past activities keep the zones they were analysed with.
+    To re-zone past activities, tell the user to use Update zones in the Intervals.icu
+    activity list view (not in the API).
     """
     config = load_config()
     if not validate_credentials(config):
@@ -164,44 +166,6 @@ async def update_sport_settings(
 
     except ValueError as e:
         return ResponseBuilder.build_error_response(str(e), error_type="validation_error")
-    except ICUAPIError as e:
-        return ResponseBuilder.build_error_response(e.message, error_type="api_error")
-    except Exception as e:
-        return ResponseBuilder.build_error_response(str(e), error_type="unexpected_error")
-
-
-async def apply_sport_settings(
-    sport_id: Annotated[int, "ID of the sport settings to apply"],
-    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
-    ctx: Context | None = None,
-) -> str:
-    """Overwrite the zones on EVERY past activity of this sport with the current settings' zones.
-
-    No date range: all matching activities are rewritten. FTP and other thresholds stored
-    on past activities are kept; for sports with HR zones, LTHR and max HR are updated.
-    Not needed after update_sport_settings — new values already apply to activities from
-    now on, and past ones keep the settings they were analysed with. Use only to correct
-    wrong settings across the whole history. For selected activities or a date range, tell
-    the user to use Update zones in the Intervals.icu activity list view (not in the API).
-    """
-    config = load_config()
-    if not validate_credentials(config):
-        return (
-            "Error: Intervals.icu credentials not configured. Run intervals-icu-mcp-auth to set up."
-        )
-
-    try:
-        async with ICUClient(config) as client:
-            result = await client.apply_sport_settings(sport_id, athlete_id=athlete_id)
-
-            return ResponseBuilder.build_response(
-                result,
-                metadata={
-                    "type": "sport_settings_applied",
-                    "message": "Sport settings applied to activities successfully",
-                },
-            )
-
     except ICUAPIError as e:
         return ResponseBuilder.build_error_response(e.message, error_type="api_error")
     except Exception as e:

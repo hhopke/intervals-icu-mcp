@@ -1297,26 +1297,6 @@ class ICUClient:
         )
         return SportSettings(**response.json())
 
-    async def apply_sport_settings(
-        self,
-        sport_id: int,
-        athlete_id: str | None = None,
-    ) -> dict[str, Any]:
-        """Apply the current sport settings' zones to all matching past activities.
-
-        Args:
-            sport_id: Sport settings ID
-            athlete_id: Athlete ID (uses config default if not provided)
-
-        Returns:
-            Result of applying settings
-        """
-        athlete_id = athlete_id or self.config.intervals_icu_athlete_id
-        response = await self._request(
-            "PUT", f"/athlete/{athlete_id}/sport-settings/{sport_id}/apply"
-        )
-        return response.json()
-
     async def create_sport_settings(
         self,
         settings_data: dict[str, Any],

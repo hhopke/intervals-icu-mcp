@@ -1,6 +1,6 @@
 # Tool, Resource, and Prompt Reference
 
-Complete inventory of everything the Intervals.icu MCP server exposes: up to 70 tools across 11 categories, 4 MCP Resources, and 9 MCP Prompts.
+Complete inventory of everything the Intervals.icu MCP server exposes: up to 69 tools across 11 categories, 4 MCP Resources, and 9 MCP Prompts.
 
 ## Delete Safety Mode
 
@@ -8,9 +8,9 @@ Destructive tools are gated by the optional `INTERVALS_ICU_DELETE_MODE` env var.
 
 | Mode | Registered tools | Events | Activities | Gear | Library workouts | Library folders | Sport settings | Custom items |
 |---|---|---|---|---|---|---|---|---|
-| `safe` (default) | 67 | tomorrow or later | ✗ | ✓ | ✓ | empty only | ✗ | ✗ |
-| `full` | 70 | any date | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `none` | 62 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| `safe` (default) | 66 | tomorrow or later | ✗ | ✓ | ✓ | empty only | ✗ | ✗ |
+| `full` | 69 | any date | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `none` | 61 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 
 In `safe` mode, `icu_delete_event`, `icu_bulk_delete_events`, and `icu_delete_workout_folder` return a uniform envelope showing what was deleted and what was skipped (the folder tool also adds a `folder` summary):
 
@@ -190,13 +190,12 @@ The threaded notes/comments shown under an activity — the user's own training 
 | `icu_create_gear_reminder` | Create maintenance reminders for gear      |
 | `icu_update_gear_reminder` | Update existing gear maintenance reminders |
 
-### Sport Settings (5 tools)
+### Sport Settings (4 tools)
 
 | Tool                    | Description                                             |
 | ----------------------- | ------------------------------------------------------- |
 | `icu_get_sport_settings`    | Get per-sport thresholds plus configured power/HR/pace zones |
 | `icu_update_sport_settings` | Update outdoor/indoor FTP, FTHR, or pace/swim thresholds, or set explicit HR/power zone bounds (e.g. from a lab test) |
-| `icu_apply_sport_settings`  | Overwrite zones on all past activities of a sport with the current zones (no date range; for selected activities use Update zones in the web UI list view) |
 | `icu_create_sport_settings` | Create new sport-specific settings                      |
 | `icu_delete_sport_settings` | Delete sport-specific settings *(only registered when `INTERVALS_ICU_DELETE_MODE=full`; past activities keep their analysed values, but re-creating the record starts from defaults)* |
 
