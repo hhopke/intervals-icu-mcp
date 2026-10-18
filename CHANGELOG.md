@@ -14,6 +14,11 @@ that preserve the information (key renames, restructuring, added fields) ship in
 clients. (Releases up to and including 4.0.0 treated any response-shape change as
 breaking; this narrower contract applies from the next release onward.)
 
+## [Unreleased]
+
+### Fixed
+- `uvx intervals-icu-mcp` works on Intel Macs again without a compiler. cryptography (pulled in through fastmcp → authlib) ships only arm64 macOS wheels from 49.0.0 on, so uv fell back to building it from source, which needs Rust, OpenSSL and pkg-config. On x86_64 macOS the server now caps cryptography below 49, which still ships universal2 wheels. Every other platform is unchanged. cryptography 48.x has published advisories (PYSEC-2026-3552/3553/3554), but they cover PKCS#7 decryption and X.509 certificate verification, which this server never calls. The README now lists the official uv installer next to Homebrew, because Homebrew no longer installs on Intel Macs.
+
 ## [5.7.0] — 2026-10-18
 
 ### Fixed

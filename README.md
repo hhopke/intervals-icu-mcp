@@ -48,7 +48,7 @@ Prefer Claude Code, Cursor, or ChatGPT? See [Client Configuration](#client-confi
 
 ## Prerequisites
 
-Install [uv](https://github.com/astral-sh/uv) — it handles Python, dependencies, and execution in one tool. `brew install uv` on macOS/Linux, or `powershell -c "irm https://astral.sh/uv/install.ps1 | iex"` on Windows. From there, `uvx` fetches Python and the package automatically. Docker is also supported as an alternative.
+Install [uv](https://github.com/astral-sh/uv) — it handles Python, dependencies, and execution in one tool. `curl -LsSf https://astral.sh/uv/install.sh | sh` on macOS/Linux (or `brew install uv`; Homebrew no longer installs on Intel Macs), or `powershell -c "irm https://astral.sh/uv/install.ps1 | iex"` on Windows. From there, `uvx` fetches Python and the package automatically. If your MCP client can't find `uvx`, set `command` to the full path that `which uvx` prints. Docker is also supported as an alternative.
 
 ## Intervals.icu API Key Setup
 
