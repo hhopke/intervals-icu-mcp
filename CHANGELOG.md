@@ -14,7 +14,7 @@ that preserve the information (key renames, restructuring, added fields) ship in
 clients. (Releases up to and including 4.0.0 treated any response-shape change as
 breaking; this narrower contract applies from the next release onward.)
 
-## [Unreleased]
+## [5.7.0] — 2026-10-18
 
 ### Fixed
 - The Docker image healthcheck no longer starts an MCP session and lists the full tool catalog every 30 seconds. It now runs `python -m intervals_icu_mcp.healthcheck`, a standard-library probe. For HTTP, streamable HTTP and SSE servers it sends `GET /health`, a new static route that returns `{"status":"ok"}` without touching MCP or Intervals.icu. For stdio servers it keeps the old import-only check. The probe finds the server's transport from the container's PID 1 command line. Behind a wrapper such as `docker run --init`, it falls back to the import check unless `--host`/`--port` are passed. The Docker timeout goes from 3 s to 5 s. `/health` is now reserved, so `--path /health` is rejected on HTTP transports. See `docs/remote-deployment.md` for compose examples. Contributed by @FabioCamin8 (#151).
