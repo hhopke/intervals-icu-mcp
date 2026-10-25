@@ -8,7 +8,7 @@ from fastmcp import Context
 
 from ..auth import ICUConfig
 from ..client import ICUAPIError, ICUClient
-from ..models import CurveData
+from ..models import CurveActivity, CurveData
 from ..response_builder import ResponseBuilder
 
 _TIME_PERIODS = {
@@ -29,6 +29,11 @@ _KEY_DURATIONS = {
     600: "10_min",
     1200: "20_min",
     3600: "1_hour",
+    7200: "2_hour",
+    10800: "3_hour",
+    14400: "4_hour",
+    18000: "5_hour",
+    21600: "6_hour",
 }
 
 _MAX_PERIODS = 5
@@ -74,11 +79,15 @@ def _parse_period(spec: str) -> tuple[str, str]:
     )
 
 
-def _analyze_curve(curve: CurveData) -> dict[str, Any]:
-    """Build peak efforts, summary and FTP estimate for one curve."""
+def _analyze_curve(
+    curve: CurveData, activities: dict[str, CurveActivity], full_curve: bool = False
+) -> dict[str, Any]:
+    """Build peak efforts, summary, FTP estimate and power models for one curve."""
     secs = curve.secs
     vals = curve.values
     activity_ids = curve.activity_id
+    wkg = curve.watts_per_kg
+    wkg_activity_ids = curve.wkg_activity_id
 
     # Find data points for key durations
     peak_efforts: dict[str, dict[str, Any]] = {}
@@ -94,6 +103,17 @@ def _analyze_curve(curve: CurveData) -> dict[str, Any]:
             idx = secs.index(actual_secs)
             if idx < len(activity_ids) and activity_ids[idx]:
                 effort["activity_id"] = activity_ids[idx]
+                activity = activities.get(activity_ids[idx])
+                if activity and activity.start_date_local:
+                    effort["date"] = activity.start_date_local[:10]
+            if idx < len(wkg):
+                # Best W/kg uses each activity's own weight, so it can come from a
+                # different (lighter-day) activity than the best watts.
+                effort["watts_per_kg"] = round(wkg[idx], 2)
+                if idx < len(wkg_activity_ids) and wkg_activity_ids[idx] != effort.get(
+                    "activity_id"
+                ):
+                    effort["watts_per_kg_activity_id"] = wkg_activity_ids[idx]
             peak_efforts[label] = effort
 
     # Calculate summary statistics
@@ -115,6 +135,8 @@ def _analyze_curve(curve: CurveData) -> dict[str, Any]:
             "oldest": curve.start_date_local,
             "newest": curve.end_date_local,
         }
+    if curve.weight:
+        summary["weight_kg"] = round(curve.weight, 1)
 
     analysis: dict[str, Any] = {"peak_efforts": peak_efforts, "summary": summary}
 
@@ -133,6 +155,34 @@ def _analyze_curve(curve: CurveData) -> dict[str, Any]:
                 "twenty_min_power": twenty_min_watts,
                 "estimated_ftp": estimated_ftp,
             }
+
+    models = [
+        {
+            key: value
+            for key, value in {
+                "type": model.type,
+                "critical_power": model.critical_power,
+                "w_prime": model.w_prime,
+                "p_max": model.p_max,
+                "ftp": model.ftp,
+            }.items()
+            if value is not None
+        }
+        for model in curve.power_models
+    ]
+    if models:
+        analysis["power_models"] = models
+    if curve.vo2max_5m:
+        analysis["vo2max_5m"] = round(curve.vo2max_5m, 1)
+    if curve.map_plot and curve.map_plot.map_watts:
+        # The API reports 0 when the curve has too few points to fit MAP.
+        analysis["map"] = {
+            "watts": curve.map_plot.map_watts,
+            "watts_per_kg": round(curve.map_plot.map or 0, 2),
+            "duration_seconds": curve.map_plot.map_secs,
+        }
+    if full_curve:
+        analysis["curve"] = {"secs": secs, "watts": vals}
 
     return analysis
 
@@ -156,13 +206,17 @@ async def get_power_curves(
         "Compare up to 5 periods in one call; each is week/month/year/all, '<N>d', a "
         "season ID ('s1'), or 'YYYY-MM-DD..YYYY-MM-DD'. Returns one entry per period.",
     ] = None,
+    full_curve: Annotated[
+        bool, "Also return every duration point (secs + watts), not just key durations"
+    ] = False,
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
-    """Fetch the power-vs-duration curve — best (highest) sustained watts across durations from 5s up to 1h, aggregated over the chosen window.
+    """Fetch the power-vs-duration curve — best (highest) sustained watts and W/kg across durations from 5s up to 6h, aggregated over the chosen window.
 
-    Use for FTP estimation, peak-power tracking, strengths/weaknesses
-    across duration profiles. Pick ONE window: days_back, time_period,
+    Use for FTP estimation, peak-power tracking, durability, strengths/weaknesses
+    across duration profiles. Includes fitted power models (CP, W', Pmax, FTP),
+    the VO2max estimate and MAP when Intervals.icu provides them. Pick ONE window: days_back, time_period,
     start_date/end_date, season, or periods (to compare several, e.g.
     ['s0', 's1', 'all']). Default is the last 90 days. For time-in-zone
     *distribution* within a single activity, use icu_get_power_histogram instead.
@@ -222,7 +276,7 @@ async def get_power_curves(
                 if curve.label:
                     entry["label"] = curve.label
                 if curve.values:
-                    entry.update(_analyze_curve(curve))
+                    entry.update(_analyze_curve(curve, curve_set.activities, full_curve))
                 curves_data.append(entry)
             returned = {curve.id for curve in curve_set.curves}
             missing = [label for curve_id, label in parsed if curve_id not in returned]
@@ -252,7 +306,7 @@ async def get_power_curves(
         result_data: dict[str, Any] = {"period": period_label}
         if season is not None and curve.label:
             result_data["label"] = curve.label
-        result_data.update(_analyze_curve(curve))
+        result_data.update(_analyze_curve(curve, curve_set.activities, full_curve))
 
         return ResponseBuilder.build_response(
             data=result_data,

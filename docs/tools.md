@@ -163,7 +163,7 @@ The threaded notes/comments shown under an activity — the user's own training 
 
 | Tool               | Description                                              |
 | ------------------ | -------------------------------------------------------- |
-| `icu_get_power_curves` | Analyze power curves with FTP estimation; windows by days, date range, season, or several `periods` compared in one call |
+| `icu_get_power_curves` | Best watts and W/kg from 5 s to 6 h (with activity and date), FTP estimate, power models (CP / W' / Pmax / FTP), VO2max estimate and MAP; windows by days, date range, season, or several `periods` compared in one call; optional `full_curve` |
 | `icu_get_hr_curves`    | Analyze heart rate curves with HR zones                  |
 | `icu_get_pace_curves`  | Analyze running/swimming pace curves with optional GAP   |
 

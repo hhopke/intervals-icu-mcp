@@ -245,3 +245,100 @@ class TestGetPowerCurvesWindows:
             assert json.loads(result)["error"]["type"] == "validation_error", kwargs
 
         assert not route.called
+
+
+class TestGetPowerCurvesExtras:
+    async def test_long_durations_wkg_dates_and_models(self, mock_config, respx_mock):
+        """Durations up to 6 h carry W/kg and the activity date; power models,
+        VO2max, MAP and the period's weight are passed through."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.get("/athlete/i123456/power-curves").mock(
+            return_value=Response(
+                200,
+                json={
+                    "list": [
+                        {
+                            "id": "all",
+                            "secs": [5, 1200, 21600],
+                            "values": [900, 300, 180],
+                            "activity_id": ["a1", "a2", "a3"],
+                            "watts_per_kg": [11.25, 3.8, 2.25],
+                            "wkg_activity_id": ["a1", "a9", "a3"],
+                            "weight": 79.625,
+                            "powerModels": [
+                                {
+                                    "type": "MORTON_3P",
+                                    "criticalPower": 286,
+                                    "wPrime": 33823,
+                                    "pMax": 1025,
+                                    "ftp": 286,
+                                    "inputPointIndexes": [1, 2],
+                                }
+                            ],
+                            "vo2max_5m": 59.088,
+                            "mapPlot": {"map": 4.4858, "mapSecs": 470, "mapWatts": 359},
+                        }
+                    ],
+                    "activities": {
+                        "a3": {"id": "a3", "start_date_local": "2021-10-17T08:00:00"},
+                    },
+                },
+            )
+        )
+
+        result = await get_power_curves(time_period="all", ctx=mock_ctx)
+
+        data = json.loads(result)["data"]
+        six_hour = data["peak_efforts"]["6_hour"]
+        assert six_hour == {
+            "watts": 180,
+            "duration_seconds": 21600,
+            "activity_id": "a3",
+            "date": "2021-10-17",
+            "watts_per_kg": 2.25,
+        }
+        # Best W/kg from a different activity than the best watts is attributed.
+        assert data["peak_efforts"]["20_min"]["watts_per_kg_activity_id"] == "a9"
+        assert "watts_per_kg_activity_id" not in data["peak_efforts"]["5_sec"]
+        assert data["summary"]["weight_kg"] == 79.6
+        assert data["power_models"] == [
+            {
+                "type": "MORTON_3P",
+                "critical_power": 286,
+                "w_prime": 33823,
+                "p_max": 1025,
+                "ftp": 286,
+            }
+        ]
+        assert data["vo2max_5m"] == 59.1
+        assert data["map"] == {"watts": 359, "watts_per_kg": 4.49, "duration_seconds": 470}
+        assert "curve" not in data
+
+    async def test_full_curve_and_zero_map_omitted(self, mock_config, respx_mock):
+        """full_curve returns every point; a zero MAP (not fittable) is left out."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.get("/athlete/i123456/power-curves").mock(
+            return_value=Response(
+                200,
+                json={
+                    "list": [
+                        {
+                            "secs": [1, 2, 3],
+                            "values": [1000, 950, 900],
+                            "mapPlot": {"map": 0.0, "mapSecs": 0, "mapWatts": 0},
+                        }
+                    ]
+                },
+            )
+        )
+
+        result = await get_power_curves(full_curve=True, ctx=mock_ctx)
+
+        data = json.loads(result)["data"]
+        assert data["curve"] == {"secs": [1, 2, 3], "watts": [1000, 950, 900]}
+        assert "map" not in data
+        assert "power_models" not in data
