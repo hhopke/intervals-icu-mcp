@@ -408,7 +408,9 @@ async def update_activity(
     """Update an existing activity's metadata (name, type, distance, times, sub-type, RPE, etc.).
 
     Only fields you pass are sent; everything else stays unchanged. Strava-imported
-    activities cannot be updated.
+    activities cannot be updated. moving_time, elapsed_time and recording_time only
+    take effect on manual activities; on activities from a file Intervals.icu keeps
+    the times derived from the file.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
