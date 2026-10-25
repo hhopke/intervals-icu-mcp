@@ -9,6 +9,7 @@ from intervals_icu_mcp.tools.activity_analysis import (
     get_activity_intervals,
     get_activity_streams,
     get_best_efforts,
+    get_stream_stats,
     search_intervals,
 )
 
@@ -348,18 +349,14 @@ class TestGetBestEfforts:
             )
         )
 
-        result = await get_best_efforts(
-            activity_id="a1", duration=1200, ctx=_make_ctx(mock_config)
-        )
+        result = await get_best_efforts(activity_id="a1", duration=1200, ctx=_make_ctx(mock_config))
         response = json.loads(result)
         assert response["data"]["count"] == 0
 
     async def test_api_error(self, mock_config, respx_mock):
         respx_mock.get("/activity/a1/best-efforts").mock(return_value=Response(401, json={}))
 
-        result = await get_best_efforts(
-            activity_id="a1", duration=1200, ctx=_make_ctx(mock_config)
-        )
+        result = await get_best_efforts(activity_id="a1", duration=1200, ctx=_make_ctx(mock_config))
         response = json.loads(result)
         assert response["error"]["type"] == "api_error"
 
@@ -480,3 +477,221 @@ class TestSearchIntervals:
         result = await search_intervals(interval_type="HR", ctx=_make_ctx(mock_config))
         response = json.loads(result)
         assert response["error"]["type"] == "api_error"
+
+
+def _streams_route(streams: dict[str, list]):
+    """Serve only the requested stream types; 422 for unknown lower-case names."""
+
+    def handler(request):
+        types = request.url.params.get("types")
+        names = types.split(",") if types else list(streams)
+        for name in names:
+            if name not in streams and name[:1].islower():
+                return Response(422, json={"status": 422, "error": f"Invalid stream type [{name}]"})
+        return Response(200, json=[{"type": n, "data": streams[n]} for n in names if n in streams])
+
+    return handler
+
+
+class TestGetActivityStreamsWindowing:
+    async def test_start_end_slice_and_alias(self, mock_config, respx_mock):
+        respx_mock.get("/activity/a1/streams.json").mock(
+            side_effect=_streams_route(
+                {"time": [0, 1, 2, 10, 11], "watts": [100, 110, 120, 130, 140]}
+            )
+        )
+
+        result = await get_activity_streams(
+            activity_id="a1",
+            streams=["power"],
+            start_s=1,
+            end_s=11,
+            ctx=_make_ctx(mock_config),
+        )
+
+        data = json.loads(result)["data"]
+        assert data["streams"]["watts"] == [110, 120, 130]
+        assert data["streams"]["time"] == [1, 2, 10]
+        assert data["aliases_applied"] == {"power": "watts"}
+        assert data["window"]["start_index"] == 1
+
+    async def test_names_only_and_missing(self, mock_config, respx_mock):
+        respx_mock.get("/activity/a1/streams.json").mock(
+            side_effect=_streams_route({"time": [0, 1], "watts": [100, 110]})
+        )
+
+        result = await get_activity_streams(
+            activity_id="a1",
+            streams=["watts", "ventilation_typo"],
+            ctx=_make_ctx(mock_config),
+        )
+        data = json.loads(result)["data"]
+        assert data["missing_streams"] == ["ventilation_typo"]
+
+        result = await get_activity_streams(
+            activity_id="a1", names_only=True, ctx=_make_ctx(mock_config)
+        )
+        data = json.loads(result)["data"]
+        assert "streams" not in data
+        assert data["stream_lengths"] == {"time": 2, "watts": 2}
+
+    async def test_end_before_start_rejected(self, mock_config):
+        result = await get_activity_streams(
+            activity_id="a1", start_s=10, end_s=5, ctx=_make_ctx(mock_config)
+        )
+        assert json.loads(result)["error"]["type"] == "validation_error"
+
+
+_RIDE = {
+    "time": list(range(8)),
+    "watts": [200, 200, 50, 200, 100, 100, 300, 100],
+    "heartrate": [120, 120, 110, 130, 130, 140, 140, 150],
+    "tidal_volume_min": [60, 60, 40, 70, 50, 50, 90, 60],
+    "TymeVentilation": [60, 60, 40, 70, 50, 50, 90, 60],
+}
+
+
+def _interval_stats_route(request):
+    start = int(request.url.params["start_index"])
+    end = int(request.url.params["end_index"])
+    watts = _RIDE["watts"][start:end]
+    hr = _RIDE["heartrate"][start:end]
+    return Response(
+        200,
+        json={
+            "start_index": start,
+            "end_index": end,
+            "average_watts": sum(watts) / len(watts),
+            "average_heartrate": sum(hr) / len(hr),
+            "decoupling": 1.5,
+            "max_power_unused": None,
+        },
+    )
+
+
+class TestGetStreamStats:
+    def _mock(self, respx_mock, pvhr_status: int = 200):
+        respx_mock.get("/activity/a1/streams.json").mock(side_effect=_streams_route(_RIDE))
+        stats = respx_mock.get("/activity/a1/interval-stats").mock(
+            side_effect=_interval_stats_route
+        )
+        respx_mock.get("/activity/a1/power-vs-hr.json").mock(
+            return_value=Response(
+                pvhr_status,
+                json={
+                    "powerHr": 1.4,
+                    "powerHrFirst": 1.5,
+                    "powerHrSecond": 1.3,
+                    "decoupling": 8.7,
+                    "hrLag": 15,
+                    "warmup": 600,
+                    "cooldown": 600,
+                },
+            )
+        )
+        return stats
+
+    async def test_parts_use_intervals_icu_stats(self, mock_config, respx_mock):
+        stats = self._mock(respx_mock)
+
+        result = await get_stream_stats(activity_id="a1", parts=2, ctx=_make_ctx(mock_config))
+        response = json.loads(result)
+
+        windows = response["data"]["windows"]
+        assert [(w["start_s"], w["end_s"]) for w in windows] == [(0, 4), (4, 8)]
+        assert stats.call_count == 2
+        first = windows[0]["icu"]
+        assert first["avg_watts"] == 162.5
+        assert first["decoupling_pct"] == 1.5
+        assert first["hr_per_watt"] == round(120 / 162.5, 3)
+        assert "filtered" not in windows[0]
+        drift = response["analysis"]["ratio_drift_pct_vs_first_window"]["icu.hr_per_watt"]
+        assert drift[0] == 0.0
+        assert response["analysis"]["power_hr_whole_activity"]["decoupling_pct"] == 8.7
+
+    async def test_filtered_with_min_power_lag_and_aliases(self, mock_config, respx_mock):
+        self._mock(respx_mock)
+
+        result = await get_stream_stats(
+            activity_id="a1",
+            streams=["VE"],
+            min_power=150,
+            lag_s=1,
+            ctx=_make_ctx(mock_config),
+        )
+        data = json.loads(result)["data"]
+
+        filtered = data["windows"][0]["filtered"]
+        # Kept samples: indices 0, 1, 3, 6 (power >= 150)
+        assert filtered["kept_s"] == 4
+        assert filtered["excluded_s"] == 4
+        assert filtered["streams"]["watts"]["mean"] == 225.0
+        # HR paired one second later: indices 1, 2, 4, 7 -> 120, 110, 130, 150
+        assert filtered["streams"]["heartrate"]["mean"] == 127.5
+        assert filtered["ratios"]["heartrate_per_watt"] == round(127.5 / 225, 3)
+        assert data["aliases_applied"] == {"VE": "tidal_volume_min"}
+
+    async def test_power_smoothing_applies_to_filter(self, mock_config, respx_mock):
+        self._mock(respx_mock)
+
+        result = await get_stream_stats(
+            activity_id="a1",
+            min_power=150,
+            power_smoothing_s=2,
+            ctx=_make_ctx(mock_config),
+        )
+        filtered = json.loads(result)["data"]["windows"][0]["filtered"]
+        # 2-s trailing means: 200, 200, 125, 125, 150, 100, 200, 200
+        assert filtered["kept_s"] == 5
+
+    async def test_missing_streams_reported_with_suggestions(self, mock_config, respx_mock):
+        self._mock(respx_mock)
+
+        result = await get_stream_stats(
+            activity_id="a1",
+            streams=["tymeventilation", "SmO2"],
+            ctx=_make_ctx(mock_config),
+        )
+        data = json.loads(result)["data"]
+
+        assert data["missing_streams"]["tymeventilation"]["did_you_mean"] == ["TymeVentilation"]
+        assert data["missing_streams"]["SmO2"]["did_you_mean"] == []
+        assert "filtered" in data["windows"][0]
+
+    async def test_power_hr_failure_is_skipped(self, mock_config, respx_mock):
+        self._mock(respx_mock, pvhr_status=404)
+
+        result = await get_stream_stats(activity_id="a1", ctx=_make_ctx(mock_config))
+        response = json.loads(result)
+        assert len(response["data"]["windows"]) == 1
+        assert "analysis" not in response or "power_hr_whole_activity" not in (
+            response["analysis"] or {}
+        )
+
+    async def test_validation_errors(self, mock_config, respx_mock):
+        self._mock(respx_mock)
+        ctx = _make_ctx(mock_config)
+
+        both = await get_stream_stats(activity_id="a1", parts=2, block_minutes=1, ctx=ctx)
+        assert json.loads(both)["error"]["type"] == "validation_error"
+
+        bad_window = await get_stream_stats(activity_id="a1", windows=[[5, 2]], ctx=ctx)
+        assert json.loads(bad_window)["error"]["type"] == "validation_error"
+
+        too_many = await get_stream_stats(activity_id="a1", parts=25, ctx=ctx)
+        assert "limit" in json.loads(too_many)["error"]["message"]
+
+        bad_power = await get_stream_stats(activity_id="a1", min_power=200, max_power=100, ctx=ctx)
+        assert json.loads(bad_power)["error"]["type"] == "validation_error"
+
+    async def test_no_streams(self, mock_config, respx_mock):
+        respx_mock.get("/activity/a1/streams.json").mock(return_value=Response(200, json=[]))
+        respx_mock.get("/activity/a1").mock(
+            return_value=Response(
+                200,
+                json={"id": "a1", "type": "Ride", "start_date_local": "2026-05-19T08:00:00"},
+            )
+        )
+
+        result = await get_stream_stats(activity_id="a1", ctx=_make_ctx(mock_config))
+        assert json.loads(result)["data"]["windows"] == []

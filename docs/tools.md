@@ -1,6 +1,6 @@
 # Tool, Resource, and Prompt Reference
 
-Complete inventory of everything the Intervals.icu MCP server exposes: up to 72 tools across 11 categories, 4 MCP Resources, and 9 MCP Prompts.
+Complete inventory of everything the Intervals.icu MCP server exposes: up to 73 tools across 11 categories, 4 MCP Resources, and 9 MCP Prompts.
 
 ## Delete Safety Mode
 
@@ -8,9 +8,9 @@ Destructive tools are gated by the optional `INTERVALS_ICU_DELETE_MODE` env var.
 
 | Mode | Registered tools | Events | Activities | Activity notes | Gear | Library workouts | Library folders | Sport settings | Custom items |
 |---|---|---|---|---|---|---|---|---|---|
-| `safe` (default) | 69 | tomorrow or later | ✗ | ✓ | ✓ | ✓ | empty only | ✗ | ✗ |
-| `full` | 72 | any date | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `none` | 63 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| `safe` (default) | 70 | tomorrow or later | ✗ | ✓ | ✓ | ✓ | empty only | ✗ | ✗ |
+| `full` | 73 | any date | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `none` | 64 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 
 In `safe` mode, `icu_delete_event`, `icu_bulk_delete_events`, and `icu_delete_workout_folder` return a uniform envelope showing what was deleted and what was skipped (the folder tool also adds a `folder` summary):
 
@@ -103,11 +103,12 @@ resource takes no arguments and always reflects the configured default athlete.
 | `icu_bulk_create_manual_activities` | Create multiple manual activities with upsert on external_id |
 | `icu_update_activity_streams` | Update raw timeseries streams for an activity (JSON or CSV) |
 
-### Activity Analysis (8 tools)
+### Activity Analysis (9 tools)
 
 | Tool                     | Description                                                   |
 | ------------------------ | ------------------------------------------------------------- |
-| `icu_get_activity_streams`   | Get time-series data (power, HR, cadence, altitude, GPS); `left_right_balance` is the right pedal's % |
+| `icu_get_activity_streams`   | Get time-series data (power, HR, cadence, altitude, GPS), optionally a `start_s`/`end_s` window or names only; `left_right_balance` is the right pedal's % |
+| `icu_get_stream_stats`       | Per-window stats (every N min, N parts, explicit ranges): Intervals.icu interval stats (avg/NP watts, HR, decoupling, breath rate, ventilation) plus HR/VE/BR per watt and their drift; optional power filter, power smoothing and HR lag computed server-side |
 | `icu_get_activity_intervals` | Get structured workout intervals with targets and performance |
 | `icu_get_best_efforts`       | Find peak performances across all durations in an activity    |
 | `icu_search_intervals`       | Find similar intervals across activity history                |
