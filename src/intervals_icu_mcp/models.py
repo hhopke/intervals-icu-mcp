@@ -290,6 +290,9 @@ class Activity(ActivitySummary):
     compliance: float | None = None
     avg_lr_balance: float | None = None
     commute: bool | None = None
+    race: bool | None = None
+    sub_type: str | None = None
+    tags: list[str] | None = None
     trainer: bool | None = None
     indoor: bool | None = None
     analyzed: str | None = None

@@ -371,6 +371,10 @@ async def search_activities(
         )
 
 
+# Values of the API's Activity.sub_type enum.
+_ACTIVITY_SUB_TYPES = ("NONE", "COMMUTE", "WARMUP", "COOLDOWN", "RACE")
+
+
 async def update_activity(
     activity_id: Annotated[str, "Activity ID to update"],
     name: Annotated[str | None, "Updated activity name"] = None,
@@ -380,18 +384,34 @@ async def update_activity(
     commute: Annotated[bool | None, "Mark as commute"] = None,
     feel: Annotated[int | None, "How you felt (1-5 scale)"] = None,
     perceived_exertion: Annotated[int | None, "RPE rating (1-10 scale)"] = None,
+    distance: Annotated[
+        float | None, "Distance in meters (e.g. for indoor rides whose file lacks it)"
+    ] = None,
+    carbs_ingested: Annotated[int | None, "Carbohydrates ingested during the session (g)"] = None,
+    calories: Annotated[int | None, "Energy expenditure (kcal)"] = None,
+    sub_type: Annotated[
+        str | None, "Activity sub-type: NONE, COMMUTE, WARMUP, COOLDOWN or RACE"
+    ] = None,
+    race: Annotated[bool | None, "Mark as race"] = None,
+    tags: Annotated[list[str] | None, "Tags; replaces the existing tag list"] = None,
+    fields: Annotated[
+        dict[str, Any] | None,
+        "Any other writable Activity API field, sent as-is (e.g. {'icu_ignore_hr': true}). "
+        "Named parameters win on conflict.",
+    ] = None,
     ctx: Context | None = None,
 ) -> str:
-    """Update an existing activity's metadata (name, type, trainer flag, RPE, feel, etc.).
+    """Update an existing activity's metadata (name, type, distance, sub-type, RPE, carbs, etc.).
 
-    Only fields you pass are sent; everything else stays unchanged.
+    Only fields you pass are sent; everything else stays unchanged. Strava-imported
+    activities cannot be updated.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
 
     try:
         # Build update data (only include provided fields)
-        activity_data: dict[str, Any] = {}
+        activity_data: dict[str, Any] = dict(fields) if fields else {}
 
         if name is not None:
             activity_data["name"] = name
@@ -410,6 +430,25 @@ async def update_activity(
             # RPE in; `perceived_exertion` is the Strava-imported mirror, so
             # writing that key left the RPE shown in the UI unchanged.
             activity_data["icu_rpe"] = perceived_exertion
+        if distance is not None:
+            activity_data["distance"] = distance
+        if carbs_ingested is not None:
+            activity_data["carbs_ingested"] = carbs_ingested
+        if calories is not None:
+            activity_data["calories"] = calories
+        if sub_type is not None:
+            normalized_sub_type = sub_type.strip().upper()
+            if normalized_sub_type not in _ACTIVITY_SUB_TYPES:
+                return ResponseBuilder.build_error_response(
+                    f"Invalid sub_type '{sub_type}'. "
+                    f"Must be one of: {', '.join(_ACTIVITY_SUB_TYPES)}",
+                    error_type="validation_error",
+                )
+            activity_data["sub_type"] = normalized_sub_type
+        if race is not None:
+            activity_data["race"] = race
+        if tags is not None:
+            activity_data["tags"] = tags
 
         if not activity_data:
             return ResponseBuilder.build_error_response(
@@ -437,6 +476,18 @@ async def update_activity(
                 result_data["feel"] = activity.feel
             if activity.perceived_exertion is not None:
                 result_data["rpe"] = activity.perceived_exertion
+            if activity.distance is not None:
+                result_data["distance_meters"] = activity.distance
+            if activity.carbs_ingested is not None:
+                result_data["carbs_ingested_g"] = activity.carbs_ingested
+            if activity.calories is not None:
+                result_data["calories"] = activity.calories
+            if activity.sub_type is not None:
+                result_data["sub_type"] = activity.sub_type
+            if activity.race is not None:
+                result_data["race"] = activity.race
+            if activity.tags:
+                result_data["tags"] = activity.tags
 
             return ResponseBuilder.build_response(
                 data=result_data,
