@@ -509,6 +509,8 @@ class CurveData(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
+    id: str | None = None
+    label: str | None = None
     secs: list[int] = Field(default_factory=lambda: list[int]())
     values: list[int] = Field(default_factory=lambda: list[int]())
     activity_id: list[str] = Field(default_factory=lambda: list[str]())

@@ -142,3 +142,106 @@ class TestGetPowerCurves:
         result = await get_power_curves(ctx=mock_ctx)
         response = json.loads(result)
         assert response["error"]["type"] == "api_error"
+
+
+def _curve(curve_id: str, label: str, watts: int) -> dict:
+    return {
+        "id": curve_id,
+        "label": label,
+        "secs": [5, 1200],
+        "values": [watts * 3, watts],
+        "activity_id": ["a1", "a2"],
+    }
+
+
+class TestGetPowerCurvesWindows:
+    async def test_date_range(self, mock_config, respx_mock):
+        """start_date/end_date map to the API's r.<start>.<end> curve ID."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.get("/athlete/i123456/power-curves").mock(
+            return_value=Response(
+                200, json={"list": [_curve("r.2025-10-06.2026-09-30", "6-Oct-2025", 300)]}
+            )
+        )
+
+        result = await get_power_curves(
+            start_date="2025-10-06", end_date="2026-09-30", ctx=mock_ctx
+        )
+
+        assert route.calls[0].request.url.params["curves"] == "r.2025-10-06.2026-09-30"
+        data = json.loads(result)["data"]
+        assert data["period"] == "2025-10-06..2026-09-30"
+        assert data["peak_efforts"]["20_min"]["watts"] == 300
+
+    async def test_season_includes_label(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.get("/athlete/i123456/power-curves").mock(
+            return_value=Response(200, json={"list": [_curve("s1", "Last season", 310)]})
+        )
+
+        result = await get_power_curves(season="S1", ctx=mock_ctx)
+
+        assert route.calls[0].request.url.params["curves"] == "s1"
+        data = json.loads(result)["data"]
+        assert data["period"] == "season_s1"
+        assert data["label"] == "Last season"
+
+    async def test_periods_compare_in_one_call(self, mock_config, respx_mock):
+        """periods returns one entry per curve and flags curves the API dropped."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.get("/athlete/i123456/power-curves").mock(
+            return_value=Response(
+                200,
+                json={
+                    "list": [
+                        _curve("s0", "This season", 290),
+                        _curve("all", "All time", 320),
+                    ]
+                },
+            )
+        )
+
+        result = await get_power_curves(periods=["s0", "s9", "all"], ctx=mock_ctx)
+
+        assert route.calls[0].request.url.params["curves"] == "s0,s9,all"
+        response = json.loads(result)
+        curves = response["data"]["curves"]
+        assert [c["period"] for c in curves] == ["season_s0", "all_time"]
+        assert curves[0]["label"] == "This season"
+        assert curves[1]["ftp_analysis"]["estimated_ftp"] == 304
+        assert response["metadata"]["missing_periods"] == ["season_s9"]
+
+    async def test_mixed_windows_rejected(self, mock_config):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        result = await get_power_curves(days_back=30, season="s0", ctx=mock_ctx)
+
+        assert json.loads(result)["error"]["type"] == "validation_error"
+
+    async def test_invalid_inputs_rejected(self, mock_config, respx_mock):
+        """Bad specs fail validation before any API call."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+        route = respx_mock.get("/athlete/i123456/power-curves")
+
+        cases = [
+            {"periods": ["s0", "fortnight"]},
+            {"periods": []},
+            {"periods": ["s0", "s1", "s2", "s3", "s4", "s5"]},
+            {"season": "last"},
+            {"end_date": "2026-09-30"},
+            {"start_date": "2026-10-01", "end_date": "2026-09-30"},
+            {"start_date": "2026-13-01"},
+        ]
+        for kwargs in cases:
+            result = await get_power_curves(ctx=mock_ctx, **kwargs)
+            assert json.loads(result)["error"]["type"] == "validation_error", kwargs
+
+        assert not route.called
