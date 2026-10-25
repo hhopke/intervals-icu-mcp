@@ -93,7 +93,7 @@ resource takes no arguments and always reflects the configured default athlete.
 | `icu_search_activities`      | Search activities by name or tag                  |
 | `icu_search_activities_full` | Search activities with full details               |
 | `icu_get_activities_around`  | Get activities before and after a specific one    |
-| `icu_update_activity`        | Update activity name, description, distance, sub-type, carbs, tags, RPE, or any other writable field |
+| `icu_update_activity`        | Update activity name, description, distance, times, sub-type, carbs, tags, RPE, or any other writable field |
 | `icu_delete_activity`        | Delete an activity *(only registered when `INTERVALS_ICU_DELETE_MODE=full`)* |
 | `icu_download_activity_file` | Download original activity file                   |
 | `icu_download_fit_file`      | Download activity as FIT file                     |

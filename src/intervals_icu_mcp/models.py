@@ -245,6 +245,7 @@ class ActivitySummary(BaseModel):
     distance: float | None = None
     moving_time: int | None = None
     elapsed_time: int | None = None
+    icu_recording_time: int | None = None
     total_elevation_gain: float | None = None
     average_speed: float | None = None
     average_heartrate: int | None = None

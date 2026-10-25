@@ -387,6 +387,11 @@ async def update_activity(
     distance: Annotated[
         float | None, "Distance in meters (e.g. for indoor rides whose file lacks it)"
     ] = None,
+    moving_time: Annotated[int | None, "Moving time in seconds"] = None,
+    elapsed_time: Annotated[int | None, "Total (elapsed) time in seconds"] = None,
+    recording_time: Annotated[
+        int | None, "Recording time in seconds (elapsed time minus auto-pause)"
+    ] = None,
     carbs_ingested: Annotated[int | None, "Carbohydrates ingested during the session (g)"] = None,
     sub_type: Annotated[
         str | None, "Activity sub-type: NONE, COMMUTE, WARMUP, COOLDOWN or RACE"
@@ -400,7 +405,7 @@ async def update_activity(
     ] = None,
     ctx: Context | None = None,
 ) -> str:
-    """Update an existing activity's metadata (name, type, distance, sub-type, RPE, carbs, etc.).
+    """Update an existing activity's metadata (name, type, distance, times, sub-type, RPE, etc.).
 
     Only fields you pass are sent; everything else stays unchanged. Strava-imported
     activities cannot be updated.
@@ -431,6 +436,12 @@ async def update_activity(
             activity_data["icu_rpe"] = perceived_exertion
         if distance is not None:
             activity_data["distance"] = distance
+        if moving_time is not None:
+            activity_data["moving_time"] = moving_time
+        if elapsed_time is not None:
+            activity_data["elapsed_time"] = elapsed_time
+        if recording_time is not None:
+            activity_data["icu_recording_time"] = recording_time
         if carbs_ingested is not None:
             activity_data["carbs_ingested"] = carbs_ingested
         if sub_type is not None:
@@ -475,6 +486,12 @@ async def update_activity(
                 result_data["rpe"] = activity.perceived_exertion
             if activity.distance is not None:
                 result_data["distance_meters"] = activity.distance
+            if activity.moving_time is not None:
+                result_data["moving_time_seconds"] = activity.moving_time
+            if activity.elapsed_time is not None:
+                result_data["elapsed_time_seconds"] = activity.elapsed_time
+            if activity.icu_recording_time is not None:
+                result_data["recording_time_seconds"] = activity.icu_recording_time
             if activity.carbs_ingested is not None:
                 result_data["carbs_ingested_g"] = activity.carbs_ingested
             if activity.sub_type is not None:
