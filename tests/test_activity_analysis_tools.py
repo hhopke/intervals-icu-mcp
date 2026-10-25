@@ -738,7 +738,7 @@ class TestStreamStatsBreathSource:
         result = await get_stream_stats(activity_id="a1", ctx=_make_ctx(mock_config))
         data = json.loads(result)["data"]
 
-        assert data["breath_rate_source"] == "Tyme Wear"
+        assert data["breath_rate_source"] == {"source": "tyme", "measured": True}
         assert data["windows"][0]["icu"]["avg_tidal_volume_l"] == 1.83
         assert items.call_count == 0
 
@@ -750,7 +750,9 @@ class TestStreamStatsBreathSource:
         )
         data = json.loads(result)["data"]
 
-        assert "HrvBreath" in data["breath_rate_source"]
+        assert data["breath_rate_source"]["source"] == "hrv_app"
+        assert data["breath_rate_source"]["stream"] == "HrvBreath"
+        assert data["breath_rate_source"]["measured"] is False
         icu = data["windows"][0]["icu"]
         assert icu["avg_breath_rate"] == 32.0  # mean of 30, 32, 34 (null skipped)
         assert icu["br_per_watt"] == 0.16
@@ -764,5 +766,6 @@ class TestStreamStatsBreathSource:
         result = await get_stream_stats(activity_id="a1", ctx=_make_ctx(mock_config))
         data = json.loads(result)["data"]
 
-        assert data["breath_rate_source"].startswith("watch estimate")
+        assert data["breath_rate_source"]["source"] == "watch"
+        assert "Estimated" in data["breath_rate_source"]["note"]
         assert data["windows"][0]["icu"]["avg_breath_rate"] == 18.0

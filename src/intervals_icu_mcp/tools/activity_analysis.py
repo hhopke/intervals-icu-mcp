@@ -67,7 +67,7 @@ async def get_activity_streams(
 
     For averages over time windows (HR/power drift etc.) use icu_get_stream_stats
     instead. Aliases: VE -> tidal_volume_min, VT -> tidal_volume (centilitres),
-    BR -> respiration.
+    BR -> respiration (Tyme Wear when present, otherwise the watch's HR-derived estimate).
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
@@ -840,6 +840,14 @@ async def _fetch_streams_tolerant(
 
 _HRV_BREATH_FIT_FIELD = "RespirationRate"
 
+# HRV-app and watch breath rates are both estimated from beat-to-beat heart rate
+# intervals; in a side-by-side ride they read ~11 brpm below a Tyme Wear sensor and did
+# not follow its changes (r ~ 0), so ratios built on them are weak evidence.
+_HR_DERIVED_BREATH_NOTE = (
+    "Estimated from heart-rate variability, not measured; can sit well below a chest "
+    "sensor and miss its changes. Treat br_per_watt and its drift as weak evidence."
+)
+
 
 async def _hrv_breath_stream_code(client: ICUClient) -> str | None:
     """Code of the athlete's custom stream that reads the HRV app's breath rate, if any.
@@ -1079,8 +1087,9 @@ async def get_stream_stats(
     samples passing the filter, plus <stream>_per_watt. `analysis` adds Intervals.icu's
     whole-ride Pw:HR decoupling and each ratio's drift vs the first window.
 
-    Breath rate comes from Tyme Wear, else the HRV app (custom stream on FIT field
-    RespirationRate), else the watch estimate; `breath_rate_source` says which.
+    Breath rate comes from Tyme Wear (measured), else the HRV app (custom stream on FIT
+    field RespirationRate), else the watch; the last two are HR-derived estimates —
+    `breath_rate_source` says which and whether it was measured.
     Aliases: VE -> tidal_volume_min, VT -> tidal_volume, BR -> respiration (or the HRV
     stream). Missing streams are reported with suggestions.
     """
@@ -1270,17 +1279,21 @@ async def get_stream_stats(
             }
             if aliases_applied:
                 result_data["aliases_applied"] = aliases_applied
-            if breath_source == "hrv_app":
-                result_data["breath_rate_source"] = (
-                    f"HRV app RespirationRate (custom stream {hrv_code}); no Tyme Wear data"
-                )
-            elif breath_source == "tyme":
-                result_data["breath_rate_source"] = "Tyme Wear"
+            if breath_source == "tyme":
+                result_data["breath_rate_source"] = {"source": "tyme", "measured": True}
+            elif breath_source == "hrv_app":
+                result_data["breath_rate_source"] = {
+                    "source": "hrv_app",
+                    "measured": False,
+                    "stream": hrv_code,
+                    "note": _HR_DERIVED_BREATH_NOTE,
+                }
             elif any("avg_breath_rate" in w.get("icu", {}) for w in windows_out):
-                result_data["breath_rate_source"] = (
-                    "watch estimate (Intervals.icu respiration stream); no Tyme Wear or "
-                    "HRV app data"
-                )
+                result_data["breath_rate_source"] = {
+                    "source": "watch",
+                    "measured": False,
+                    "note": _HR_DERIVED_BREATH_NOTE,
+                }
             if missing_info:
                 result_data["missing_streams"] = {
                     name: {"did_you_mean": sugg} for name, sugg in missing_info.items()
