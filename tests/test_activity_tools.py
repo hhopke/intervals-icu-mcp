@@ -84,7 +84,7 @@ class TestActivityTools:
         assert response["data"]["feel"] == 4
 
     async def test_update_activity_extended_fields(self, mock_config, respx_mock):
-        """Distance, carbs, calories, sub-type, race and tags are sent under
+        """Distance, carbs, sub-type, race and tags are sent under
         their API names and echoed back in the response."""
         mock_ctx = MagicMock()
         mock_ctx.get_state = AsyncMock(return_value=mock_config)
@@ -99,7 +99,6 @@ class TestActivityTools:
                     "type": "VirtualRide",
                     "distance": 42195.0,
                     "carbs_ingested": 60,
-                    "calories": 850,
                     "sub_type": "WARMUP",
                     "race": False,
                     "tags": ["zwift", "z2"],
@@ -111,7 +110,6 @@ class TestActivityTools:
             activity_id="a123",
             distance=42195.0,
             carbs_ingested=60,
-            calories=850,
             sub_type="warmup",
             race=False,
             tags=["zwift", "z2"],
@@ -122,7 +120,6 @@ class TestActivityTools:
         assert sent == {
             "distance": 42195.0,
             "carbs_ingested": 60,
-            "calories": 850,
             "sub_type": "WARMUP",
             "race": False,
             "tags": ["zwift", "z2"],
@@ -131,7 +128,6 @@ class TestActivityTools:
         data = json.loads(result)["data"]
         assert data["distance_meters"] == 42195.0
         assert data["carbs_ingested_g"] == 60
-        assert data["calories"] == 850
         assert data["sub_type"] == "WARMUP"
         assert data["race"] is False
         assert data["tags"] == ["zwift", "z2"]
