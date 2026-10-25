@@ -695,3 +695,74 @@ class TestGetStreamStats:
 
         result = await get_stream_stats(activity_id="a1", ctx=_make_ctx(mock_config))
         assert json.loads(result)["data"]["windows"] == []
+
+
+_RIDE_NO_TYME = {
+    "time": list(range(4)),
+    "watts": [200, 200, 200, 200],
+    "heartrate": [120, 120, 120, 120],
+    "respiration": [18.0, 18.0, 18.0, 18.0],
+    "HrvBreath": [30, 32, None, 34],
+}
+
+_HRV_CUSTOM_STREAM = {
+    "id": 7,
+    "type": "ACTIVITY_STREAM",
+    "name": "Respiration (HRV app)",
+    "content": {"code": "HrvBreath", "fit_record_field": "RespirationRate"},
+}
+
+
+class TestStreamStatsBreathSource:
+    def _mock(self, respx_mock, streams, custom_items):
+        respx_mock.get("/activity/a1/streams.json").mock(side_effect=_streams_route(streams))
+        respx_mock.get("/activity/a1/interval-stats").mock(
+            return_value=Response(
+                200,
+                json={
+                    "average_watts": 200,
+                    "average_heartrate": 120,
+                    "average_respiration": 18.0,
+                    "average_tidal_volume": 183.3,
+                },
+            )
+        )
+        respx_mock.get("/activity/a1/power-vs-hr.json").mock(return_value=Response(404))
+        return respx_mock.get("/athlete/i123456/custom-item").mock(
+            return_value=Response(200, json=custom_items)
+        )
+
+    async def test_tyme_present_skips_custom_item_lookup(self, mock_config, respx_mock):
+        items = self._mock(respx_mock, _RIDE, [_HRV_CUSTOM_STREAM])
+
+        result = await get_stream_stats(activity_id="a1", ctx=_make_ctx(mock_config))
+        data = json.loads(result)["data"]
+
+        assert data["breath_rate_source"] == "Tyme Wear"
+        assert data["windows"][0]["icu"]["avg_tidal_volume_l"] == 1.83
+        assert items.call_count == 0
+
+    async def test_hrv_app_used_without_tyme(self, mock_config, respx_mock):
+        self._mock(respx_mock, _RIDE_NO_TYME, [_HRV_CUSTOM_STREAM])
+
+        result = await get_stream_stats(
+            activity_id="a1", streams=["BR"], ctx=_make_ctx(mock_config)
+        )
+        data = json.loads(result)["data"]
+
+        assert "HrvBreath" in data["breath_rate_source"]
+        icu = data["windows"][0]["icu"]
+        assert icu["avg_breath_rate"] == 32.0  # mean of 30, 32, 34 (null skipped)
+        assert icu["br_per_watt"] == 0.16
+        assert data["aliases_applied"] == {"BR": "HrvBreath"}
+        assert "HrvBreath" in data["windows"][0]["filtered"]["streams"]
+        assert "respiration" not in data["windows"][0]["filtered"]["streams"]
+
+    async def test_watch_estimate_labelled_without_tyme_or_hrv(self, mock_config, respx_mock):
+        self._mock(respx_mock, _RIDE_NO_TYME, [])
+
+        result = await get_stream_stats(activity_id="a1", ctx=_make_ctx(mock_config))
+        data = json.loads(result)["data"]
+
+        assert data["breath_rate_source"].startswith("watch estimate")
+        assert data["windows"][0]["icu"]["avg_breath_rate"] == 18.0

@@ -108,7 +108,7 @@ resource takes no arguments and always reflects the configured default athlete.
 | Tool                     | Description                                                   |
 | ------------------------ | ------------------------------------------------------------- |
 | `icu_get_activity_streams`   | Get time-series data (power, HR, cadence, altitude, GPS), optionally a `start_s`/`end_s` window or names only; `left_right_balance` is the right pedal's % |
-| `icu_get_stream_stats`       | Per-window stats (every N min, N parts, explicit ranges): Intervals.icu interval stats (avg/NP watts, HR, decoupling, breath rate, ventilation) plus HR/VE/BR per watt and their drift; optional power filter, power smoothing and HR lag computed server-side |
+| `icu_get_stream_stats`       | Per-window stats (every N min, N parts, explicit ranges): Intervals.icu interval stats (avg/NP watts, HR, decoupling, breath rate, ventilation, tidal volume) plus HR/VE/BR per watt and their drift; optional power filter, power smoothing and HR lag computed server-side. Breath rate prefers Tyme Wear, then an HRV-app custom stream (FIT field `RespirationRate`), then the watch estimate |
 | `icu_get_activity_intervals` | Get structured workout intervals with targets and performance |
 | `icu_get_best_efforts`       | Find peak performances across all durations in an activity    |
 | `icu_search_intervals`       | Find similar intervals across activity history                |

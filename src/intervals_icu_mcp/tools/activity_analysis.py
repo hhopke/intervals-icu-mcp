@@ -66,7 +66,8 @@ async def get_activity_streams(
     the default set.
 
     For averages over time windows (HR/power drift etc.) use icu_get_stream_stats
-    instead. Aliases: VE/ventilation -> tidal_volume_min, BR -> respiration.
+    instead. Aliases: VE -> tidal_volume_min, VT -> tidal_volume (centilitres),
+    BR -> respiration.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
@@ -753,6 +754,8 @@ _STREAM_ALIASES: dict[str, str] = {
     "ve": "tidal_volume_min",
     "ventilation": "tidal_volume_min",
     "minute_ventilation": "tidal_volume_min",
+    "vt": "tidal_volume",
+    "tidal_volume": "tidal_volume",
     "br": "respiration",
     "breath_rate": "respiration",
     "breathing_rate": "respiration",
@@ -835,6 +838,31 @@ async def _fetch_streams_tolerant(
                 return [], rejected
 
 
+_HRV_BREATH_FIT_FIELD = "RespirationRate"
+
+
+async def _hrv_breath_stream_code(client: ICUClient) -> str | None:
+    """Code of the athlete's custom stream that reads the HRV app's breath rate, if any.
+
+    Intervals.icu fills `respiration` from the watch's own estimate when no Tyme Wear
+    data is present; the HRV app's RespirationRate FIT field only becomes a stream when
+    the athlete defines a custom stream for it.
+    """
+    try:
+        items = await client.get_custom_items()
+    except ICUAPIError:
+        return None
+    for item in items:
+        content: dict[str, Any] = item.get("content") or {}
+        if (
+            item.get("type") == "ACTIVITY_STREAM"
+            and content.get("fit_record_field") == _HRV_BREATH_FIT_FIELD
+            and content.get("code")
+        ):
+            return str(content["code"])
+    return None
+
+
 def _stream_suggestions(missing: str, available: list[str]) -> list[str]:
     exact = [a for a in available if a.lower() == missing.lower()]
     if exact:
@@ -854,6 +882,7 @@ _ICU_WINDOW_FIELDS: dict[str, str] = {
     "decoupling": "decoupling_pct",
     "average_respiration": "avg_breath_rate",
     "average_tidal_volume_min": "avg_ventilation_l_min",
+    "average_tidal_volume": "avg_tidal_volume_l",
     "average_cadence": "avg_cadence",
     "average_temp": "avg_temp_c",
     "average_dfa_a1": "avg_dfa_a1",
@@ -1044,13 +1073,16 @@ async def get_stream_stats(
     activity's own laps.
 
     Each window has `icu` — computed by Intervals.icu on the whole window (avg/NP watts,
-    HR, decoupling, breath rate, ventilation, DFA a1, plus hr/ve/br per watt) — and, when
+    HR, decoupling, breath rate, ventilation, tidal volume, DFA a1, plus hr/ve/br per watt)
+    — and, when
     `streams` or a power filter is given, `filtered` — mean/median/min/max computed here on
     samples passing the filter, plus <stream>_per_watt. `analysis` adds Intervals.icu's
     whole-ride Pw:HR decoupling and each ratio's drift vs the first window.
 
-    Aliases: VE/ventilation -> tidal_volume_min, BR/breath_rate -> respiration (Tyme
-    sensor data is mirrored there). Missing streams are reported with suggestions.
+    Breath rate comes from Tyme Wear, else the HRV app (custom stream on FIT field
+    RespirationRate), else the watch estimate; `breath_rate_source` says which.
+    Aliases: VE -> tidal_volume_min, VT -> tidal_volume, BR -> respiration (or the HRV
+    stream). Missing streams are reported with suggestions.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
@@ -1066,7 +1098,8 @@ async def get_stream_stats(
 
     extra, aliases_applied = _resolve_stream_names(streams or [])
     use_filtered = bool(extra) or min_power is not None or max_power is not None
-    wanted = ["time"]
+    # tidal_volume_min is only fetched to detect Tyme Wear data
+    wanted = ["time", "tidal_volume_min"]
     if use_filtered:
         wanted += [s for s in ["watts", "heartrate", *extra] if s not in wanted]
 
@@ -1098,6 +1131,31 @@ async def get_stream_stats(
                 everything = await client.get_activity_streams(activity_id, None)
                 available = [s.type or s.name or "" for s in everything]
                 missing_info = {m: _stream_suggestions(m, available) for m in missing}
+
+            # Breath rate: Tyme Wear (mirrored into `respiration`) when present, else the
+            # HRV app's RespirationRate via a custom stream, else the watch's estimate.
+            breath_source: str | None = "tyme" if "tidal_volume_min" in data else None
+            hrv_values: list[Any] | None = None
+            hrv_code: str | None = None
+            if breath_source is None:
+                hrv_code = await _hrv_breath_stream_code(client)
+                if hrv_code:
+                    hrv_list, _ = await _fetch_streams_tolerant(client, activity_id, [hrv_code])
+                    for s in hrv_list:
+                        values: Any = s.data
+                        if isinstance(values, list) and (s.type or s.name) == hrv_code:
+                            hrv_values = cast(list[Any], values)
+                    if hrv_values is not None:
+                        breath_source = "hrv_app"
+                        if "respiration" in extra and "respiration" in aliases_applied.values():
+                            # A BR alias means "breath rate", so follow the chosen source
+                            data.pop("respiration", None)
+                            data[hrv_code] = hrv_values
+                            for k, v in aliases_applied.items():
+                                if v == "respiration":
+                                    aliases_applied[k] = hrv_code
+            if "tidal_volume_min" not in extra:
+                data.pop("tidal_volume_min", None)
 
             built = _build_windows(time[-1] + 1, block_minutes, parts, windows)
             if isinstance(built, str):
@@ -1154,6 +1212,15 @@ async def get_stream_stats(
                     for key, out_key in _ICU_WINDOW_FIELDS.items()
                     if isinstance(raw.get(key), int | float)
                 }
+                if "avg_tidal_volume_l" in icu:
+                    # Tyme writes tidal volume in centilitres (200 = 2.0 L)
+                    icu["avg_tidal_volume_l"] = _round(icu["avg_tidal_volume_l"] / 100, 2)
+                if breath_source == "hrv_app" and hrv_values is not None:
+                    hrv = [v for v in hrv_values[i0:i1] if isinstance(v, int | float)]
+                    if hrv:
+                        icu["avg_breath_rate"] = _round(statistics.fmean(hrv))
+                    else:
+                        icu.pop("avg_breath_rate", None)
                 watts_avg = icu.get("avg_watts")
                 if watts_avg:
                     for ratio_key, num_key in _ICU_RATIOS.items():
@@ -1203,6 +1270,17 @@ async def get_stream_stats(
             }
             if aliases_applied:
                 result_data["aliases_applied"] = aliases_applied
+            if breath_source == "hrv_app":
+                result_data["breath_rate_source"] = (
+                    f"HRV app RespirationRate (custom stream {hrv_code}); no Tyme Wear data"
+                )
+            elif breath_source == "tyme":
+                result_data["breath_rate_source"] = "Tyme Wear"
+            elif any("avg_breath_rate" in w.get("icu", {}) for w in windows_out):
+                result_data["breath_rate_source"] = (
+                    "watch estimate (Intervals.icu respiration stream); no Tyme Wear or "
+                    "HRV app data"
+                )
             if missing_info:
                 result_data["missing_streams"] = {
                     name: {"did_you_mean": sugg} for name, sugg in missing_info.items()
