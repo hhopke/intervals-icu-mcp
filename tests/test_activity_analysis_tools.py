@@ -760,12 +760,24 @@ class TestStreamStatsBreathSource:
         assert "HrvBreath" in data["windows"][0]["filtered"]["streams"]
         assert "respiration" not in data["windows"][0]["filtered"]["streams"]
 
-    async def test_watch_estimate_labelled_without_tyme_or_hrv(self, mock_config, respx_mock):
+    async def test_device_estimate_labelled_without_tyme_or_hrv(self, mock_config, respx_mock):
         self._mock(respx_mock, _RIDE_NO_TYME, [])
+        respx_mock.get("/activity/a1").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": "a1",
+                    "type": "Ride",
+                    "start_date_local": "2026-05-19T08:00:00",
+                    "device_name": "Garmin Edge 850",
+                },
+            )
+        )
 
         result = await get_stream_stats(activity_id="a1", ctx=_make_ctx(mock_config))
         data = json.loads(result)["data"]
 
-        assert data["breath_rate_source"]["source"] == "watch"
+        assert data["breath_rate_source"]["source"] == "device"
+        assert data["breath_rate_source"]["device"] == "Garmin Edge 850"
         assert "Estimated" in data["breath_rate_source"]["note"]
         assert data["windows"][0]["icu"]["avg_breath_rate"] == 18.0

@@ -67,7 +67,8 @@ async def get_activity_streams(
 
     For averages over time windows (HR/power drift etc.) use icu_get_stream_stats
     instead. Aliases: VE -> tidal_volume_min, VT -> tidal_volume (centilitres),
-    BR -> respiration (Tyme Wear when present, otherwise the watch's HR-derived estimate).
+    BR -> respiration (Tyme Wear when present, else the recording device's HR-derived
+    estimate).
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
@@ -840,7 +841,7 @@ async def _fetch_streams_tolerant(
 
 _HRV_BREATH_FIT_FIELD = "RespirationRate"
 
-# HRV-app and watch breath rates are both estimated from beat-to-beat heart rate
+# HRV-app and recording-device breath rates are both estimated from beat-to-beat heart rate
 # intervals; in a side-by-side ride they read ~11 brpm below a Tyme Wear sensor and did
 # not follow its changes (r ~ 0), so ratios built on them are weak evidence.
 _HR_DERIVED_BREATH_NOTE = (
@@ -852,7 +853,7 @@ _HR_DERIVED_BREATH_NOTE = (
 async def _hrv_breath_stream_code(client: ICUClient) -> str | None:
     """Code of the athlete's custom stream that reads the HRV app's breath rate, if any.
 
-    Intervals.icu fills `respiration` from the watch's own estimate when no Tyme Wear
+    Intervals.icu fills `respiration` from the recording device's estimate when no Tyme Wear
     data is present; the HRV app's RespirationRate FIT field only becomes a stream when
     the athlete defines a custom stream for it.
     """
@@ -1088,7 +1089,8 @@ async def get_stream_stats(
     whole-ride Pw:HR decoupling and each ratio's drift vs the first window.
 
     Breath rate comes from Tyme Wear (measured), else the HRV app (custom stream on FIT
-    field RespirationRate), else the watch; the last two are HR-derived estimates —
+    field RespirationRate), else the recording device (head unit/watch, `device` names
+    it); the last two are HR-derived estimates —
     `breath_rate_source` says which and whether it was measured.
     Aliases: VE -> tidal_volume_min, VT -> tidal_volume, BR -> respiration (or the HRV
     stream). Missing streams are reported with suggestions.
@@ -1142,7 +1144,7 @@ async def get_stream_stats(
                 missing_info = {m: _stream_suggestions(m, available) for m in missing}
 
             # Breath rate: Tyme Wear (mirrored into `respiration`) when present, else the
-            # HRV app's RespirationRate via a custom stream, else the watch's estimate.
+            # HRV app's RespirationRate via a custom stream, else the recording device's estimate.
             breath_source: str | None = "tyme" if "tidal_volume_min" in data else None
             hrv_values: list[Any] | None = None
             hrv_code: str | None = None
@@ -1289,11 +1291,15 @@ async def get_stream_stats(
                     "note": _HR_DERIVED_BREATH_NOTE,
                 }
             elif any("avg_breath_rate" in w.get("icu", {}) for w in windows_out):
-                result_data["breath_rate_source"] = {
-                    "source": "watch",
-                    "measured": False,
-                    "note": _HR_DERIVED_BREATH_NOTE,
-                }
+                device_source: dict[str, Any] = {"source": "device", "measured": False}
+                try:
+                    activity = await client.get_activity(activity_id=activity_id)
+                    if activity.device_name:
+                        device_source["device"] = activity.device_name
+                except ICUAPIError:
+                    pass
+                device_source["note"] = _HR_DERIVED_BREATH_NOTE
+                result_data["breath_rate_source"] = device_source
             if missing_info:
                 result_data["missing_streams"] = {
                     name: {"did_you_mean": sugg} for name, sugg in missing_info.items()
