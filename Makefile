@@ -57,6 +57,15 @@ lint/package: ## Validate PyPI package metadata and README rendering (twine + py
 	uvx twine==7.0.0 check --strict dist/*
 	uvx pyroma==5.0.1 --min=10 .
 
+audit: ## Audit the locked runtime dependencies (what the Docker image installs) for known CVEs
+	@# cryptography is held <49 for Intel macOS; PYSEC-2026-3552/3553/3554 cover PKCS#7
+	@# decryption and X.509 verification, which this server never calls (see CHANGELOG 5.7.1).
+	uv export --frozen --no-dev --no-hashes --no-emit-project --quiet \
+		| uvx pip-audit==2.10.1 --no-deps --disable-pip --progress-spinner off -r /dev/stdin \
+			--ignore-vuln PYSEC-2026-3552 \
+			--ignore-vuln PYSEC-2026-3553 \
+			--ignore-vuln PYSEC-2026-3554
+
 fmt: format
 format: ## Fix style violations and format code
 	uv run ruff check --fix

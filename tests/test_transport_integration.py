@@ -53,8 +53,8 @@ class TestInMemoryTransport:
         async with Client(mcp) as client:
             tools = {tool.name: tool for tool in await client.list_tools()}
             for name in {"icu_create_sport_settings", "icu_update_sport_settings"}:
-                assert "indoor_ftp" in tools[name].inputSchema["properties"]
-            assert "recalc_hr_zones" in tools["icu_update_sport_settings"].inputSchema["properties"]
+                assert "indoor_ftp" in tools[name].input_schema["properties"]
+            assert "recalc_hr_zones" in tools["icu_update_sport_settings"].input_schema["properties"]
 
     async def test_tools_use_icu_prefix(self):
         """Every tool follows the naming convention documented in the README."""
@@ -77,7 +77,7 @@ class TestInMemoryTransport:
             for tool in tools:
                 if tool.name in destructive_names:
                     assert tool.annotations is not None
-                    assert tool.annotations.destructiveHint is True, (
+                    assert tool.annotations.destructive_hint is True, (
                         f"{tool.name} should carry destructiveHint=True"
                     )
 

@@ -1,0 +1,26 @@
+name: Dependency Audit
+
+# Not a required check: a new upstream advisory should surface here without
+# blocking unrelated PRs.
+on:
+  pull_request:
+    paths:
+      - uv.lock
+      - pyproject.toml
+  schedule:
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    name: Audit locked runtime dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Run pip-audit
+        run: make audit
