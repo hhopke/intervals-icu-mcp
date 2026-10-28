@@ -28,8 +28,6 @@ intervals-icu-mcp --transport sse --host 127.0.0.1 --port 8000
 > - **Reverse proxy with auth** (nginx + basic auth, Cloudflare Access, etc.) — terminates TLS and gates access.
 > - **SSH tunnel** — `ssh -L 8000:localhost:8000 host` if you just need occasional access from one machine.
 >
-> A tunnel or proxy only protects the paths that go through it. The server does not check Cloudflare Access's `Cf-Access-Jwt-Assertion` header (or any proxy's credentials) itself, so anything that reaches the port directly is fully trusted. In Docker, run `cloudflared` (or the proxy) on the same Docker network and leave the MCP container's port unpublished: `ports:` / `-p 8000:8000` binds every host interface, and Docker's rules bypass host firewalls such as `ufw`. With Cloudflare Access, also make sure no policy on the MCP path is set to **Bypass**.
->
 > Credentials are always read from `INTERVALS_ICU_API_KEY` and `INTERVALS_ICU_ATHLETE_ID` — use env vars (not a committed `.env`) when deploying to a shared host.
 
 ## Container liveness check
