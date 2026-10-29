@@ -143,7 +143,7 @@ The threaded notes/comments shown under an activity — the user's own training 
 | ----------------------- | ------------------------------------------------------------------- |
 | `icu_get_wellness_data`     | Get recent wellness metrics with trends (HRV, sleep, mood, fatigue) |
 | `icu_get_wellness_for_date` | Get complete wellness data for a specific date                      |
-| `icu_update_wellness`       | Update or create wellness data for a date                           |
+| `icu_update_wellness`       | Update or create wellness data for a date (incl. custom fields)     |
 
 ### Events / Calendar (12 tools)
 
