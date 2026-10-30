@@ -14,6 +14,17 @@ that preserve the information (key renames, restructuring, added fields) ship in
 clients. (Releases up to and including 4.0.0 treated any response-shape change as
 breaking; this narrower contract applies from the next release onward.)
 
+## [Unreleased]
+
+### Added
+- Python 3.14 and 3.15 are now tested in CI and listed in the package classifiers. The supported range is still 3.11 and later. The Docker image stays on 3.14 for now.
+
+### Changed
+- The Docker image runs on `python:3.14-slim` instead of `python:3.11-slim`, and its build pins the uv image to a fixed version instead of `latest`. The image is now also rebuilt weekly, so Python security releases in the base image reach `:latest` without waiting for a merge. Version tags such as `:5.7.1` are not rebuilt.
+
+### Security
+- The lockfile the Docker image installs from is refreshed. It moves to fastmcp 4 and the MCP Python SDK 2, which PyPI installs already resolve to, and picks up fixes for published advisories in `certifi`, `mcp`, `starlette`, `authlib`, `pyjwt`, `python-multipart` and others. The most relevant fix is `certifi` 2026.10.18 or later, which drops the emSign ECC Root CA - G3 root after eMudhra intermediates under it had their keys compromised. That bundle is what the server trusts for its HTTPS calls to Intervals.icu. `cryptography` stays on 48.x for the reason given under 5.7.1. A weekly `pip-audit` workflow (`make audit`) and Dependabot updates for uv, Docker and GitHub Actions now keep the lockfile current.
+
 ## [5.7.1] — 2026-10-18
 
 ### Fixed
