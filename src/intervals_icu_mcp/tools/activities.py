@@ -410,7 +410,8 @@ async def update_activity(
     Only fields you pass are sent; everything else stays unchanged. Strava-imported
     activities cannot be updated. moving_time, elapsed_time and recording_time only
     take effect on manual activities; on activities from a file Intervals.icu keeps
-    the times derived from the file.
+    the times derived from the file. Keys passed via `fields` are sent as-is and are
+    not echoed back in the response.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
@@ -447,18 +448,25 @@ async def update_activity(
         if carbs_ingested is not None:
             activity_data["carbs_ingested"] = carbs_ingested
         if sub_type is not None:
-            normalized_sub_type = sub_type.strip().upper()
-            if normalized_sub_type not in _ACTIVITY_SUB_TYPES:
-                return ResponseBuilder.build_error_response(
-                    f"Invalid sub_type '{sub_type}'. "
-                    f"Must be one of: {', '.join(_ACTIVITY_SUB_TYPES)}",
-                    error_type="validation_error",
-                )
-            activity_data["sub_type"] = normalized_sub_type
+            activity_data["sub_type"] = sub_type
         if race is not None:
             activity_data["race"] = race
         if tags is not None:
             activity_data["tags"] = tags
+
+        # Validate after merging `fields`, so both input paths are checked the same way.
+        if "sub_type" in activity_data:
+            raw_sub_type = activity_data["sub_type"]
+            normalized_sub_type = (
+                raw_sub_type.strip().upper() if isinstance(raw_sub_type, str) else None
+            )
+            if normalized_sub_type not in _ACTIVITY_SUB_TYPES:
+                return ResponseBuilder.build_error_response(
+                    f"Invalid sub_type '{raw_sub_type}'. "
+                    f"Must be one of: {', '.join(_ACTIVITY_SUB_TYPES)}",
+                    error_type="validation_error",
+                )
+            activity_data["sub_type"] = normalized_sub_type
 
         if not activity_data:
             return ResponseBuilder.build_error_response(
@@ -500,7 +508,7 @@ async def update_activity(
                 result_data["sub_type"] = activity.sub_type
             if activity.race is not None:
                 result_data["race"] = activity.race
-            if activity.tags:
+            if activity.tags is not None:
                 result_data["tags"] = activity.tags
 
             return ResponseBuilder.build_response(

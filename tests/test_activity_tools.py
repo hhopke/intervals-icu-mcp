@@ -199,6 +199,59 @@ class TestActivityTools:
         assert "WARMUP" in response["error"]["message"]
         assert not route.called
 
+    async def test_update_activity_fields_sub_type_normalised(self, mock_config, respx_mock):
+        """A sub_type passed via `fields` is normalised like the named parameter."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.put("/activity/a123").mock(
+            return_value=Response(
+                200,
+                json={"id": "a123", "start_date_local": "2026-03-20T10:00:00", "type": "Ride"},
+            )
+        )
+
+        await update_activity(activity_id="a123", fields={"sub_type": " warmup "}, ctx=mock_ctx)
+
+        assert json.loads(route.calls[0].request.content) == {"sub_type": "WARMUP"}
+
+    async def test_update_activity_fields_invalid_sub_type(self, mock_config, respx_mock):
+        """An unknown sub_type passed via `fields` is rejected before any API call."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.put("/activity/a123")
+
+        result = await update_activity(
+            activity_id="a123", fields={"sub_type": "tempo"}, ctx=mock_ctx
+        )
+
+        response = json.loads(result)
+        assert response["error"]["type"] == "validation_error"
+        assert not route.called
+
+    async def test_update_activity_clear_tags_echoed(self, mock_config, respx_mock):
+        """Clearing tags with `tags=[]` is sent and echoed back."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.put("/activity/a123").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": "a123",
+                    "start_date_local": "2026-03-20T10:00:00",
+                    "type": "Ride",
+                    "tags": [],
+                },
+            )
+        )
+
+        result = await update_activity(activity_id="a123", tags=[], ctx=mock_ctx)
+
+        assert json.loads(route.calls[0].request.content) == {"tags": []}
+        assert json.loads(result)["data"]["tags"] == []
+
     async def test_update_activity_not_found(self, mock_config, respx_mock):
         """Test updating a non-existent activity."""
         mock_ctx = MagicMock()
