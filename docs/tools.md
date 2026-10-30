@@ -1,6 +1,6 @@
 # Tool, Resource, and Prompt Reference
 
-Complete inventory of everything the Intervals.icu MCP server exposes: up to 69 tools across 11 categories, 4 MCP Resources, and 9 MCP Prompts.
+Complete inventory of everything the Intervals.icu MCP server exposes: up to 70 tools across 11 categories, 4 MCP Resources, and 9 MCP Prompts.
 
 ## Delete Safety Mode
 
@@ -8,9 +8,9 @@ Destructive tools are gated by the optional `INTERVALS_ICU_DELETE_MODE` env var.
 
 | Mode | Registered tools | Events | Activities | Gear | Library workouts | Library folders | Sport settings | Custom items |
 |---|---|---|---|---|---|---|---|---|
-| `safe` (default) | 66 | tomorrow or later | ✗ | ✓ | ✓ | empty only | ✗ | ✗ |
-| `full` | 69 | any date | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `none` | 61 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| `safe` (default) | 67 | tomorrow or later | ✗ | ✓ | ✓ | empty only | ✗ | ✗ |
+| `full` | 70 | any date | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `none` | 62 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 
 In `safe` mode, `icu_delete_event`, `icu_bulk_delete_events`, and `icu_delete_workout_folder` return a uniform envelope showing what was deleted and what was skipped (the folder tool also adds a `folder` summary):
 
@@ -141,7 +141,7 @@ The threaded notes/comments shown under an activity — the user's own training 
 | `icu_get_wellness_for_date` | Get complete wellness data for a specific date                      |
 | `icu_update_wellness`       | Update or create wellness data for a date                           |
 
-### Events / Calendar (12 tools)
+### Events / Calendar (13 tools)
 
 | Tool                    | Description                                                |
 | ----------------------- | ---------------------------------------------------------- |
@@ -149,6 +149,7 @@ The threaded notes/comments shown under an activity — the user's own training 
 | `icu_get_upcoming_workouts` | Upcoming planned WORKOUT **calendar events** only — not workout-library templates (see [Workout Library](#workout-library-8-tools)); returns event IDs |
 | `icu_get_annual_training_plan` | Read ATP periodization — weekly TSS targets, phases, ATP week notes (`week_note`; default: 365 days ahead; narrow with `days_ahead`/`days_back` for a specific month) |
 | `icu_get_event`             | Get details for a specific event                           |
+| `icu_get_seasons`           | List the athlete's seasons (name, start, end) with the curve ID (`s0` = current) for season-based curve queries |
 | `icu_create_event`          | Create new calendar events (workouts, races, notes, goals); optional `hide_from_athlete` / `athlete_cannot_edit` |
 | `icu_update_event`          | Modify existing calendar events (only the fields passed), including `hide_from_athlete` / `athlete_cannot_edit` |
 | `icu_delete_event`          | Remove an event from the calendar *(safe mode: future events only; envelope returns `deleted` / `skipped`)* |
@@ -162,7 +163,7 @@ The threaded notes/comments shown under an activity — the user's own training 
 
 | Tool               | Description                                              |
 | ------------------ | -------------------------------------------------------- |
-| `icu_get_power_curves` | Analyze power curves with FTP estimation and power zones |
+| `icu_get_power_curves` | Best watts and W/kg from 5 s to 6 h (with activity and date), FTP estimate, power models (CP / W' / Pmax / FTP), VO2max estimate and MAP; windows by days, date range, season, or several `periods` compared in one call; optional `full_curve` |
 | `icu_get_hr_curves`    | Analyze heart rate curves with HR zones                  |
 | `icu_get_pace_curves`  | Analyze running/swimming pace curves with optional GAP   |
 

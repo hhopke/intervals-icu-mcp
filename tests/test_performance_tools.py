@@ -142,3 +142,203 @@ class TestGetPowerCurves:
         result = await get_power_curves(ctx=mock_ctx)
         response = json.loads(result)
         assert response["error"]["type"] == "api_error"
+
+
+def _curve(curve_id: str, label: str, watts: int) -> dict:
+    return {
+        "id": curve_id,
+        "label": label,
+        "secs": [5, 1200],
+        "values": [watts * 3, watts],
+        "activity_id": ["a1", "a2"],
+    }
+
+
+class TestGetPowerCurvesWindows:
+    async def test_date_range(self, mock_config, respx_mock):
+        """start_date/end_date map to the API's r.<start>.<end> curve ID."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.get("/athlete/i123456/power-curves").mock(
+            return_value=Response(
+                200, json={"list": [_curve("r.2025-10-06.2026-09-30", "6-Oct-2025", 300)]}
+            )
+        )
+
+        result = await get_power_curves(
+            start_date="2025-10-06", end_date="2026-09-30", ctx=mock_ctx
+        )
+
+        assert route.calls[0].request.url.params["curves"] == "r.2025-10-06.2026-09-30"
+        data = json.loads(result)["data"]
+        assert data["period"] == "2025-10-06..2026-09-30"
+        assert data["peak_efforts"]["20_min"]["watts"] == 300
+
+    async def test_season_includes_label(self, mock_config, respx_mock):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.get("/athlete/i123456/power-curves").mock(
+            return_value=Response(200, json={"list": [_curve("s1", "Last season", 310)]})
+        )
+
+        result = await get_power_curves(season="S1", ctx=mock_ctx)
+
+        assert route.calls[0].request.url.params["curves"] == "s1"
+        data = json.loads(result)["data"]
+        assert data["period"] == "season_s1"
+        assert data["label"] == "Last season"
+
+    async def test_periods_compare_in_one_call(self, mock_config, respx_mock):
+        """periods returns one entry per curve and flags curves the API dropped."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.get("/athlete/i123456/power-curves").mock(
+            return_value=Response(
+                200,
+                json={
+                    "list": [
+                        _curve("s0", "This season", 290),
+                        _curve("all", "All time", 320),
+                    ]
+                },
+            )
+        )
+
+        result = await get_power_curves(periods=["s0", "s9", "all"], ctx=mock_ctx)
+
+        assert route.calls[0].request.url.params["curves"] == "s0,s9,all"
+        response = json.loads(result)
+        curves = response["data"]["curves"]
+        assert [c["period"] for c in curves] == ["season_s0", "all_time"]
+        assert curves[0]["label"] == "This season"
+        assert curves[1]["ftp_analysis"]["estimated_ftp"] == 304
+        assert response["metadata"]["missing_periods"] == ["season_s9"]
+
+    async def test_mixed_windows_rejected(self, mock_config):
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        result = await get_power_curves(days_back=30, season="s0", ctx=mock_ctx)
+
+        assert json.loads(result)["error"]["type"] == "validation_error"
+
+    async def test_invalid_inputs_rejected(self, mock_config, respx_mock):
+        """Bad specs fail validation before any API call."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+        route = respx_mock.get("/athlete/i123456/power-curves")
+
+        cases = [
+            {"periods": ["s0", "fortnight"]},
+            {"periods": []},
+            {"periods": ["s0", "s1", "s2", "s3", "s4", "s5"]},
+            {"season": "last"},
+            {"end_date": "2026-09-30"},
+            {"start_date": "2026-10-01", "end_date": "2026-09-30"},
+            {"start_date": "2026-13-01"},
+        ]
+        for kwargs in cases:
+            result = await get_power_curves(ctx=mock_ctx, **kwargs)
+            assert json.loads(result)["error"]["type"] == "validation_error", kwargs
+
+        assert not route.called
+
+
+class TestGetPowerCurvesExtras:
+    async def test_long_durations_wkg_dates_and_models(self, mock_config, respx_mock):
+        """Durations up to 6 h carry W/kg and the activity date; power models,
+        VO2max, MAP and the period's weight are passed through."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.get("/athlete/i123456/power-curves").mock(
+            return_value=Response(
+                200,
+                json={
+                    "list": [
+                        {
+                            "id": "all",
+                            "secs": [5, 1200, 21600],
+                            "values": [900, 300, 180],
+                            "activity_id": ["a1", "a2", "a3"],
+                            "watts_per_kg": [11.25, 3.8, 2.25],
+                            "wkg_activity_id": ["a1", "a9", "a3"],
+                            "weight": 79.625,
+                            "powerModels": [
+                                {
+                                    "type": "MORTON_3P",
+                                    "criticalPower": 286,
+                                    "wPrime": 33823,
+                                    "pMax": 1025,
+                                    "ftp": 286,
+                                    "inputPointIndexes": [1, 2],
+                                }
+                            ],
+                            "vo2max_5m": 59.088,
+                            "mapPlot": {"map": 4.4858, "mapSecs": 470, "mapWatts": 359},
+                        }
+                    ],
+                    "activities": {
+                        "a3": {"id": "a3", "start_date_local": "2021-10-17T08:00:00"},
+                    },
+                },
+            )
+        )
+
+        result = await get_power_curves(time_period="all", ctx=mock_ctx)
+
+        data = json.loads(result)["data"]
+        six_hour = data["peak_efforts"]["6_hour"]
+        assert six_hour == {
+            "watts": 180,
+            "duration_seconds": 21600,
+            "activity_id": "a3",
+            "date": "2021-10-17",
+            "watts_per_kg": 2.25,
+        }
+        # Best W/kg from a different activity than the best watts is attributed.
+        assert data["peak_efforts"]["20_min"]["watts_per_kg_activity_id"] == "a9"
+        assert "watts_per_kg_activity_id" not in data["peak_efforts"]["5_sec"]
+        assert data["summary"]["weight_kg"] == 79.6
+        assert data["power_models"] == [
+            {
+                "type": "MORTON_3P",
+                "critical_power": 286,
+                "w_prime": 33823,
+                "p_max": 1025,
+                "ftp": 286,
+            }
+        ]
+        assert data["vo2max_5m"] == 59.1
+        assert data["map"] == {"watts": 359, "watts_per_kg": 4.49, "duration_seconds": 470}
+        assert "curve" not in data
+
+    async def test_full_curve_and_zero_map_omitted(self, mock_config, respx_mock):
+        """full_curve returns every point; a zero MAP (not fittable) is left out."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.get("/athlete/i123456/power-curves").mock(
+            return_value=Response(
+                200,
+                json={
+                    "list": [
+                        {
+                            "secs": [1, 2, 3],
+                            "values": [1000, 950, 900],
+                            "mapPlot": {"map": 0.0, "mapSecs": 0, "mapWatts": 0},
+                        }
+                    ]
+                },
+            )
+        )
+
+        result = await get_power_curves(full_curve=True, ctx=mock_ctx)
+
+        data = json.loads(result)["data"]
+        assert data["curve"] == {"secs": [1, 2, 3], "watts": [1000, 950, 900]}
+        assert "map" not in data
+        assert "power_models" not in data
