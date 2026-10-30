@@ -1,5 +1,5 @@
 # Multi-stage build for minimal final image
-FROM --platform=$TARGETPLATFORM ghcr.io/astral-sh/uv:0.11.32 AS uv
+FROM --platform=$TARGETPLATFORM ghcr.io/astral-sh/uv:0.13.6 AS uv
 
 FROM --platform=$TARGETPLATFORM python:3.14-slim AS builder
 
