@@ -17,7 +17,7 @@ breaking; this narrower contract applies from the next release onward.)
 ## [Unreleased]
 
 ### Added
-- Python 3.14 is now tested in CI and listed in the package classifiers. The supported range is still 3.11 and later.
+- Python 3.14 and 3.15 are now tested in CI and listed in the package classifiers. The supported range is still 3.11 and later. The Docker image stays on 3.14 for now.
 
 ### Changed
 - The Docker image runs on `python:3.14-slim` instead of `python:3.11-slim`, and its build pins the uv image to a fixed version instead of `latest`. The image is now also rebuilt weekly, so Python security releases in the base image reach `:latest` without waiting for a merge. Version tags such as `:5.7.1` are not rebuilt.
