@@ -190,7 +190,9 @@ class TestUpdateActivityMessage:
             activity_id="12345", message_id=7, content="New text", ctx=mock_ctx
         )
 
-        assert json.loads(result)["error"]["type"] == "validation_error"
+        error = json.loads(result)["error"]
+        assert error["type"] == "validation_error"
+        assert "has no notes yet" in error["message"]
 
     async def test_update_foreign_note_explained(self, mock_config, respx_mock):
         """A refused write (someone else's note) says only own notes can be changed."""

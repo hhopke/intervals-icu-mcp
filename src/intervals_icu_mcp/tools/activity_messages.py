@@ -83,7 +83,13 @@ async def _find_message(
     activity = await client.get_activity(activity_id=activity_id)
     messages = await client.get_activity_messages(activity_id)
     message = next((m for m in messages if m.get("id") == message_id), None)
-    if activity.icu_chat_id is None or message is None:
+    if activity.icu_chat_id is None:
+        return ResponseBuilder.build_error_response(
+            f"Activity {activity_id} has no notes yet, so message {message_id} does not exist",
+            error_type="validation_error",
+            suggestions=["Use icu_add_activity_message to add the first note"],
+        )
+    if message is None:
         return ResponseBuilder.build_error_response(
             f"Message {message_id} not found on activity {activity_id}",
             error_type="validation_error",
