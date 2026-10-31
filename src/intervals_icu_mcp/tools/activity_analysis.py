@@ -66,7 +66,7 @@ async def get_activity_streams(
     the default set.
 
     For averages over time windows (HR/power drift etc.) use icu_get_stream_stats
-    instead. Aliases: VE -> tidal_volume_min, VT -> tidal_volume (centilitres),
+    instead. Aliases: VE -> tidal_volume_min, VT -> tidal_volume (centiliters),
     BR -> respiration (Tyme Wear when present, else the recording device's HR-derived
     estimate).
     """
@@ -1224,7 +1224,7 @@ async def get_stream_stats(
                     if isinstance(raw.get(key), int | float)
                 }
                 if "avg_tidal_volume_l" in icu:
-                    # Tyme writes tidal volume in centilitres (200 = 2.0 L)
+                    # Tyme writes tidal volume in centiliters (200 = 2.0 L)
                     icu["avg_tidal_volume_l"] = _round(icu["avg_tidal_volume_l"] / 100, 2)
                 if breath_source == "hrv_app" and hrv_values is not None:
                     hrv = [v for v in hrv_values[i0:i1] if isinstance(v, int | float)]

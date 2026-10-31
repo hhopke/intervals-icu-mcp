@@ -135,20 +135,20 @@ Tyme Wear chest sensors write three FIT developer fields. Intervals.icu copies e
 | Tyme Wear FIT field | Meaning | Intervals.icu stream | Alias |
 |---|---|---|---|
 | `tyme_breath_rate` | Breath rate (BR), breaths/min | `respiration` | `BR`, `breath_rate` |
-| `tyme_tidal_volume` | Tidal volume (VT), **centilitres** (200 = 2.0 L) | `tidal_volume` | `VT` |
+| `tyme_tidal_volume` | Tidal volume (VT), **centiliters** (200 = 2.0 L) | `tidal_volume` | `VT` |
 | `tyme_minute_volume` | Minute ventilation (VE), L/min | `tidal_volume_min` | `VE`, `ventilation` |
 
-Custom streams that read these FIT fields (e.g. `TymeBreathRate`, `TymeVentilation`) hold the same values. `icu_get_stream_stats` reports VT as `avg_tidal_volume_l`, already converted to litres.
+Custom streams that read these FIT fields (e.g. `TymeBreathRate`, `TymeVentilation`) hold the same values. `icu_get_stream_stats` reports VT as `avg_tidal_volume_l`, already converted to liters.
 
-**Without Tyme Wear, `respiration` is not measured.** Intervals.icu then fills it from the recording device's estimate, i.e. the FIT field `enhanced_respiration_rate` written by the head unit or watch (e.g. a Garmin Edge). The device computes it from the beat-to-beat intervals of the paired heart-rate sensor (respiratory sinus arrhythmia), typically a chest strap. HRV data fields such as the one that also records DFA α1 write their own HR-derived estimate to the FIT field `RespirationRate`. Intervals.icu does not import that field unless the athlete defines a custom activity stream for it.
+**Without Tyme Wear, `respiration` is not measured.** Intervals.icu then fills it from the recording device's estimate, i.e. the FIT field `enhanced_respiration_rate` written by the head unit or watch (e.g. a bike computer). The device computes it from the beat-to-beat intervals of the paired heart-rate sensor (respiratory sinus arrhythmia), typically a chest strap. HRV data fields such as the one that also records DFA α1 write their own HR-derived estimate to the FIT field `RespirationRate`. Intervals.icu does not import that field unless the athlete defines a custom activity stream for it.
 
 `icu_get_stream_stats` therefore picks the breath-rate source in this order and states it in `breath_rate_source` (`source`, `measured`, and a `note` for estimates):
 
 1. **Tyme Wear** (`source: "tyme"`, `measured: true`), detected by the presence of `tidal_volume_min`.
 2. **HRV app** (`source: "hrv_app"`): a custom activity stream whose `fit_record_field` is `RespirationRate`, whatever its code. The per-window `avg_breath_rate` is computed from it, and a `BR` alias in `streams` resolves to it.
-3. **Recording device** (`source: "device"`, with `device` set to the activity's device name, e.g. "Garmin Edge 850"): Intervals.icu's `respiration` stream.
+3. **Recording device** (`source: "device"`, with `device` set to the activity's device name, e.g. the head unit or watch model): Intervals.icu's `respiration` stream.
 
-Sources 2 and 3 are estimates. In a side-by-side comparison on one ride (second by second, from the original FIT file), the HRV-app and recording-device (Garmin Edge, chest strap) values agreed with each other only loosely: mean difference about 1.5–2 brpm, mean absolute difference 3–4 brpm, r ≈ 0.7. Both read about 11–12 brpm **below** the Tyme Wear sensor in every 10-minute block and did not follow its changes (r ≈ 0). This is one ride, not a validation study, but it means `br_per_watt` and its drift are weak evidence unless the source is Tyme Wear.
+Sources 2 and 3 are estimates derived from heart-rate data, not measurements. In a side-by-side comparison on one ride (second by second, from the original FIT file), both read roughly 11–12 brpm **below** a Tyme Wear sensor and did not follow its changes. This is a single ride, not a validation study, but it means `br_per_watt` and its drift are weak evidence unless the source is Tyme Wear.
 
 To use an HRV app's breath rate, create a custom item of type `ACTIVITY_STREAM` with `fit_record_field: "RespirationRate"`, either in the Intervals.icu UI or with `icu_create_custom_item`.
 
