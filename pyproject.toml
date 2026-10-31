@@ -43,7 +43,7 @@ dependencies = [
     "python-dotenv>=1.1.1",
     # cryptography (via fastmcp → authlib) ships no x86_64 macOS wheels from 49 on, so Intel Macs
     # would have to compile it from source. Drop this cap once upstream ships those wheels again.
-    "cryptography<49; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "cryptography<51; sys_platform == 'darwin' and platform_machine == 'x86_64'",
 ]
 
 [project.urls]
