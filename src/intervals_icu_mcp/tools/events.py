@@ -363,3 +363,72 @@ async def get_event(
         return ResponseBuilder.build_error_response(
             f"Unexpected error: {str(e)}", error_type="internal_error"
         )
+
+
+async def get_seasons(
+    athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
+    ctx: Context | None = None,
+) -> str:
+    """List the athlete's training SEASONS defined in Intervals.icu (name, start, end, curve ID).
+
+    Use for "which seasons do I have?", or before comparing seasons: pass a
+    season's curve_id ('s0' = current, 's1' = previous, ...) to
+    icu_get_power_curves. A season runs until the day before the next one
+    starts; the newest season is open-ended.
+    """
+    assert ctx is not None
+    config: ICUConfig = await ctx.get_state("config")
+
+    try:
+        today = datetime.now().date()
+        async with ICUClient(config) as client:
+            events = await client.get_events(
+                athlete_id=athlete_id,
+                oldest="1980-01-01",
+                newest=(today + timedelta(days=3 * 365)).isoformat(),
+                category="SEASON_START",
+            )
+
+        starts = sorted(
+            (
+                (datetime.fromisoformat(e.start_date_local).date(), e)
+                for e in events
+                if e.category == "SEASON_START"
+            ),
+            key=lambda item: item[0],
+        )
+        started_count = sum(1 for start, _ in starts if start <= today)
+
+        seasons: list[dict[str, Any]] = []
+        for i, (start, event) in enumerate(starts):
+            season: dict[str, Any] = {
+                "id": event.id,
+                "name": event.name,
+                "start_date": start.isoformat(),
+                "end_date": (
+                    (starts[i + 1][0] - timedelta(days=1)).isoformat()
+                    if i + 1 < len(starts)
+                    else None
+                ),
+            }
+            if start <= today:
+                # Intervals.icu numbers seasons backwards from the current one.
+                season["curve_id"] = f"s{started_count - 1 - i}"
+            else:
+                season["upcoming"] = True
+            if event.description:
+                season["description"] = event.description
+            seasons.append(season)
+
+        return ResponseBuilder.build_response(
+            data={"seasons": seasons},
+            metadata={"count": len(seasons)},
+            query_type="seasons",
+        )
+
+    except ICUAPIError as e:
+        return ResponseBuilder.build_error_response(e.message, error_type="api_error")
+    except Exception as e:
+        return ResponseBuilder.build_error_response(
+            f"Unexpected error: {str(e)}", error_type="internal_error"
+        )

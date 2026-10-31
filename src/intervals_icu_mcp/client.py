@@ -577,6 +577,7 @@ class ICUClient:
         athlete_id: str | None = None,
         oldest: str | None = None,
         newest: str | None = None,
+        category: str | None = None,
     ) -> list[Event]:
         """Get calendar events (planned workouts, notes, races).
 
@@ -584,6 +585,7 @@ class ICUClient:
             athlete_id: Athlete ID (uses config default if not provided)
             oldest: Oldest date to fetch (ISO-8601 format)
             newest: Newest date to fetch (ISO-8601 format)
+            category: Comma-separated categories to filter for (e.g. "SEASON_START")
 
         Returns:
             List of Event objects
@@ -595,6 +597,8 @@ class ICUClient:
             params["oldest"] = oldest
         if newest:
             params["newest"] = newest
+        if category:
+            params["category"] = category
 
         response = await self._request("GET", f"/athlete/{athlete_id}/events", params=params)
         adapter = TypeAdapter(list[Event])
