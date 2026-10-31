@@ -212,6 +212,21 @@ class Athlete(BaseModel):
         validation_alias=AliasChoices("sport_settings", "sportSettings"),
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def _map_profile_fields(cls, data: Any) -> Any:
+        # The API sends the profile weight as `icu_weight` (`weight` is usually an explicit
+        # null) and the birth date as `icu_date_of_birth` (live-verified). AliasChoices can't
+        # express "first non-null", so map them here, keeping `weight` / `dob` as fallbacks.
+        if not isinstance(data, dict):
+            return data
+        raw = cast(dict[str, Any], data)
+        mapped = dict(raw)
+        for field, api_key in (("weight", "icu_weight"), ("dob", "icu_date_of_birth")):
+            if raw.get(api_key) is not None:
+                mapped[field] = raw[api_key]
+        return mapped
+
     @field_validator("sport_settings", mode="before")
     @classmethod
     def _coerce_sport_settings(cls, v: Any) -> list[Any]:
@@ -245,6 +260,7 @@ class ActivitySummary(BaseModel):
     distance: float | None = None
     moving_time: int | None = None
     elapsed_time: int | None = None
+    icu_recording_time: int | None = None
     total_elevation_gain: float | None = None
     average_speed: float | None = None
     average_heartrate: int | None = None
@@ -290,9 +306,14 @@ class Activity(ActivitySummary):
     compliance: float | None = None
     avg_lr_balance: float | None = None
     commute: bool | None = None
+    race: bool | None = None
+    sub_type: str | None = None
+    tags: list[str] | None = None
     trainer: bool | None = None
     indoor: bool | None = None
     analyzed: str | None = None
+    # Chat that holds the activity's notes/comments; None until the first message.
+    icu_chat_id: int | None = None
 
     @model_validator(mode="before")
     @classmethod

@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - main
+  # Weekly rebuild so Python security releases in the base image reach :latest
+  # even when nothing is merged.
+  schedule:
+    - cron: '43 4 * * 1'
 
 env:
   REGISTRY: ghcr.io
@@ -24,7 +28,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 

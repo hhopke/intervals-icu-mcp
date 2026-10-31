@@ -83,6 +83,163 @@ class TestActivityTools:
         assert response["data"]["rpe"] == 7
         assert response["data"]["feel"] == 4
 
+    async def test_update_activity_extended_fields(self, mock_config, respx_mock):
+        """Distance (sent as icu_distance), carbs, sub-type, race and tags are sent under
+        their API names and echoed back in the response."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.put("/activity/a123").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": "a123",
+                    "start_date_local": "2026-03-20T10:00:00",
+                    "name": "Zwift",
+                    "type": "VirtualRide",
+                    "distance": 42195.0,
+                    "carbs_ingested": 60,
+                    "sub_type": "WARMUP",
+                    "race": False,
+                    "tags": ["zwift", "z2"],
+                },
+            )
+        )
+
+        result = await update_activity(
+            activity_id="a123",
+            distance=42195.0,
+            carbs_ingested=60,
+            sub_type="warmup",
+            race=False,
+            tags=["zwift", "z2"],
+            ctx=mock_ctx,
+        )
+
+        sent = json.loads(route.calls[0].request.content)
+        assert sent == {
+            "icu_distance": 42195.0,
+            "carbs_ingested": 60,
+            "sub_type": "WARMUP",
+            "race": False,
+            "tags": ["zwift", "z2"],
+        }
+
+        data = json.loads(result)["data"]
+        assert data["distance_meters"] == 42195.0
+        assert data["carbs_ingested_g"] == 60
+        assert data["sub_type"] == "WARMUP"
+        assert data["race"] is False
+        assert data["tags"] == ["zwift", "z2"]
+
+    async def test_update_activity_fields_passthrough(self, mock_config, respx_mock):
+        """`fields` is sent as-is, and named parameters win on conflict."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.put("/activity/a123").mock(
+            return_value=Response(
+                200,
+                json={"id": "a123", "start_date_local": "2026-03-20T10:00:00", "type": "Ride"},
+            )
+        )
+
+        await update_activity(
+            activity_id="a123",
+            name="Named wins",
+            fields={"icu_ignore_hr": True, "name": "From fields"},
+            ctx=mock_ctx,
+        )
+
+        sent = json.loads(route.calls[0].request.content)
+        assert sent == {"icu_ignore_hr": True, "name": "Named wins"}
+
+    async def test_update_activity_fields_only(self, mock_config, respx_mock):
+        """A call with only `fields` is a valid update, not a validation error."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.put("/activity/a123").mock(
+            return_value=Response(
+                200,
+                json={"id": "a123", "start_date_local": "2026-03-20T10:00:00", "type": "Ride"},
+            )
+        )
+
+        result = await update_activity(
+            activity_id="a123", fields={"kg_lifted": 1200.0}, ctx=mock_ctx
+        )
+
+        assert route.called
+        assert "data" in json.loads(result)
+
+    async def test_update_activity_invalid_sub_type(self, mock_config, respx_mock):
+        """An unknown sub_type is rejected before any API call."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.put("/activity/a123")
+
+        result = await update_activity(activity_id="a123", sub_type="tempo", ctx=mock_ctx)
+
+        response = json.loads(result)
+        assert response["error"]["type"] == "validation_error"
+        assert "WARMUP" in response["error"]["message"]
+        assert not route.called
+
+    async def test_update_activity_fields_sub_type_normalised(self, mock_config, respx_mock):
+        """A sub_type passed via `fields` is normalised like the named parameter."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.put("/activity/a123").mock(
+            return_value=Response(
+                200,
+                json={"id": "a123", "start_date_local": "2026-03-20T10:00:00", "type": "Ride"},
+            )
+        )
+
+        await update_activity(activity_id="a123", fields={"sub_type": " warmup "}, ctx=mock_ctx)
+
+        assert json.loads(route.calls[0].request.content) == {"sub_type": "WARMUP"}
+
+    async def test_update_activity_fields_invalid_sub_type(self, mock_config, respx_mock):
+        """An unknown sub_type passed via `fields` is rejected before any API call."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.put("/activity/a123")
+
+        result = await update_activity(
+            activity_id="a123", fields={"sub_type": "tempo"}, ctx=mock_ctx
+        )
+
+        response = json.loads(result)
+        assert response["error"]["type"] == "validation_error"
+        assert not route.called
+
+    async def test_update_activity_clear_tags_echoed(self, mock_config, respx_mock):
+        """Clearing tags with `tags=[]` is sent and echoed back."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        route = respx_mock.put("/activity/a123").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": "a123",
+                    "start_date_local": "2026-03-20T10:00:00",
+                    "type": "Ride",
+                    "tags": [],
+                },
+            )
+        )
+
+        result = await update_activity(activity_id="a123", tags=[], ctx=mock_ctx)
+
+        assert json.loads(route.calls[0].request.content) == {"tags": []}
+        assert json.loads(result)["data"]["tags"] == []
+
     async def test_update_activity_not_found(self, mock_config, respx_mock):
         """Test updating a non-existent activity."""
         mock_ctx = MagicMock()

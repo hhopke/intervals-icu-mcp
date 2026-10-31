@@ -62,7 +62,7 @@ async def get_anthropic_tool_defs() -> list[dict[str, Any]]:
         {
             "name": t.name,
             "description": t.description or "",
-            "input_schema": t.inputSchema,
+            "input_schema": t.input_schema,
         }
         for t in tools
     ]

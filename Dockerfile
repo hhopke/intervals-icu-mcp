@@ -1,7 +1,7 @@
 # Multi-stage build for minimal final image
-FROM --platform=$TARGETPLATFORM ghcr.io/astral-sh/uv:latest AS uv
+FROM --platform=$TARGETPLATFORM ghcr.io/astral-sh/uv:0.13.6 AS uv
 
-FROM --platform=$TARGETPLATFORM python:3.11-slim AS builder
+FROM --platform=$TARGETPLATFORM python:3.14-slim AS builder
 
 # Install uv for faster dependency management
 COPY --from=uv /uv /usr/local/bin/uv
@@ -25,7 +25,7 @@ COPY src/ ./src/
 RUN uv sync --frozen --no-dev
 
 # Final stage - minimal runtime image
-FROM --platform=$TARGETPLATFORM python:3.11-slim
+FROM --platform=$TARGETPLATFORM python:3.14-slim
 
 # Set working directory
 WORKDIR /app

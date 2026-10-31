@@ -1,16 +1,16 @@
 # Tool, Resource, and Prompt Reference
 
-Complete inventory of everything the Intervals.icu MCP server exposes: up to 70 tools across 11 categories, 4 MCP Resources, and 9 MCP Prompts.
+Complete inventory of everything the Intervals.icu MCP server exposes: up to 72 tools across 11 categories, 4 MCP Resources, and 9 MCP Prompts.
 
 ## Delete Safety Mode
 
 Destructive tools are gated by the optional `INTERVALS_ICU_DELETE_MODE` env var. The gate sits **outside the model's reach** — tools that aren't registered cannot be invoked by any prompt or parameter.
 
-| Mode | Registered tools | Events | Activities | Gear | Library workouts | Library folders | Sport settings | Custom items |
-|---|---|---|---|---|---|---|---|---|
-| `safe` (default) | 67 | tomorrow or later | ✗ | ✓ | ✓ | empty only | ✗ | ✗ |
-| `full` | 70 | any date | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `none` | 62 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Mode | Registered tools | Events | Activities | Activity notes | Gear | Library workouts | Library folders | Sport settings | Custom items |
+|---|---|---|---|---|---|---|---|---|---|
+| `safe` (default) | 69 | tomorrow or later | ✗ | ✓ | ✓ | ✓ | empty only | ✗ | ✗ |
+| `full` | 72 | any date | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `none` | 62 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 
 In `safe` mode, `icu_delete_event`, `icu_bulk_delete_events`, and `icu_delete_workout_folder` return a uniform envelope showing what was deleted and what was skipped (the folder tool also adds a `folder` summary):
 
@@ -47,6 +47,8 @@ Set the mode in your client config alongside the credentials:
 **Why sport settings and custom items are full-only:** Sport-settings deletion removes the thresholds and zones that activities of that sport are analysed against from then on, and re-creating the record starts from defaults rather than restoring them. Custom items can be data-bearing fields whose values are stored across activities. Neither is recoverable by re-creating the deleted record.
 
 **Why library workouts are allowed in safe mode:** A library workout is a reusable template. Deleting one leaves calendar events (including ones created from it by `icu_apply_training_plan`) and recorded activities untouched, and the template can be rebuilt from its workout text — the same low-stakes profile as gear.
+
+**Why activity notes are allowed in safe mode:** `icu_delete_activity_message` removes a single note and returns its text, so it can be re-posted with `icu_add_activity_message` (only the original timestamp is lost). Intervals.icu soft-deletes notes: a "(deleted)" placeholder with a `deleted` timestamp stays in the thread, and an already deleted note can be neither edited nor deleted again. The activity and its recorded data are untouched. Editing a note (`icu_update_activity_message`) is not gated, like other updates; it returns the old text for the same reason.
 
 **Why non-empty library folders are full-only:** Deleting a folder or plan also deletes every workout in it, so a single `icu_delete_workout_folder` call can remove a whole multi-week plan. Deleting an empty folder destroys nothing, so safe mode allows that and reports a folder that still holds workouts as `skipped` (reason `folder_not_empty`). Either way, calendar events already created from a plan by `icu_apply_training_plan` stay on the calendar — they are separate records, removed with `icu_delete_event`.
 
@@ -93,7 +95,7 @@ resource takes no arguments and always reflects the configured default athlete.
 | `icu_search_activities`      | Search activities by name or tag                  |
 | `icu_search_activities_full` | Search activities with full details               |
 | `icu_get_activities_around`  | Get activities before and after a specific one    |
-| `icu_update_activity`        | Update activity name, description, or metadata    |
+| `icu_update_activity`        | Update activity name, description, distance, sub-type, carbs, tags, RPE, or any other writable field. Distance is written as `icu_distance`. Moving, elapsed and recording time cannot be changed after creation (the web UI does not allow it either); set them when creating a manual activity |
 | `icu_delete_activity`        | Delete an activity *(only registered when `INTERVALS_ICU_DELETE_MODE=full`)* |
 | `icu_download_activity_file` | Download original activity file                   |
 | `icu_download_fit_file`      | Download activity as FIT file                     |
@@ -114,7 +116,7 @@ resource takes no arguments and always reflects the configured default athlete.
 | `icu_get_pace_histogram`     | Get pace distribution histogram for an activity               |
 | `icu_get_gap_histogram`      | Get grade-adjusted pace histogram for an activity             |
 
-### Activity Messages (2 tools)
+### Activity Messages (4 tools)
 
 The threaded notes/comments shown under an activity — the user's own training notes, comments from followers, or coach feedback.
 
@@ -122,6 +124,8 @@ The threaded notes/comments shown under an activity — the user's own training 
 | -------------------------- | ---------------------------------------------------------- |
 | `icu_get_activity_messages`    | Read notes/comments/coach feedback on a specific activity  |
 | `icu_add_activity_message`     | Post a note or comment on a specific activity              |
+| `icu_update_activity_message`  | Replace the text of your own note; returns old and new text |
+| `icu_delete_activity_message`  | Delete your own note; returns the deleted text (`safe`/`full`) |
 
 ### Athlete (5 tools)
 

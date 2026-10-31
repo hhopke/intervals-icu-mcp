@@ -29,6 +29,8 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Scientific/Engineering",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Typing :: Typed",
@@ -41,7 +43,7 @@ dependencies = [
     "python-dotenv>=1.1.1",
     # cryptography (via fastmcp → authlib) ships no x86_64 macOS wheels from 49 on, so Intel Macs
     # would have to compile it from source. Drop this cap once upstream ships those wheels again.
-    "cryptography<49; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "cryptography<51; sys_platform == 'darwin' and platform_machine == 'x86_64'",
 ]
 
 [project.urls]
@@ -76,6 +78,7 @@ dev = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
