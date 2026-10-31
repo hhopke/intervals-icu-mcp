@@ -387,11 +387,6 @@ async def update_activity(
     distance: Annotated[
         float | None, "Distance in meters (e.g. for indoor rides whose file lacks it)"
     ] = None,
-    moving_time: Annotated[int | None, "Moving time in seconds"] = None,
-    elapsed_time: Annotated[int | None, "Total (elapsed) time in seconds"] = None,
-    recording_time: Annotated[
-        int | None, "Recording time in seconds (elapsed time minus auto-pause)"
-    ] = None,
     carbs_ingested: Annotated[int | None, "Carbohydrates ingested during the session (g)"] = None,
     sub_type: Annotated[
         str | None, "Activity sub-type: NONE, COMMUTE, WARMUP, COOLDOWN or RACE"
@@ -405,13 +400,13 @@ async def update_activity(
     ] = None,
     ctx: Context | None = None,
 ) -> str:
-    """Update an existing activity's metadata (name, type, distance, times, sub-type, RPE, etc.).
+    """Update an existing activity's metadata (name, type, distance, sub-type, RPE, etc.).
 
     Only fields you pass are sent; everything else stays unchanged. Strava-imported
-    activities cannot be updated. moving_time, elapsed_time and recording_time only
-    take effect on manual activities; on activities from a file Intervals.icu keeps
-    the times derived from the file. Keys passed via `fields` are sent as-is and are
-    not echoed back in the response.
+    activities cannot be updated. Moving, elapsed and recording time cannot be
+    changed after an activity exists (neither here nor in the web UI); they can only
+    be set when a manual activity is created. Keys passed via `fields` are sent
+    as-is and are not echoed back in the response.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
@@ -438,13 +433,9 @@ async def update_activity(
             # writing that key left the RPE shown in the UI unchanged.
             activity_data["icu_rpe"] = perceived_exertion
         if distance is not None:
-            activity_data["distance"] = distance
-        if moving_time is not None:
-            activity_data["moving_time"] = moving_time
-        if elapsed_time is not None:
-            activity_data["elapsed_time"] = elapsed_time
-        if recording_time is not None:
-            activity_data["icu_recording_time"] = recording_time
+            # `icu_distance` is the field Intervals.icu stores; a plain `distance`
+            # is accepted by the API but ignored.
+            activity_data["icu_distance"] = distance
         if carbs_ingested is not None:
             activity_data["carbs_ingested"] = carbs_ingested
         if sub_type is not None:
