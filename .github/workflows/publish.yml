@@ -1,11 +1,86 @@
 name: Publish Release
 
+# Releases are cut on demand: Actions → Publish Release → Run workflow (on main).
+# The version is derived from the PR titles merged since the last tag
+# (.github/scripts/next_version.py), and the release notes are GitHub's generated
+# notes, i.e. the list of merged PR titles. A release created by hand in the GitHub UI
+# still publishes through the `release` trigger.
+#
+# Everything runs in this one workflow on purpose: a release created with GITHUB_TOKEN
+# does not trigger other workflows, and PyPI trusted publishing is bound to this file.
 on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version override (X.Y.Z). Leave empty to derive it from PR titles.'
+        required: false
+        default: ''
   release:
     types: [published]
 
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
 jobs:
+  test:
+    name: Run Tests
+    if: github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/test.yml
+
+  cut-release:
+    name: Tag and create GitHub Release
+    needs: test
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - name: Require main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Releases are cut from main, not ${GITHUB_REF}."
+          exit 1
+
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # The MCP Registry rejects descriptions over 100 chars, and only after PyPI has
+      # published, leaving a partial release. Fail before anything is tagged.
+      - name: Check server.json description length
+        run: |
+          LEN=$(jq -r '.description | length' server.json)
+          if [ "$LEN" -gt 100 ]; then
+            echo "::error::server.json description is $LEN chars; the MCP Registry allows 100."
+            exit 1
+          fi
+
+      - name: Compute next version
+        id: version
+        env:
+          VERSION_OVERRIDE: ${{ inputs.version }}
+        run: python3 .github/scripts/next_version.py --version "$VERSION_OVERRIDE"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          PREVIOUS_TAG: ${{ steps.version.outputs.previous_tag }}
+        run: |
+          gh release create "$TAG" \
+            --target "$GITHUB_SHA" \
+            --title "$TAG" \
+            --generate-notes \
+            --notes-start-tag "$PREVIOUS_TAG"
+
   pypi:
+    needs: cut-release
+    if: >-
+      !cancelled() &&
+      (github.event_name == 'release' || needs.cut-release.result == 'success')
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
@@ -13,6 +88,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ needs.cut-release.outputs.tag || github.ref }}
           fetch-depth: 0
       - uses: astral-sh/setup-uv@v7
       - run: uv build
@@ -21,17 +97,22 @@ jobs:
           skip-existing: true
 
   mcp-registry:
-    needs: pypi
+    needs: [cut-release, pypi]
+    if: ${{ !cancelled() && needs.pypi.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
+    env:
+      TAG: ${{ needs.cut-release.outputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
 
       - name: Sync server.json version to release tag
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${TAG#v}"
           jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' \
             server.json > server.json.tmp
           mv server.json.tmp server.json

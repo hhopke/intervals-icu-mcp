@@ -51,7 +51,7 @@ Homepage = "https://github.com/hhopke/intervals-icu-mcp"
 Repository = "https://github.com/hhopke/intervals-icu-mcp"
 Documentation = "https://github.com/hhopke/intervals-icu-mcp/blob/main/docs/tools.md"
 Issues = "https://github.com/hhopke/intervals-icu-mcp/issues"
-Changelog = "https://github.com/hhopke/intervals-icu-mcp/blob/main/CHANGELOG.md"
+Changelog = "https://github.com/hhopke/intervals-icu-mcp/releases"
 
 [project.scripts]
 intervals-icu-mcp = "intervals_icu_mcp.server:main"

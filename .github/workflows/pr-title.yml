@@ -1,0 +1,28 @@
+name: PR Title
+
+# PR titles become the squash-merge commit on main, the line in the generated
+# release notes, and the input to the version bump (feat → minor, ! → major,
+# anything else → patch). This keeps them in conventional-commit shape.
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions: {}
+
+jobs:
+  conventional-title:
+    name: Conventional PR title
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          TYPES='feat|fix|docs|style|refactor|test|chore|ci|build|perf|revert'
+          if printf '%s' "$TITLE" | grep -Eq "^(${TYPES})(\([a-z0-9_./-]+\))?!?: [^ ]"; then
+            echo "OK: $TITLE"
+          else
+            echo "::error::PR title must be a conventional commit, e.g. 'feat(events): add tags'" \
+              "or 'fix!: ...' for a breaking change. Allowed types: ${TYPES//|/, }. Got: $TITLE"
+            exit 1
+          fi
