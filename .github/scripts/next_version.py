@@ -3,7 +3,9 @@
 PRs are squash-merged, so each commit subject on main is a PR title. The
 conventional-commit type in that title sets the bump:
 
-- ``!`` after the type/scope (``feat!: ...``) or a ``BREAKING CHANGE:`` footer -> major
+- ``!`` after the type/scope (``feat!: ...``) -> major. A ``BREAKING CHANGE:`` footer
+  also counts, but squash merges here use a blank body, so in practice ``!`` is the
+  only signal.
 - ``feat`` -> minor
 - anything else (fix, docs, chore, a non-conforming title, ...) -> patch
 
@@ -23,7 +25,10 @@ import re
 import subprocess
 import sys
 
-TITLE_RE = re.compile(r"^(?P<type>[a-z]+)(?:\([^)]*\))?(?P<bang>!)?: \S")
+# Keep in sync with TYPES in .github/workflows/pr-title.yml, which enforces titles on PRs.
+ALLOWED_TYPES = "feat|fix|docs|style|refactor|test|chore|ci|build|perf|revert"
+TITLE_RE = re.compile(rf"^(?P<type>{ALLOWED_TYPES})(?:\([^)]*\))?(?P<bang>!)?: \S")
+REVERT_RE = re.compile(r'^Revert ".+"')
 BREAKING_FOOTER_RE = re.compile(r"^BREAKING[ -]CHANGE: ", re.MULTILINE)
 VERSION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 BUMPS = ("patch", "minor", "major")
@@ -86,7 +91,7 @@ def main() -> int:
         return 1
 
     for subject, body in commits:
-        if not TITLE_RE.match(subject):
+        if not (TITLE_RE.match(subject) or REVERT_RE.match(subject)):
             print(f"warning: not a conventional title, counted as patch: {subject}", file=sys.stderr)
         print(f"  {bump_for(subject, body):5}  {subject}", file=sys.stderr)
 

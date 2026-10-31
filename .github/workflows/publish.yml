@@ -8,6 +8,11 @@ name: Publish Release
 #
 # Everything runs in this one workflow on purpose: a release created with GITHUB_TOKEN
 # does not trigger other workflows, and PyPI trusted publishing is bound to this file.
+#
+# If `pypi` or `mcp-registry` fails after the tag and Release exist, don't dispatch again
+# (it would report "Nothing to release", since there are no commits past the new tag).
+# Re-run the failed jobs of the same run instead: they reuse the tag, and `pypi` has
+# `skip-existing: true`.
 on:
   workflow_dispatch:
     inputs:
@@ -23,20 +28,15 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  test:
-    name: Run Tests
-    if: github.event_name == 'workflow_dispatch'
-    uses: ./.github/workflows/test.yml
-
-  cut-release:
-    name: Tag and create GitHub Release
-    needs: test
+  # Cheap checks first, so a bad dispatch fails in seconds instead of after the
+  # full test matrix.
+  preflight:
+    name: Preflight
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     outputs:
       tag: ${{ steps.version.outputs.tag }}
+      previous_tag: ${{ steps.version.outputs.previous_tag }}
     steps:
       - name: Require main
         if: github.ref != 'refs/heads/main'
@@ -64,13 +64,28 @@ jobs:
           VERSION_OVERRIDE: ${{ inputs.version }}
         run: python3 .github/scripts/next_version.py --version "$VERSION_OVERRIDE"
 
+  test:
+    name: Run Tests
+    needs: preflight
+    uses: ./.github/workflows/test.yml
+
+  cut-release:
+    name: Tag and create GitHub Release
+    needs: [preflight, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ needs.preflight.outputs.tag }}
+    steps:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.version.outputs.tag }}
-          PREVIOUS_TAG: ${{ steps.version.outputs.previous_tag }}
+          TAG: ${{ needs.preflight.outputs.tag }}
+          PREVIOUS_TAG: ${{ needs.preflight.outputs.previous_tag }}
         run: |
           gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "$TAG" \
             --generate-notes \

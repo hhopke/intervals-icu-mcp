@@ -17,6 +17,7 @@ _spec.loader.exec_module(next_version)
     [
         ("feat(events): add tags (#12)", "", "minor"),
         ("feat: add tags", "", "minor"),
+        ("revert: undo the tags change", "", "patch"),
         ("fix(athlete): read icu_weight (#176)", "", "patch"),
         ("chore(deps): bump httpx (#175)", "", "patch"),
         ("docs: fix typo", "", "patch"),
@@ -24,7 +25,8 @@ _spec.loader.exec_module(next_version)
         ("fix!: drop alias", "", "major"),
         ("refactor: tidy", "BREAKING CHANGE: removes the event_type alias", "major"),
         ("Update README.md", "", "patch"),
-        ("feature: not a real type but conventional shape", "", "patch"),
+        ("feature!: not an allowed type, so no major", "", "patch"),
+        ('Revert "feat(events): add tags (#12)" (#13)', "", "patch"),
     ],
 )
 def test_bump_for(subject: str, body: str, expected: str) -> None:

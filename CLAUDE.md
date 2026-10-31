@@ -119,7 +119,7 @@ Version bump, highest wins across everything merged since the last tag (`.github
 - `feat` → **minor**
 - anything else → **patch**
 
-To cut a release: **Actions → Publish Release → Run workflow** on `main` (or `gh workflow run publish.yml --ref main`, optionally `-f version=X.Y.Z` to override the computed version). `publish.yml` then runs the test suite, checks the `server.json` description length, computes the version, creates tag `vX.Y.Z` + the GitHub Release with `--generate-notes`, and publishes to PyPI and the MCP Registry in the same run. `/release-write` previews the bump and notes and dispatches it. Other release automation:
+To cut a release: **Actions → Publish Release → Run workflow** on `main` (or `gh workflow run publish.yml --ref main`, optionally `-f version=X.Y.Z` to override the computed version). `publish.yml` then fails fast in a `preflight` job (requires `main`, checks the `server.json` description length, computes the version), runs the test suite, creates tag `vX.Y.Z` + the GitHub Release with `--generate-notes`, and publishes to PyPI and the MCP Registry in the same run. `/release-write` previews the bump and notes and dispatches it. Other release automation:
 - Package version comes from the git tag via `hatch-vcs` (no `pyproject.toml` bump needed, no release commit)
 - `publish.yml` syncs `server.json` version from the tag; a Release created by hand in the GitHub UI still publishes via its `release: published` trigger
 - `release.yml` builds and pushes the Docker image on every push to `main`

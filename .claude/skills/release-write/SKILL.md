@@ -16,8 +16,9 @@ dispatch happens inside `.github/workflows/publish.yml`, in one run:
 
 | Job | Does |
 |---|---|
+| `preflight` | Fails fast: requires `main`, checks the `server.json` description is ≤ 100 chars, computes the version with `.github/scripts/next_version.py` (fails on "nothing to release") |
 | `test` | Full test suite (reusable `test.yml`) |
-| `cut-release` | Requires `main`, checks the `server.json` description is ≤ 100 chars, computes the version with `.github/scripts/next_version.py`, creates tag `vX.Y.Z` and the GitHub Release (`--generate-notes`) |
+| `cut-release` | Creates tag `vX.Y.Z` and the GitHub Release (`--generate-notes`) |
 | `pypi` | Builds at the tag and publishes to PyPI |
 | `mcp-registry` | Syncs `server.json` to the tag version and publishes to the MCP Registry |
 
@@ -73,9 +74,10 @@ published, leaving a partial release — don't report success off the PyPI job a
 fails, surface it (`gh run view <id> --log-failed`) and stop; don't retry without the user.
 
 Recovery:
-- **Failed before `cut-release` finished:** nothing was tagged. Fix on `main` and dispatch again.
+- **Failed in `preflight`, `test` or `cut-release`:** nothing was tagged. Fix on `main` and dispatch again.
 - **Failed after the tag/Release exist** (PyPI or registry): re-run the failed jobs of the same
-  run (`gh run rerun <id> --failed`). It reuses the tag, and `pypi` has `skip-existing: true`.
+  run (`gh run rerun <id> --failed`). Don't dispatch again: with no commits past the new tag it
+  reports "Nothing to release". It reuses the tag, and `pypi` has `skip-existing: true`.
   If the cause needs a code change, the tag must move: delete the Release and the tag, fix on
   `main`, and dispatch again.
 - Confirm the registry entry landed:
