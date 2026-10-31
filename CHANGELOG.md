@@ -14,10 +14,19 @@ that preserve the information (key renames, restructuring, added fields) ship in
 clients. (Releases up to and including 4.0.0 treated any response-shape change as
 breaking; this narrower contract applies from the next release onward.)
 
-## [Unreleased]
+## [5.8.0] — 2026-10-31
 
 ### Added
+- `icu_update_activity_message` and `icu_delete_activity_message` edit and delete your own notes on an activity. The update tool replaces the note text and returns the old and new text, since the old text is not recoverable otherwise. Deleting is soft: Intervals.icu keeps a "(deleted)" placeholder in the thread, and `icu_get_activity_messages` now returns its `deleted` timestamp. Only your own notes can be changed; the API refuses edits to a coach's or follower's. `icu_update_activity_message` registers in every delete mode, `icu_delete_activity_message` in `safe` and `full`. Contributed by @yokuha (#165).
+- `icu_get_seasons` lists the athlete's seasons (name, start, end) with each season's curve ID (`s0` is the current one, `s1` the previous), for use with `icu_get_power_curves`. Contributed by @yokuha (#169).
+- `icu_get_power_curves` takes `start_date`/`end_date`, `season`, `periods` (up to five windows compared in one call) and `full_curve`. Each key duration now also carries the activity and date of the effort and the best W/kg, the curve reaches 6 hours instead of 1, and the response adds the fitted power models (CP, W', Pmax, FTP), the VO2max estimate and MAP when Intervals.icu provides them. Existing parameters and fields are unchanged. Contributed by @yokuha (#169).
+- `icu_update_activity` can also write `distance` (stored as `icu_distance`), `carbs_ingested`, `sub_type` (`NONE`, `COMMUTE`, `WARMUP`, `COOLDOWN`, `RACE`), `race` and `tags`, plus a `fields` escape hatch for any other writable Activity field. Moving, elapsed and recording time cannot be changed after an activity exists, so they are not writable. The response echoes the new fields. Contributed by @yokuha (#168).
 - Python 3.14 and 3.15 are now tested in CI and listed in the package classifiers. The supported range is still 3.11 and later. The Docker image stays on 3.14 for now.
+
+This takes the server from 69 tools to 72 — `safe` (the default) from 66 to 69, `none` from 61 to 63.
+
+### Fixed
+- `icu_get_athlete_profile` and `icu_list_athletes` could show no weight or date of birth. The API sends the profile values as `icu_weight` and `icu_date_of_birth` and leaves `weight` null, which the server did not read. Both are now picked up, with `weight` and `dob` kept as fallbacks (#176).
 
 ### Changed
 - The Docker image runs on `python:3.14-slim` instead of `python:3.11-slim`, and its build pins the uv image to a fixed version instead of `latest`. The image is now also rebuilt weekly, so Python security releases in the base image reach `:latest` without waiting for a merge. Version tags such as `:5.7.1` are not rebuilt.

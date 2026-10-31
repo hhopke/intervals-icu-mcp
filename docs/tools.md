@@ -10,7 +10,7 @@ Destructive tools are gated by the optional `INTERVALS_ICU_DELETE_MODE` env var.
 |---|---|---|---|---|---|---|---|---|---|
 | `safe` (default) | 69 | tomorrow or later | ✗ | ✓ | ✓ | ✓ | empty only | ✗ | ✗ |
 | `full` | 72 | any date | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `none` | 62 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| `none` | 63 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 
 In `safe` mode, `icu_delete_event`, `icu_bulk_delete_events`, and `icu_delete_workout_folder` return a uniform envelope showing what was deleted and what was skipped (the folder tool also adds a `folder` summary):
 
