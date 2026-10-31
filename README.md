@@ -6,7 +6,7 @@
 
 A Model Context Protocol (MCP) server for Intervals.icu integration. Access your training data, wellness metrics, and performance analysis through Claude, ChatGPT, and other LLMs.
 
-> Originally based on [eddmann/intervals-icu-mcp](https://github.com/eddmann/intervals-icu-mcp) (MIT licensed). This project is an independent continuation with significant bug fixes and new features — see [CHANGELOG.md](https://github.com/hhopke/intervals-icu-mcp/blob/main/CHANGELOG.md) for details.
+> Originally based on [eddmann/intervals-icu-mcp](https://github.com/eddmann/intervals-icu-mcp) (MIT licensed). This project is an independent continuation with significant bug fixes and new features — see the [release notes](https://github.com/hhopke/intervals-icu-mcp/releases) for details.
 
 [![Tests](https://github.com/hhopke/intervals-icu-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/hhopke/intervals-icu-mcp/actions/workflows/test.yml)
 [![intervals-icu-mcp MCP server](https://glama.ai/mcp/servers/hhopke/intervals-icu-mcp/badges/score.svg)](https://glama.ai/mcp/servers/hhopke/intervals-icu-mcp)
@@ -249,7 +249,7 @@ See [docs/remote-deployment.md](https://github.com/hhopke/intervals-icu-mcp/blob
 - [Architecture overview](https://github.com/hhopke/intervals-icu-mcp/blob/main/docs/architecture.md) — how the server, middleware, client, and tools fit together
 - [Remote deployment (HTTP/SSE)](https://github.com/hhopke/intervals-icu-mcp/blob/main/docs/remote-deployment.md) — transports, flags, and the security model for hosted/remote setups
 - [Testing guide](https://github.com/hhopke/intervals-icu-mcp/blob/main/docs/testing.md) — conventions for pytest + respx, fixtures, and running the suite
-- [Changelog](CHANGELOG.md) — release history
+- [Releases](https://github.com/hhopke/intervals-icu-mcp/releases) — release notes ([CHANGELOG.md](CHANGELOG.md) covers releases up to 5.8.0)
 - [Adding a new tool](https://github.com/hhopke/intervals-icu-mcp/blob/main/.claude/skills/add-tool/SKILL.md) — step-by-step workflow for contributors
 
 ## Feedback

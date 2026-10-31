@@ -18,7 +18,7 @@
 - [ ] No API keys, athlete IDs, or other credentials are committed
 
 > [!NOTE]
-> No need to touch `CHANGELOG.md` — the maintainer adds entries at merge time.
+> The PR title becomes your line in the release notes and sets the version bump (`feat` → minor, `!` → major, anything else → patch). Write it as a conventional commit, e.g. `feat(events): add tags`. `CHANGELOG.md` is frozen, so don't edit it. See [CONTRIBUTING.md](https://github.com/hhopke/intervals-icu-mcp/blob/main/CONTRIBUTING.md#versioning-and-release-notes).
 
 ## Test plan
 
