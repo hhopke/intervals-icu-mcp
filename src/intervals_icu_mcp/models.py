@@ -293,6 +293,8 @@ class Activity(ActivitySummary):
     trainer: bool | None = None
     indoor: bool | None = None
     analyzed: str | None = None
+    # Chat that holds the activity's notes/comments; None until the first message.
+    icu_chat_id: int | None = None
 
     @model_validator(mode="before")
     @classmethod
