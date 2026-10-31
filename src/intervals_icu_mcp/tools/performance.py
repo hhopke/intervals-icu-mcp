@@ -207,7 +207,7 @@ async def get_power_curves(
         "season ID ('s1'), or 'YYYY-MM-DD..YYYY-MM-DD'. Returns one entry per period.",
     ] = None,
     full_curve: Annotated[
-        bool, "Also return every duration point (secs + watts), not just key durations"
+        bool, "Also return all points the API returns (secs + watts), not just key durations"
     ] = False,
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
@@ -279,7 +279,12 @@ async def get_power_curves(
                     entry.update(_analyze_curve(curve, curve_set.activities, full_curve))
                 curves_data.append(entry)
             returned = {curve.id for curve in curve_set.curves}
-            missing = [label for curve_id, label in parsed if curve_id not in returned]
+            # Echo the specs as passed, so the caller can match them to its request.
+            missing = [
+                spec.strip()
+                for spec, (curve_id, _) in zip(periods, parsed, strict=True)
+                if curve_id not in returned
+            ]
 
             metadata: dict[str, Any] = {"count": len(curves_data)}
             if missing:
@@ -294,12 +299,16 @@ async def get_power_curves(
 
         period_label = parsed[0][1]
         if not curve_set.curves or not curve_set.curves[0].values:
+            if season is not None:
+                hint = (
+                    "This season may not exist (use icu_get_seasons to list them) "
+                    "or it has no rides with power."
+                )
+            else:
+                hint = "Complete some rides with power to build your power curve."
             return ResponseBuilder.build_response(
                 data={"power_curve": [], "period": period_label},
-                metadata={
-                    "message": f"No power curve data available for {period_label}. "
-                    "Complete some rides with power to build your power curve."
-                },
+                metadata={"message": f"No power curve data available for {period_label}. {hint}"},
             )
 
         curve = curve_set.curves[0]

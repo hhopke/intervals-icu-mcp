@@ -374,7 +374,7 @@ async def get_seasons(
     Use for "which seasons do I have?", or before comparing seasons: pass a
     season's curve_id ('s0' = current, 's1' = previous, ...) to
     icu_get_power_curves. A season runs until the day before the next one
-    starts; the newest started season is open-ended.
+    starts; the newest season is open-ended.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")

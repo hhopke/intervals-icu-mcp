@@ -510,10 +510,10 @@ class PowerModel(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     type: str | None = None
-    critical_power: int | None = Field(None, alias="criticalPower")
-    w_prime: int | None = Field(None, alias="wPrime")
-    p_max: int | None = Field(None, alias="pMax")
-    ftp: int | None = None
+    critical_power: int | float | None = Field(None, alias="criticalPower")
+    w_prime: int | float | None = Field(None, alias="wPrime")
+    p_max: int | float | None = Field(None, alias="pMax")
+    ftp: int | float | None = None
 
 
 class MapPlot(BaseModel):
@@ -522,8 +522,8 @@ class MapPlot(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     map: float | None = None  # W/kg
-    map_secs: int | None = Field(None, alias="mapSecs")
-    map_watts: int | None = Field(None, alias="mapWatts")
+    map_secs: int | float | None = Field(None, alias="mapSecs")
+    map_watts: int | float | None = Field(None, alias="mapWatts")
 
 
 class CurveActivity(BaseModel):

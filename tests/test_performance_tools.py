@@ -215,7 +215,7 @@ class TestGetPowerCurvesWindows:
         assert [c["period"] for c in curves] == ["season_s0", "all_time"]
         assert curves[0]["label"] == "This season"
         assert curves[1]["ftp_analysis"]["estimated_ftp"] == 304
-        assert response["metadata"]["missing_periods"] == ["season_s9"]
+        assert response["metadata"]["missing_periods"] == ["s9"]
 
     async def test_mixed_windows_rejected(self, mock_config):
         mock_ctx = MagicMock()
@@ -315,6 +315,66 @@ class TestGetPowerCurvesExtras:
         assert data["vo2max_5m"] == 59.1
         assert data["map"] == {"watts": 359, "watts_per_kg": 4.49, "duration_seconds": 470}
         assert "curve" not in data
+
+    async def test_fractional_model_values_do_not_break_response(self, mock_config, respx_mock):
+        """Fractional model and MAP values are accepted; whole numbers stay whole."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.get("/athlete/i123456/power-curves").mock(
+            return_value=Response(
+                200,
+                json={
+                    "list": [
+                        {
+                            "id": "all",
+                            "secs": [5, 1200],
+                            "values": [900, 300],
+                            "activity_id": ["a1", "a2"],
+                            "powerModels": [
+                                {
+                                    "type": "MORTON_3P",
+                                    "criticalPower": 251.3,
+                                    "wPrime": 20123.5,
+                                    "pMax": 1025,
+                                    "ftp": 286.75,
+                                }
+                            ],
+                            "mapPlot": {"map": 4.4, "mapSecs": 470.5, "mapWatts": 359.25},
+                        }
+                    ],
+                },
+            )
+        )
+
+        result = await get_power_curves(time_period="all", ctx=mock_ctx)
+
+        data = json.loads(result)["data"]
+        assert data["power_models"] == [
+            {
+                "type": "MORTON_3P",
+                "critical_power": 251.3,
+                "w_prime": 20123.5,
+                "p_max": 1025,
+                "ftp": 286.75,
+            }
+        ]
+        assert data["peak_efforts"]["5_sec"]["watts"] == 900
+
+    async def test_missing_season_single_window_hints_at_seasons(self, mock_config, respx_mock):
+        """A season the API drops points at icu_get_seasons, not at 'complete some rides'."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.get("/athlete/i123456/power-curves").mock(
+            return_value=Response(200, json={"list": []})
+        )
+
+        result = await get_power_curves(season="s9", ctx=mock_ctx)
+
+        message = json.loads(result)["metadata"]["message"]
+        assert "icu_get_seasons" in message
+        assert "Complete some rides" not in message
 
     async def test_full_curve_and_zero_map_omitted(self, mock_config, respx_mock):
         """full_curve returns every point; a zero MAP (not fittable) is left out."""
