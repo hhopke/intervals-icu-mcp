@@ -245,6 +245,7 @@ class ActivitySummary(BaseModel):
     distance: float | None = None
     moving_time: int | None = None
     elapsed_time: int | None = None
+    icu_recording_time: int | None = None
     total_elevation_gain: float | None = None
     average_speed: float | None = None
     average_heartrate: int | None = None
@@ -290,6 +291,9 @@ class Activity(ActivitySummary):
     compliance: float | None = None
     avg_lr_balance: float | None = None
     commute: bool | None = None
+    race: bool | None = None
+    sub_type: str | None = None
+    tags: list[str] | None = None
     trainer: bool | None = None
     indoor: bool | None = None
     analyzed: str | None = None
