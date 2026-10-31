@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from httpx import Response
 
+from intervals_icu_mcp.models import Athlete
 from intervals_icu_mcp.tools.athlete import (
     NOTES_PREVIEW_CHARS,
     get_athlete_profile,
@@ -174,6 +175,53 @@ class TestGetAthleteProfile:
         response = json.loads(await get_athlete_profile(ctx=_ctx(mock_config)))
 
         assert response["data"]["profile"]["notes"] == "Prefers mornings"
+
+
+class TestAthleteProfileFieldMapping:
+    """The API sends `icu_weight` / `icu_date_of_birth`, not `weight` / `dob`."""
+
+    # Shape of a live GET /athlete/{id}: `weight` is an explicit null.
+    API_PAYLOAD = {
+        "id": "i123456",
+        "name": "Test Athlete",
+        "sex": "M",
+        "weight": None,
+        "icu_weight": 72.5,
+        "icu_date_of_birth": "1985-03-14",
+    }
+
+    def test_model_maps_api_field_names(self):
+        athlete = Athlete(**self.API_PAYLOAD)
+
+        assert athlete.weight == 72.5
+        assert athlete.dob == "1985-03-14"
+        assert athlete.sex == "M"
+
+    def test_model_prefers_icu_weight_over_weight(self):
+        athlete = Athlete(**{**self.API_PAYLOAD, "weight": 70.0})
+
+        assert athlete.weight == 72.5
+
+    def test_model_falls_back_to_weight_when_icu_weight_null(self):
+        athlete = Athlete(**{**self.API_PAYLOAD, "weight": 70.0, "icu_weight": None})
+
+        assert athlete.weight == 70.0
+
+    def test_model_accepts_field_names(self):
+        athlete = Athlete(id="i1", name="X", weight=68.0, dob="1990-01-01")
+
+        assert athlete.weight == 68.0
+        assert athlete.dob == "1990-01-01"
+
+    async def test_tool_returns_dob_and_weight(self, mock_config, respx_mock):
+        respx_mock.get("/athlete/i123456").mock(return_value=Response(200, json=self.API_PAYLOAD))
+
+        response = json.loads(await get_athlete_profile(ctx=_ctx(mock_config)))
+
+        profile = response["data"]["profile"]
+        assert profile["weight_kg"] == 72.5
+        assert profile["dob"] == "1985-03-14"
+        assert profile["sex"] == "M"
 
 
 class TestUpdateAthleteNotes:

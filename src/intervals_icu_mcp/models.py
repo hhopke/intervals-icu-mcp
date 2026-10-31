@@ -212,6 +212,21 @@ class Athlete(BaseModel):
         validation_alias=AliasChoices("sport_settings", "sportSettings"),
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def _map_profile_fields(cls, data: Any) -> Any:
+        # The API sends the profile weight as `icu_weight` (`weight` is usually an explicit
+        # null) and the birth date as `icu_date_of_birth` (live-verified). AliasChoices can't
+        # express "first non-null", so map them here, keeping `weight` / `dob` as fallbacks.
+        if not isinstance(data, dict):
+            return data
+        raw = cast(dict[str, Any], data)
+        mapped = dict(raw)
+        for field, api_key in (("weight", "icu_weight"), ("dob", "icu_date_of_birth")):
+            if raw.get(api_key) is not None:
+                mapped[field] = raw[api_key]
+        return mapped
+
     @field_validator("sport_settings", mode="before")
     @classmethod
     def _coerce_sport_settings(cls, v: Any) -> list[Any]:
