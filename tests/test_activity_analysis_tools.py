@@ -8,8 +8,8 @@ from httpx import Response
 from intervals_icu_mcp.tools.activity_analysis import (
     get_activity_intervals,
     get_activity_streams,
+    get_activity_window_stats,
     get_best_efforts,
-    get_stream_stats,
     search_intervals,
 )
 
@@ -569,7 +569,7 @@ def _interval_stats_route(request):
     )
 
 
-class TestGetStreamStats:
+class TestGetActivityWindowStats:
     def _mock(self, respx_mock, pvhr_status: int = 200):
         respx_mock.get("/activity/a1/streams.json").mock(side_effect=_streams_route(_RIDE))
         stats = respx_mock.get("/activity/a1/interval-stats").mock(
@@ -594,7 +594,9 @@ class TestGetStreamStats:
     async def test_parts_use_intervals_icu_stats(self, mock_config, respx_mock):
         stats = self._mock(respx_mock)
 
-        result = await get_stream_stats(activity_id="a1", parts=2, ctx=_make_ctx(mock_config))
+        result = await get_activity_window_stats(
+            activity_id="a1", parts=2, ctx=_make_ctx(mock_config)
+        )
         response = json.loads(result)
 
         windows = response["data"]["windows"]
@@ -612,7 +614,7 @@ class TestGetStreamStats:
     async def test_filtered_with_min_power_lag_and_aliases(self, mock_config, respx_mock):
         self._mock(respx_mock)
 
-        result = await get_stream_stats(
+        result = await get_activity_window_stats(
             activity_id="a1",
             streams=["VE"],
             min_power=150,
@@ -634,7 +636,7 @@ class TestGetStreamStats:
     async def test_power_smoothing_applies_to_filter(self, mock_config, respx_mock):
         self._mock(respx_mock)
 
-        result = await get_stream_stats(
+        result = await get_activity_window_stats(
             activity_id="a1",
             min_power=150,
             power_smoothing_s=2,
@@ -647,7 +649,7 @@ class TestGetStreamStats:
     async def test_missing_streams_reported_with_suggestions(self, mock_config, respx_mock):
         self._mock(respx_mock)
 
-        result = await get_stream_stats(
+        result = await get_activity_window_stats(
             activity_id="a1",
             streams=["tymeventilation", "SmO2"],
             ctx=_make_ctx(mock_config),
@@ -661,7 +663,7 @@ class TestGetStreamStats:
     async def test_power_hr_failure_is_skipped(self, mock_config, respx_mock):
         self._mock(respx_mock, pvhr_status=404)
 
-        result = await get_stream_stats(activity_id="a1", ctx=_make_ctx(mock_config))
+        result = await get_activity_window_stats(activity_id="a1", ctx=_make_ctx(mock_config))
         response = json.loads(result)
         assert len(response["data"]["windows"]) == 1
         assert "analysis" not in response or "power_hr_whole_activity" not in (
@@ -672,17 +674,111 @@ class TestGetStreamStats:
         self._mock(respx_mock)
         ctx = _make_ctx(mock_config)
 
-        both = await get_stream_stats(activity_id="a1", parts=2, block_minutes=1, ctx=ctx)
+        both = await get_activity_window_stats(activity_id="a1", parts=2, block_minutes=1, ctx=ctx)
         assert json.loads(both)["error"]["type"] == "validation_error"
 
-        bad_window = await get_stream_stats(activity_id="a1", windows=[[5, 2]], ctx=ctx)
+        bad_window = await get_activity_window_stats(activity_id="a1", windows=[[5, 2]], ctx=ctx)
         assert json.loads(bad_window)["error"]["type"] == "validation_error"
 
-        too_many = await get_stream_stats(activity_id="a1", parts=25, ctx=ctx)
+        too_many = await get_activity_window_stats(activity_id="a1", parts=25, ctx=ctx)
         assert "limit" in json.loads(too_many)["error"]["message"]
 
-        bad_power = await get_stream_stats(activity_id="a1", min_power=200, max_power=100, ctx=ctx)
+        bad_power = await get_activity_window_stats(
+            activity_id="a1", min_power=200, max_power=100, ctx=ctx
+        )
         assert json.loads(bad_power)["error"]["type"] == "validation_error"
+
+    async def test_window_cap_checked_before_building_windows(self, mock_config, respx_mock):
+        stats = self._mock(respx_mock)
+        ctx = _make_ctx(mock_config)
+
+        tiny_blocks = await get_activity_window_stats(
+            activity_id="a1", block_minutes=0.0001, ctx=ctx
+        )
+        huge_parts = await get_activity_window_stats(activity_id="a1", parts=10**9, ctx=ctx)
+        many_windows = await get_activity_window_stats(
+            activity_id="a1", windows=[[0.0, 1.0]] * 25, ctx=ctx
+        )
+
+        for result in (tiny_blocks, huge_parts, many_windows):
+            error = json.loads(result)["error"]
+            assert error["type"] == "validation_error"
+            assert "limit" in error["message"]
+        assert stats.call_count == 0
+
+    async def test_window_beyond_end_of_activity(self, mock_config, respx_mock):
+        stats = self._mock(respx_mock)
+
+        result = await get_activity_window_stats(
+            activity_id="a1", windows=[[0.0, 4.0], [100.0, 200.0]], ctx=_make_ctx(mock_config)
+        )
+        windows = json.loads(result)["data"]["windows"]
+
+        assert "icu" in windows[0]
+        assert windows[1]["note"] == "No samples in this window"
+        assert stats.call_count == 1
+
+    async def test_missing_decoupling_is_omitted_not_zero(self, mock_config, respx_mock):
+        respx_mock.get("/activity/a1/streams.json").mock(side_effect=_streams_route(_RIDE))
+        respx_mock.get("/activity/a1/interval-stats").mock(side_effect=_interval_stats_route)
+        respx_mock.get("/activity/a1/power-vs-hr.json").mock(
+            return_value=Response(200, json={"powerHr": 1.4, "decoupling": None})
+        )
+
+        result = await get_activity_window_stats(activity_id="a1", ctx=_make_ctx(mock_config))
+        whole = json.loads(result)["analysis"]["power_hr_whole_activity"]
+
+        assert whole["watts_per_bpm"] == 1.4
+        for key in ("decoupling_pct", "first_half", "second_half", "hr_lag_s"):
+            assert key not in whole
+
+    async def test_one_failed_window_does_not_fail_the_others(self, mock_config, respx_mock):
+        self._mock(respx_mock)
+
+        def flaky(request):
+            if int(request.url.params["start_index"]) == 0:
+                return Response(503, json={"error": "unavailable"})
+            return _interval_stats_route(request)
+
+        respx_mock.get("/activity/a1/interval-stats").mock(side_effect=flaky)
+
+        result = await get_activity_window_stats(
+            activity_id="a1", parts=2, streams=["VE"], ctx=_make_ctx(mock_config)
+        )
+        windows = json.loads(result)["data"]["windows"]
+
+        assert "unavailable for this window" in windows[0]["note"]
+        assert "icu" not in windows[0]
+        assert "filtered" in windows[0]
+        assert "icu" in windows[1]
+
+    async def test_all_windows_failing_is_an_api_error(self, mock_config, respx_mock):
+        self._mock(respx_mock)
+        respx_mock.get("/activity/a1/interval-stats").mock(return_value=Response(503))
+
+        result = await get_activity_window_stats(
+            activity_id="a1", parts=2, ctx=_make_ctx(mock_config)
+        )
+
+        assert json.loads(result)["error"]["type"] == "api_error"
+
+    async def test_empty_tyme_stream_falls_back(self, mock_config, respx_mock):
+        ride = {**_RIDE_NO_TYME, "tidal_volume_min": [None, None, None, None]}
+        respx_mock.get("/activity/a1/streams.json").mock(side_effect=_streams_route(ride))
+        respx_mock.get("/activity/a1/interval-stats").mock(
+            return_value=Response(200, json={"average_watts": 200, "average_respiration": 18.0})
+        )
+        respx_mock.get("/activity/a1/power-vs-hr.json").mock(return_value=Response(404))
+        respx_mock.get("/athlete/i123456/custom-item").mock(return_value=Response(200, json=[]))
+        respx_mock.get("/activity/a1").mock(
+            return_value=Response(
+                200, json={"id": "a1", "type": "Ride", "start_date_local": "2026-05-19T08:00:00"}
+            )
+        )
+
+        result = await get_activity_window_stats(activity_id="a1", ctx=_make_ctx(mock_config))
+
+        assert json.loads(result)["data"]["breath_rate_source"]["source"] == "device"
 
     async def test_no_streams(self, mock_config, respx_mock):
         respx_mock.get("/activity/a1/streams.json").mock(return_value=Response(200, json=[]))
@@ -693,7 +789,7 @@ class TestGetStreamStats:
             )
         )
 
-        result = await get_stream_stats(activity_id="a1", ctx=_make_ctx(mock_config))
+        result = await get_activity_window_stats(activity_id="a1", ctx=_make_ctx(mock_config))
         assert json.loads(result)["data"]["windows"] == []
 
 
@@ -713,7 +809,7 @@ _HRV_CUSTOM_STREAM = {
 }
 
 
-class TestStreamStatsBreathSource:
+class TestActivityWindowStatsBreathSource:
     def _mock(self, respx_mock, streams, custom_items):
         respx_mock.get("/activity/a1/streams.json").mock(side_effect=_streams_route(streams))
         respx_mock.get("/activity/a1/interval-stats").mock(
@@ -735,7 +831,7 @@ class TestStreamStatsBreathSource:
     async def test_tyme_present_skips_custom_item_lookup(self, mock_config, respx_mock):
         items = self._mock(respx_mock, _RIDE, [_HRV_CUSTOM_STREAM])
 
-        result = await get_stream_stats(activity_id="a1", ctx=_make_ctx(mock_config))
+        result = await get_activity_window_stats(activity_id="a1", ctx=_make_ctx(mock_config))
         data = json.loads(result)["data"]
 
         assert data["breath_rate_source"] == {"source": "tyme", "measured": True}
@@ -745,7 +841,7 @@ class TestStreamStatsBreathSource:
     async def test_hrv_app_used_without_tyme(self, mock_config, respx_mock):
         self._mock(respx_mock, _RIDE_NO_TYME, [_HRV_CUSTOM_STREAM])
 
-        result = await get_stream_stats(
+        result = await get_activity_window_stats(
             activity_id="a1", streams=["BR"], ctx=_make_ctx(mock_config)
         )
         data = json.loads(result)["data"]
@@ -759,6 +855,19 @@ class TestStreamStatsBreathSource:
         assert data["aliases_applied"] == {"BR": "HrvBreath"}
         assert "HrvBreath" in data["windows"][0]["filtered"]["streams"]
         assert "respiration" not in data["windows"][0]["filtered"]["streams"]
+
+    async def test_br_swapped_to_hrv_stream_is_not_reported_missing(self, mock_config, respx_mock):
+        ride = {k: v for k, v in _RIDE_NO_TYME.items() if k != "respiration"}
+        self._mock(respx_mock, ride, [_HRV_CUSTOM_STREAM])
+
+        result = await get_activity_window_stats(
+            activity_id="a1", streams=["BR"], ctx=_make_ctx(mock_config)
+        )
+        data = json.loads(result)["data"]
+
+        assert data["aliases_applied"] == {"BR": "HrvBreath"}
+        assert "missing_streams" not in data
+        assert "HrvBreath" in data["windows"][0]["filtered"]["streams"]
 
     async def test_device_estimate_labelled_without_tyme_or_hrv(self, mock_config, respx_mock):
         self._mock(respx_mock, _RIDE_NO_TYME, [])
@@ -774,7 +883,7 @@ class TestStreamStatsBreathSource:
             )
         )
 
-        result = await get_stream_stats(activity_id="a1", ctx=_make_ctx(mock_config))
+        result = await get_activity_window_stats(activity_id="a1", ctx=_make_ctx(mock_config))
         data = json.loads(result)["data"]
 
         assert data["breath_rate_source"]["source"] == "device"
