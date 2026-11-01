@@ -143,7 +143,7 @@ The threaded notes/comments shown under an activity — the user's own training 
 | ----------------------- | ------------------------------------------------------------------- |
 | `icu_get_wellness_data`     | Get recent wellness metrics with trends (HRV, sleep, mood, fatigue) |
 | `icu_get_wellness_for_date` | Get complete wellness data for a specific date                      |
-| `icu_update_wellness`       | Update or create wellness data for a date                           |
+| `icu_update_wellness`       | Update or create wellness data for a date (incl. custom fields)     |
 
 ### Events / Calendar (13 tools)
 
@@ -200,7 +200,7 @@ The threaded notes/comments shown under an activity — the user's own training 
 | Tool                    | Description                                             |
 | ----------------------- | ------------------------------------------------------- |
 | `icu_get_sport_settings`    | Get per-sport thresholds plus configured power/HR/pace zones |
-| `icu_update_sport_settings` | Update outdoor/indoor FTP, FTHR, or pace/swim thresholds, or set explicit HR/power zone bounds (e.g. from a lab test) |
+| `icu_update_sport_settings` | Update outdoor/indoor FTP, FTHR, or pace/swim thresholds, set explicit HR/power zone bounds (e.g. from a lab test), or set custom activity field defaults (`custom_fields`, merged) |
 | `icu_create_sport_settings` | Create new sport-specific settings                      |
 | `icu_delete_sport_settings` | Delete sport-specific settings *(only registered when `INTERVALS_ICU_DELETE_MODE=full`; past activities keep their analysed values, but re-creating the record starts from defaults)* |
 

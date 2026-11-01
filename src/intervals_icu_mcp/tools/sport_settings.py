@@ -8,10 +8,20 @@ from ..auth import load_config, validate_credentials
 from ..client import ICUAPIError, ICUClient
 from ..response_builder import ResponseBuilder
 from ..sport_settings_format import (
+    activity_field_names,
     build_sport_settings_api_payload,
     build_zone_api_payload,
     format_sport_settings_entry,
+    resolve_custom_field_codes,
 )
+
+
+async def _load_activity_field_names(client: ICUClient, athlete_id: str | None) -> dict[str, str]:
+    """Custom activity field code -> display name; empty if the lookup fails."""
+    try:
+        return activity_field_names(await client.get_custom_items(athlete_id=athlete_id))
+    except ICUAPIError:
+        return {}
 
 
 async def get_sport_settings(
@@ -44,8 +54,12 @@ async def get_sport_settings(
                     {"message": "No sport settings found"}, metadata={"count": 0}
                 )
 
+            field_names: dict[str, str] = {}
+            if any(s.custom_field_values for s in settings_list):
+                field_names = await _load_activity_field_names(client, athlete_id)
+
             settings_data = [
-                format_sport_settings_entry(settings, include_zones=True)
+                format_sport_settings_entry(settings, include_zones=True, field_names=field_names)
                 for settings in settings_list
             ]
 
@@ -99,10 +113,15 @@ async def update_sport_settings(
     ] = None,
     sweet_spot_min: Annotated[int | None, "Sweet spot lower bound, % of FTP"] = None,
     sweet_spot_max: Annotated[int | None, "Sweet spot upper bound, % of FTP"] = None,
+    custom_fields: Annotated[
+        dict[str, Any] | None,
+        "Default values for custom activity fields, keyed by field code or display name "
+        "(e.g. {'VT1': 245}). Merged by the API into the existing defaults; fields not listed are kept. null clears a value",
+    ] = None,
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
-    """Update sport settings: FTP, FTHR, pace/swim thresholds, or explicit HR/power zones.
+    """Update sport settings: thresholds, explicit HR/power zones, custom field defaults.
 
     Explicit zones replace the threshold-derived ones (e.g. to match a lab test).
     Changes apply from now on; past activities keep the zones they were analysed with.
@@ -136,6 +155,15 @@ async def update_sport_settings(
                 )
             )
 
+            field_names: dict[str, str] = {}
+            if custom_fields:
+                field_names = await _load_activity_field_names(client, athlete_id)
+                resolved = resolve_custom_field_codes(custom_fields, field_names)
+                # Send only the keys being changed: the API merges them into the stored
+                # defaults. Echoing the stored ones back would be rejected with 422 if any is no
+                # longer a known activity field (e.g. a code later re-created as a wellness field).
+                settings_data["custom_field_values"] = resolved
+
             if not settings_data:
                 return ResponseBuilder.build_error_response(
                     "No fields provided to update", error_type="validation_error"
@@ -160,7 +188,7 @@ async def update_sport_settings(
                 )
 
             return ResponseBuilder.build_response(
-                format_sport_settings_entry(settings, include_zones=True),
+                format_sport_settings_entry(settings, include_zones=True, field_names=field_names),
                 metadata=metadata,
             )
 
