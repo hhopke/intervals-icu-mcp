@@ -641,3 +641,47 @@ class TestCustomFieldDefaults:
 
         assert "Unknown custom activity field" in json.loads(result)["error"]["message"]
         assert not route.called
+
+    async def test_update_surfaces_lookup_failure_instead_of_unknown_field(
+        self, patch_config, respx_mock
+    ):
+        respx_mock.get("/athlete/i123456/custom-item").mock(return_value=Response(500))
+        route = respx_mock.put("/athlete/i123456/sport-settings/1")
+
+        result = await update_sport_settings(sport_id=1, custom_fields={"VT1": 1})
+
+        error = json.loads(result)["error"]
+        assert error["type"] == "api_error"
+        assert "Unknown custom activity field" not in error["message"]
+        assert not route.called
+
+    async def test_get_falls_back_to_bare_codes_when_lookup_fails(self, patch_config, respx_mock):
+        respx_mock.get("/athlete/i123456/sport-settings").mock(
+            return_value=Response(
+                200, json=[{"id": 1, "types": ["Ride"], "custom_field_values": {"VT1": 240}}]
+            )
+        )
+        respx_mock.get("/athlete/i123456/custom-item").mock(return_value=Response(500))
+
+        response = json.loads(await get_sport_settings())
+
+        fields = response["data"]["sport_settings"][0]["custom_fields"]
+        assert fields == [{"code": "VT1", "name": None, "value": 240}]
+
+    async def test_update_rejects_ambiguous_display_name(self, patch_config, respx_mock):
+        respx_mock.get("/athlete/i123456/custom-item").mock(
+            return_value=Response(
+                200,
+                json=[
+                    {"id": 1, "type": "ACTIVITY_FIELD", "name": "Power", "content": {"code": "A"}},
+                    {"id": 2, "type": "ACTIVITY_FIELD", "name": "power", "content": {"code": "B"}},
+                ],
+            )
+        )
+        route = respx_mock.put("/athlete/i123456/sport-settings/1")
+
+        by_name = json.loads(await update_sport_settings(sport_id=1, custom_fields={"POWER": 1}))
+
+        message = by_name["error"]["message"]
+        assert "Ambiguous" in message and "A, B" in message
+        assert not route.called

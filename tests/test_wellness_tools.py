@@ -3,6 +3,7 @@
 import json
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from httpx import Response
 
 from intervals_icu_mcp.tools.wellness import (
@@ -108,6 +109,28 @@ class TestWellnessTools:
         assert response["error"]["type"] == "validation_error"
         assert "Cafeine" in response["error"]["message"]
         assert "Caffeine" in response["error"]["message"]
+        assert not put.called
+
+    @pytest.mark.parametrize("code", ["id", "hrv", "kcalConsumed"])
+    async def test_update_wellness_custom_field_clashing_with_builtin(
+        self, code, mock_config, respx_mock
+    ):
+        """A custom code equal to a built-in payload key is rejected before any write."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.get("/athlete/i123456/custom-item").mock(
+            return_value=Response(
+                200, json=[{"id": 1, "type": "INPUT_FIELD", "content": {"code": code}}]
+            )
+        )
+        put = respx_mock.put("/athlete/i123456/wellness").mock(return_value=Response(200, json={}))
+
+        result = await update_wellness(date="2026-10-28", custom_fields={code: 1}, ctx=mock_ctx)
+
+        response = json.loads(result)
+        assert response["error"]["type"] == "validation_error"
+        assert "collide" in response["error"]["message"]
         assert not put.called
 
     async def test_update_wellness_no_data(self, mock_config, respx_mock):

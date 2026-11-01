@@ -7,7 +7,14 @@ from fastmcp import Context
 
 from ..auth import ICUConfig
 from ..client import ICUAPIError, ICUClient
+from ..models import Wellness
 from ..response_builder import ResponseBuilder
+
+# Payload keys owned by the typed arguments (and the record id): a custom field code that
+# equals one would overwrite it, so such codes are rejected.
+WELLNESS_BUILTIN_KEYS: frozenset[str] = frozenset(
+    (field.alias or name) for name, field in Wellness.model_fields.items()
+)
 
 # Scale labels for subjective metrics — surfaced in response metadata so LLM
 # clients that only see the JSON payload (not the tool docstring) can still
@@ -499,6 +506,13 @@ async def update_wellness(
                     return ResponseBuilder.build_error_response(
                         f"Unknown custom wellness field(s): {', '.join(unknown)}. "
                         f"Known INPUT_FIELD codes: {', '.join(known) or '(none)'}.",
+                        error_type="validation_error",
+                    )
+                clashes = [key for key in custom_fields if key in WELLNESS_BUILTIN_KEYS]
+                if clashes:
+                    return ResponseBuilder.build_error_response(
+                        f"Custom field code(s) {', '.join(clashes)} collide with built-in "
+                        "wellness fields; use the dedicated argument instead.",
                         error_type="validation_error",
                     )
                 wellness_data.update(custom_fields)
