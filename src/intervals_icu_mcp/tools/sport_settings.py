@@ -125,7 +125,8 @@ async def update_sport_settings(
     custom_fields: Annotated[
         dict[str, Any] | None,
         "Default values for custom activity fields, keyed by field code or display name "
-        "(e.g. {'VT1': 245}). Merged by the API into the existing defaults; fields not listed are kept. null clears a value",
+        "(e.g. {'VT1': 245}). Merged by the API into the existing defaults; fields not "
+        "listed are kept. null clears a value",
     ] = None,
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,

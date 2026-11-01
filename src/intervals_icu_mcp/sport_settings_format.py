@@ -51,8 +51,9 @@ def format_sport_settings_entry(
 ) -> dict[str, Any]:
     """Build an LLM-facing sport settings dict with consistent unit suffixes.
 
-    Custom field defaults are listed only in the full (include_zones) view. field_names maps custom activity field code -> display name; codes without an entry
-    are listed with the bare code.
+    Custom field defaults are listed only in the full (include_zones) view. field_names
+    maps custom activity field code -> display name; codes without an entry are listed
+    with the bare code.
     """
     sport_info: dict[str, Any] = {}
     if include_id:
