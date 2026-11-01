@@ -57,6 +57,7 @@ from .tools.activity_analysis import (
     get_hr_histogram,
     get_pace_histogram,
     get_power_histogram,
+    get_stream_stats,
     search_intervals,
 )
 from .tools.activity_messages import (
@@ -249,6 +250,15 @@ mcp.tool(
         "openWorldHint": True,
     },
 )(get_activity_streams)
+mcp.tool(
+    name="icu_get_stream_stats",
+    annotations={
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+)(get_stream_stats)
 mcp.tool(
     name="icu_get_activity_intervals",
     annotations={
