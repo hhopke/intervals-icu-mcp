@@ -465,7 +465,7 @@ class TestSportSettingsTools:
 class TestExplicitZoneWrites:
     """Explicit zone bounds on icu_update_sport_settings (#137).
 
-    Mocked behaviour mirrors live API checks: bounds are stored as sent, and max_hr is
+    Mocked behavior mirrors live API checks: bounds are stored as sent, and max_hr is
     overwritten by the last HR bound.
     """
 
@@ -568,4 +568,76 @@ class TestExplicitZoneWrites:
         response = json.loads(result)
         assert response["error"]["type"] == "validation_error"
         assert message in response["error"]["message"]
+        assert not route.called
+
+
+class TestCustomFieldDefaults:
+    """Custom activity field defaults in icu_get/update_sport_settings."""
+
+    ITEMS = [
+        {"id": 1, "type": "ACTIVITY_FIELD", "name": "VT1 power", "content": {"code": "VT1"}},
+        {"id": 2, "type": "ACTIVITY_FIELD", "name": "VT2 power", "content": {"code": "VT2"}},
+        {"id": 3, "type": "INPUT_FIELD", "name": "RPE", "content": {"code": "Rpe"}},
+    ]
+
+    def _mock_items(self, respx_mock):
+        respx_mock.get("/athlete/i123456/custom-item").mock(
+            return_value=Response(200, json=self.ITEMS)
+        )
+
+    async def test_get_returns_custom_fields_with_names(self, patch_config, respx_mock):
+        respx_mock.get("/athlete/i123456/sport-settings").mock(
+            return_value=Response(
+                200,
+                json=[{"id": 1, "types": ["Ride"], "custom_field_values": {"VT1": 240, "X": 1}}],
+            )
+        )
+        self._mock_items(respx_mock)
+
+        response = json.loads(await get_sport_settings())
+
+        fields = response["data"]["sport_settings"][0]["custom_fields"]
+        assert fields == [
+            {"code": "VT1", "name": "VT1 power", "value": 240},
+            {"code": "X", "name": None, "value": 1},
+        ]
+
+    async def test_get_without_custom_fields_makes_no_lookup(self, patch_config, respx_mock):
+        respx_mock.get("/athlete/i123456/sport-settings").mock(
+            return_value=Response(200, json=[{"id": 1, "types": ["Ride"]}])
+        )
+
+        response = json.loads(await get_sport_settings())
+
+        assert "custom_fields" not in response["data"]["sport_settings"][0]
+
+    async def test_update_sends_only_changed_fields_by_name_and_code(
+        self, patch_config, respx_mock
+    ):
+        self._mock_items(respx_mock)
+        route = respx_mock.put("/athlete/i123456/sport-settings/1").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": 1,
+                    "types": ["Ride"],
+                    "custom_field_values": {"VT1": 240, "Z": 5, "VT2": 290},
+                },
+            )
+        )
+
+        result = await update_sport_settings(sport_id=1, custom_fields={"vt2 power": 290})
+
+        # Only the changed key goes out: the API merges it, and stored keys that are no longer
+        # known activity fields (the "Z" here) would make it reject the whole request.
+        assert json.loads(route.calls.last.request.content) == {"custom_field_values": {"VT2": 290}}
+        assert json.loads(result)["data"]["custom_fields"][2]["name"] == "VT2 power"
+
+    async def test_update_rejects_unknown_field_without_put(self, patch_config, respx_mock):
+        self._mock_items(respx_mock)
+        route = respx_mock.put("/athlete/i123456/sport-settings/1")
+
+        result = await update_sport_settings(sport_id=1, custom_fields={"Nope": 1})
+
+        assert "Unknown custom activity field" in json.loads(result)["error"]["message"]
         assert not route.called

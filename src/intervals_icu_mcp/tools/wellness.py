@@ -382,6 +382,11 @@ async def update_wellness(
     fat_total: Annotated[float | None, "Total fat consumed (grams)"] = None,
     hydration_liters: Annotated[float | None, "Hydration volume (liters)"] = None,
     comments: Annotated[str | None, "Comments or notes"] = None,
+    custom_fields: Annotated[
+        dict[str, float | int | str | bool | None] | None,
+        "Custom wellness field values keyed by INPUT_FIELD code (see icu_get_custom_items), "
+        'e.g. {"Creatineintake": 5}. Codes are case-sensitive. Use null to clear a value.',
+    ] = None,
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
 ) -> str:
@@ -389,8 +394,10 @@ async def update_wellness(
 
     Only provided fields are sent. Subjective scales (fatigue, soreness,
     stress, mood, motivation, injury) are 1-5. Pass `locked=True` to stop
-    device sync from overwriting manual entries. Writes to the authenticated
-    athlete unless athlete_id names a managed athlete.
+    device sync from overwriting manual entries. Pass `custom_fields` to set
+    user-defined wellness fields by INPUT_FIELD code; unknown codes are rejected
+    and null clears a value. Writes to the authenticated athlete unless
+    athlete_id names a managed athlete.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
@@ -469,13 +476,33 @@ async def update_wellness(
         if comments is not None:
             wellness_data["comments"] = comments
 
-        if len(wellness_data) == 1:  # Only has 'id'
+        if len(wellness_data) == 1 and not custom_fields:  # Only has 'id'
             return ResponseBuilder.build_error_response(
                 "No wellness data provided. Please specify at least one metric to update.",
                 error_type="validation_error",
             )
 
         async with ICUClient(config) as client:
+            if custom_fields:
+                # Validate against the athlete's INPUT_FIELD codes so a typo is an error
+                # rather than a silently ignored key.
+                items = await client.get_custom_items(athlete_id=athlete_id)
+                known = sorted(
+                    code
+                    for item in items
+                    if item.get("type") == "INPUT_FIELD"
+                    and isinstance(item.get("content"), dict)
+                    and (code := item["content"].get("code"))
+                )
+                unknown = [key for key in custom_fields if key not in known]
+                if unknown:
+                    return ResponseBuilder.build_error_response(
+                        f"Unknown custom wellness field(s): {', '.join(unknown)}. "
+                        f"Known INPUT_FIELD codes: {', '.join(known) or '(none)'}.",
+                        error_type="validation_error",
+                    )
+                wellness_data.update(custom_fields)
+
             wellness = await client.update_wellness(wellness_data, athlete_id=athlete_id)
 
             result_data = _format_wellness_record(wellness, date)

@@ -136,6 +136,9 @@ class SportSettings(BaseModel):
     pace_zones: list[float] = Field(default_factory=list[float])
     pace_zone_names: list[str] = Field(default_factory=list[str])
 
+    # Defaults for custom activity fields, keyed by field code (e.g. thresholds from a test)
+    custom_field_values: dict[str, Any] = Field(default_factory=dict[str, Any])
+
     @field_validator(
         "power_zones",
         "power_zone_names",
@@ -150,6 +153,11 @@ class SportSettings(BaseModel):
         # The API sends null (not []) for zone sets a sport doesn't use — e.g. a Run
         # record carries power_zones: null.
         return v or []
+
+    @field_validator("custom_field_values", mode="before")
+    @classmethod
+    def _coerce_custom_field_values(cls, v: Any) -> dict[str, Any]:
+        return v or {}
 
     @model_validator(mode="before")
     @classmethod
