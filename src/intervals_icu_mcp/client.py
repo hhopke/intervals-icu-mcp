@@ -810,6 +810,40 @@ class ICUClient:
         adapter = TypeAdapter(list[ActivityStream])
         return adapter.validate_python(response.json())
 
+    async def get_interval_stats(
+        self, activity_id: str, start_index: int, end_index: int
+    ) -> dict[str, Any]:
+        """Get interval-style stats computed by Intervals.icu for a sample range.
+
+        Args:
+            activity_id: Activity ID
+            start_index: First stream sample index (inclusive)
+            end_index: Last stream sample index (exclusive; may equal the stream length)
+
+        Returns:
+            Interval object as a dict (averages, NP, decoupling, respiration, ...)
+        """
+        response = await self._request(
+            "GET",
+            f"/activity/{activity_id}/interval-stats",
+            params={"start_index": start_index, "end_index": end_index},
+        )
+        result: dict[str, Any] = response.json()
+        return result
+
+    async def get_power_vs_hr(self, activity_id: str) -> dict[str, Any]:
+        """Get the Intervals.icu power-vs-heart-rate (Pw:HR decoupling) analysis.
+
+        Args:
+            activity_id: Activity ID
+
+        Returns:
+            PowerVsHRPlot as a dict (hrLag, powerHr halves, decoupling, buckets)
+        """
+        response = await self._request("GET", f"/activity/{activity_id}/power-vs-hr.json")
+        result: dict[str, Any] = response.json()
+        return result
+
     async def update_activity_streams(
         self,
         activity_id: str,
