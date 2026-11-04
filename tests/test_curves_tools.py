@@ -189,7 +189,11 @@ class TestFindNearestIndex:
         assert _find_nearest_index([400.0, 1000.0, 5000.0], 1000) == 1
 
     def test_within_tolerance(self):
-        assert _find_nearest_index([400.0, 1050.0, 5000.0], 1000) == 1
+        assert _find_nearest_index([400.0, 1015.0, 5000.0], 1000) == 1
+
+    def test_nearby_distance_is_not_labelled_as_the_standard_one(self):
+        # A 4,600 m best time must not be reported as the 5 km time
+        assert _find_nearest_index([1000.0, 4600.0, 10000.0], 5000) is None
 
     def test_outside_tolerance_returns_none(self):
         # Curve stops at 10 km, so a half marathon is not on it

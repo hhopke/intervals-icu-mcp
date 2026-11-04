@@ -22,12 +22,18 @@ def _find_value_at_duration(
     return None
 
 
-def _find_nearest_index(points: Sequence[float], target: float) -> int | None:
-    """Index of the point closest to target, if it is within ±10% of it."""
+def _find_nearest_index(
+    points: Sequence[float], target: float, tolerance: float = 0.02
+) -> int | None:
+    """Index of the point closest to target, if it is within ±tolerance (a fraction) of it.
+
+    The default is tight (±2%) so a standard-distance label is only filled by a point at
+    that distance: a 4,600 m best time is not a 5 km time.
+    """
     if not points:
         return None
     best_idx = min(range(len(points)), key=lambda i: abs(points[i] - target))
-    if abs(points[best_idx] - target) <= target * 0.1:
+    if abs(points[best_idx] - target) <= target * tolerance:
         return best_idx
     return None
 
@@ -38,16 +44,16 @@ def _format_pace(seconds_per_km: float) -> str:
     return f"{total // 60}:{total % 60:02d} /km"
 
 
-# Standard distances to highlight on the pace curve, in metres
-_KEY_DISTANCES = {
-    400.0: "400m",
-    1000.0: "1km",
-    1609.34: "1_mile",
-    5000.0: "5km",
-    10000.0: "10km",
-    21097.5: "half_marathon",
-    42195.0: "marathon",
-}
+# Standard distances to highlight on the pace curve: (metres, label)
+_KEY_DISTANCES: tuple[tuple[float, str], ...] = (
+    (400.0, "400m"),
+    (1000.0, "1km"),
+    (1609.34, "1_mile"),
+    (5000.0, "5km"),
+    (10000.0, "10km"),
+    (21097.5, "half_marathon"),
+    (42195.0, "marathon"),
+)
 
 
 def _resolve_period(days_back: int | None, time_period: str | None) -> tuple[str, str] | str:
@@ -199,7 +205,9 @@ async def get_pace_curves(
     """Fetch the pace-vs-distance curve — best (fastest) time and pace over distances from ~50 m up to the athlete's longest effort, aggregated over the chosen window.
 
     Peak efforts are reported at standard distances (400 m, 1 km, mile, 5 km,
-    10 km, half marathon, marathon) when the curve reaches them. Use for run/swim
+    10 km, half marathon, marathon) when the curve reaches them. The summary's best
+    pace is almost always set over the shortest distances (tens of metres), so
+    compare peak_efforts rather than that headline figure. Use for run/swim
     fitness trends and race-time predictions. Pass `use_gap=True` to normalize
     for hills via Grade-Adjusted Pace. For time-in-zone *distribution* within a
     single activity, use get_pace_histogram (or get_gap_histogram) instead.
@@ -245,7 +253,7 @@ async def get_pace_curves(
             paces = [t / d * 1000 for _, d, t in points]
 
             peak_efforts: dict[str, dict[str, Any]] = {}
-            for target_m, label in _KEY_DISTANCES.items():
+            for target_m, label in _KEY_DISTANCES:
                 idx = _find_nearest_index(distances, target_m)
                 if idx is None:
                     continue
