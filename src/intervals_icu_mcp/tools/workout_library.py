@@ -9,6 +9,7 @@ from ..auth import ICUConfig
 from ..client import ICUAPIError, ICUClient
 from ..models import Folder, Workout
 from ..response_builder import ResponseBuilder
+from ._intensity import intensity_factor
 from .event_management import (
     ACTIVITY_TYPES_HINT,
     WORKOUT_SYNTAX_HINT,
@@ -77,7 +78,7 @@ def _workout_to_dict(workout: Workout) -> dict[str, Any]:
         "duration_seconds": workout.moving_time or None,
         "distance_meters": workout.distance or None,
         "training_load": workout.icu_training_load or None,
-        "intensity_factor": workout.icu_intensity or None,
+        "intensity_factor": intensity_factor(workout.icu_intensity),
         "target": workout.target,
         "indoor": workout.indoor,
         "color": workout.color,
@@ -211,7 +212,7 @@ async def get_workouts_in_folder(
                 if workout.icu_training_load:
                     metrics["training_load"] = workout.icu_training_load
                 if workout.icu_intensity:
-                    metrics["intensity_factor"] = workout.icu_intensity
+                    metrics["intensity_factor"] = intensity_factor(workout.icu_intensity)
                 if workout.joules:
                     metrics["joules"] = workout.joules
                 if workout.joules_above_ftp:

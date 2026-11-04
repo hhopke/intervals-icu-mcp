@@ -46,7 +46,7 @@ class TestGetRecentActivities:
                         "average_heartrate": 150,
                         "average_cadence": 88,
                         "icu_training_load": 75,
-                        "icu_intensity": 0.85,
+                        "icu_intensity": 53.51,
                     },
                     {
                         "id": "a2",
@@ -66,6 +66,8 @@ class TestGetRecentActivities:
         assert first["average_watts"] == 200
         assert first["normalized_power"] == 220
         assert first["training_load"] == 75
+        # API sends percent (53.51); the tool reports the ratio
+        assert first["intensity_factor"] == 0.535
         # Untitled fallback when name is None
         assert response["data"]["activities"][1]["name"] == "Untitled"
 
@@ -186,7 +188,7 @@ class TestSearchActivitiesFull:
                         "average_heartrate": 168,
                         "average_cadence": 92,
                         "icu_training_load": 60,
-                        "icu_intensity": 0.95,
+                        "icu_intensity": 95.0,
                     }
                 ],
             )

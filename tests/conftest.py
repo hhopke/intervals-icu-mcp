@@ -89,7 +89,7 @@ def mock_activity_data():
         "normalized_power": 210,
         "average_heartrate": 145,
         "icu_training_load": 120,
-        "icu_intensity": 0.84,
+        "icu_intensity": 84.0,  # API returns percent of FTP
     }
 
 
@@ -128,7 +128,7 @@ def mock_event_data():
         "description": "5x5min @ FTP",
         "moving_time": 3600,
         "icu_training_load": 100,
-        "icu_intensity": 0.90,
+        "icu_intensity": 90.0,  # API returns percent of FTP
     }
 
 

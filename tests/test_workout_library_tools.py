@@ -147,7 +147,7 @@ class TestGetWorkoutsInFolder:
                         "moving_time": 3600,
                         "distance": 30000.0,
                         "icu_training_load": 100,
-                        "icu_intensity": 0.9,
+                        "icu_intensity": 90.0,
                         "joules": 800000,
                         "joules_above_ftp": 150000,
                         "indoor": True,
@@ -269,6 +269,7 @@ class TestCreateWorkout:
                     "description": steps_text,
                     "moving_time": 2700,
                     "icu_training_load": 60,
+                    "icu_intensity": 89.44,
                     "target": "POWER",
                     "tags": ["threshold"],
                     "workout_doc": {
@@ -307,6 +308,7 @@ class TestCreateWorkout:
         assert data["day"] == 3
         assert data["duration_seconds"] == 2700
         assert data["training_load"] == 60
+        assert data["intensity_factor"] == 0.894
         assert data["tags"] == ["threshold"]
         assert data["workout_parsed"] is True
         assert data["workout_steps"] == 6
