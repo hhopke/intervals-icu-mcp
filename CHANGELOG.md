@@ -1,5 +1,11 @@
 # Changelog
 
+> [!IMPORTANT]
+> **This file is frozen at 5.8.0 and kept for historical reference.** Later releases are
+> documented in [GitHub Releases](https://github.com/hhopke/intervals-icu-mcp/releases),
+> whose notes are generated from merged PR titles. The versioning contract now lives in
+> [CONTRIBUTING.md](CONTRIBUTING.md#versioning-and-release-notes).
+
 All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),

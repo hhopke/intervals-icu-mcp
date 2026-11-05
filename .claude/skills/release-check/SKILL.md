@@ -14,33 +14,34 @@ allowed-tools: Bash(make can-release), Bash(make test:*), Bash(make lint:*)
    make can-release
    ```
 
-2. Check CHANGELOG coverage — CHANGELOG.md is manual, and community PRs deliberately
-   don't include entries (the maintainer adds them at merge), so this is the last line
-   of defense before a release is cut. List everything merged since the last tag and
-   compare against the `[Unreleased]` section:
+2. Check the release-note inputs. Release notes are generated from merged PR titles and
+   the conventional-commit type sets the version bump. CHANGELOG.md is frozen at 5.8.0,
+   so don't check or edit it. PRs are squash-merged, so each `main` commit subject is a
+   PR title. Preview the next release:
    ```bash
-   git describe --tags --abbrev=0
-   git log --oneline --no-merges vX.Y.Z..HEAD
-   awk '/^## \[Unreleased\]/{flag=1; next} /^## \[/{flag=0} flag' CHANGELOG.md
+   python3 .github/scripts/next_version.py
    ```
-   Every **user-facing** change (feat, fix, breaking change — including merged community
-   PRs) must have a bullet under `## [Unreleased]`. Internal-only commits (ci, chore,
-   docs about the repo itself, release/publish plumbing) don't need entries. PRs are
-   squash-merged, so each `main` commit maps 1:1 to a PR via its ` (#N)` suffix. For each
-   user-facing commit with no matching bullet, report it as a failure and draft a
-   suggested entry (source it from the PR description via `gh pr view N`, taking N from
-   the commit subject's suffix).
+   It lists every commit since the last tag with the bump it asks for, warns about
+   non-conventional subjects, and prints the computed version. Report:
+   - any non-conventional subject (it lands in the notes as-is and counts as a patch);
+   - any commit whose type looks wrong for what it did: a user-facing addition or a
+     response-shape change titled `fix`/`chore` (should be `feat`), or a breaking change
+     per CLAUDE.md with no `!` (would ship as minor/patch instead of major). Check the PR
+     (`gh pr view N`, N from the ` (#N)` suffix) when the subject alone is ambiguous.
+
+   Titles can't be changed after merge. Fix a wrong bump by passing `-f version=X.Y.Z`
+   when dispatching the release, and a misleading line by editing the notes after publishing.
 
 3. Parse the output and report a clear summary:
 
    **If everything passes:**
-   > ✅ Release check passed. All tests, linting (ruff + pyright), and formatting checks are green, and every user-facing change since the last tag has a CHANGELOG entry.
+   > ✅ Release check passed. All tests, linting (ruff + pyright), and formatting checks are green, and every commit since the last tag has a conventional title. Next release: vX.Y.Z (<bump>).
 
    **If something fails:**
    > ❌ Release check failed.
    
    List each failing check with:
-   - What failed (test name, lint rule, file, or missing CHANGELOG entry)
+   - What failed (test name, lint rule, file, or a mistyped or non-conventional commit title)
    - A brief explanation of the issue
    - A suggested fix
 

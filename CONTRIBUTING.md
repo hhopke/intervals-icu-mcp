@@ -38,9 +38,21 @@ This executes, in order:
 
 Everything must be green before a PR can merge. Note that CI additionally enforces 80% test coverage (`pytest --cov-fail-under=80`) — run `make test/coverage` to see where you stand. If you're adding a tool, please also add a respx-mocked test alongside it — the existing tests in `tests/test_activity_tools.py` and `tests/test_event_tools.py` are good templates.
 
-## Changelog
+## Versioning and release notes
 
-Don't edit `CHANGELOG.md` in your PR. It is maintained by hand, and the maintainer adds entries at merge time — this avoids merge conflicts on the `[Unreleased]` section and keeps the SemVer classification (breaking vs. minor) in one place. Your PR description is the raw material for the entry, so a clear "what & why" summary is the best way to help.
+There is no changelog to edit. Release notes are generated from merged PR titles, and the [conventional-commit](https://www.conventionalcommits.org) type in each title sets the version bump. So the one thing to get right is the **PR title**. A CI check enforces the format, and the maintainer may tidy titles before merging.
+
+| Title | Bump | Example |
+|---|---|---|
+| `type!:` or `type(scope)!:` | **major** | `feat(events)!: rename icu_get_upcoming_workouts` |
+| `feat` | **minor** | `feat(wellness): add sleep score to icu_get_wellness` |
+| anything else (`fix`, `docs`, `chore`, …) | **patch** | `fix(athlete): read icu_weight from the API` |
+
+Write the title for a user reading the release notes: say what changed for them, not how the code changed. Allowed types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `ci`, `build`, `perf`, `revert`.
+
+**What counts as breaking (`!`).** Removing or renaming a tool or tool parameter, changing what a config env var means, changing which tools register by default, or removing information from a response. Response-shape changes that keep the information (key renames, restructuring, added fields) are **not** breaking: MCP responses are read by LLMs, not parsed by typed clients. Title those `feat` so they ship as a minor release. If you're unsure, say so in the PR description and the maintainer will pick the type.
+
+Releases are cut by the maintainer when there's something worth shipping, not on a fixed schedule. `CHANGELOG.md` is frozen at 5.8.0 and kept for history.
 
 ## Adding a new MCP tool
 
