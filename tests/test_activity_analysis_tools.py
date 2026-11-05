@@ -201,9 +201,9 @@ class TestGetActivityIntervals:
                         {
                             "id": 1,
                             "type": "WARM_UP",
-                            "start": 0,
-                            "end": 600,
-                            "duration": 600,
+                            "start_time": 0,
+                            "end_time": 600,
+                            "elapsed_time": 600,
                             "average_watts": 150,
                             "average_heartrate": 120,
                             "average_cadence": 85,
@@ -213,11 +213,11 @@ class TestGetActivityIntervals:
                         {
                             "id": 2,
                             "type": "WORK",
-                            "start": 600,
-                            "end": 1200,
-                            "duration": 600,
+                            "start_time": 600,
+                            "end_time": 1200,
+                            "elapsed_time": 600,
                             "average_watts": 280,
-                            "normalized_power": 285,
+                            "weighted_average_watts": 285,
                             "max_heartrate": 175,
                             "target": "Threshold",
                             "target_min": 270,
@@ -226,12 +226,12 @@ class TestGetActivityIntervals:
                         {
                             "id": 3,
                             "type": "REST",
-                            "duration": 300,
+                            "elapsed_time": 300,
                         },
                         {
                             "id": 4,
                             "type": "WORK",
-                            "duration": 600,
+                            "elapsed_time": 600,
                         },
                     ],
                 },
@@ -251,6 +251,77 @@ class TestGetActivityIntervals:
         assert work_with_target["target_description"] == "Threshold"
         assert work_with_target["target_range"] == {"min": 270, "max": 290}
         assert work_with_target["performance"]["normalized_power"] == 285
+        assert work_with_target["start_seconds"] == 600
+        assert work_with_target["end_seconds"] == 1200
+        assert work_with_target["duration_seconds"] == 600
+
+    async def test_reads_api_field_names(self, mock_config, respx_mock):
+        """Two intervals trimmed from a real /activity/{id}/intervals response."""
+        respx_mock.get("/activity/a1/intervals").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": "a1",
+                    "icu_intervals": [
+                        {
+                            "id": 2988834,
+                            "type": "RECOVERY",
+                            "start_time": 0,
+                            "end_time": 630,
+                            "elapsed_time": 630,
+                            "moving_time": 46,
+                            "distance": 123.54,
+                            "total_elevation_gain": 20.400024,
+                            "average_watts": 91,
+                            "weighted_average_watts": 84,
+                            "average_heartrate": 155,
+                            "max_heartrate": 162,
+                            "average_cadence": 35.531914,
+                            "average_speed": 2.6856523,
+                            "start_index": 0,
+                            "end_index": 630,
+                            "zone": 1,
+                        },
+                        {
+                            "id": 2652828,
+                            "type": "WORK",
+                            "start_time": 630,
+                            "end_time": 665,
+                            "elapsed_time": 35,
+                            "moving_time": 35,
+                            "distance": 122.07,
+                            "total_elevation_gain": 6.600006,
+                            "average_watts": 270,
+                            "weighted_average_watts": 234,
+                            "average_heartrate": 169,
+                            "max_heartrate": 175,
+                            "average_cadence": 71.22857,
+                            "average_speed": 3.4877143,
+                            "start_index": 630,
+                            "end_index": 665,
+                            "zone": 6,
+                        },
+                    ],
+                },
+            )
+        )
+
+        result = await get_activity_intervals(activity_id="a1", ctx=_make_ctx(mock_config))
+        data = json.loads(result)["data"]
+
+        recovery, work = data["intervals"]
+        assert recovery["start_seconds"] == 0
+        assert recovery["end_seconds"] == 630
+        assert recovery["duration_seconds"] == 630
+        assert recovery["moving_time_seconds"] == 46
+        assert recovery["performance"]["elevation_gain_meters"] == 20.4
+        assert work["start_seconds"] == 630
+        assert work["end_seconds"] == 665
+        assert work["duration_seconds"] == 35
+        assert work["performance"]["normalized_power"] == 234
+        assert work["performance"]["average_watts"] == 270
+        assert work["performance"]["elevation_gain_meters"] == 6.6
+        assert data["summary"]["total_work_time_seconds"] == 35
 
     async def test_empty_intervals_no_strava_note(self, mock_config, respx_mock):
         respx_mock.get("/activity/a1/intervals").mock(

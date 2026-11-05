@@ -257,19 +257,21 @@ async def get_activity_intervals(
                     "type": interval.type,
                 }
 
-                if interval.start is not None:
-                    interval_item["start_seconds"] = interval.start
-                if interval.end is not None:
-                    interval_item["end_seconds"] = interval.end
-                if interval.duration is not None:
-                    interval_item["duration_seconds"] = interval.duration
+                if interval.start_time is not None:
+                    interval_item["start_seconds"] = interval.start_time
+                if interval.end_time is not None:
+                    interval_item["end_seconds"] = interval.end_time
+                if interval.elapsed_time is not None:
+                    interval_item["duration_seconds"] = interval.elapsed_time
+                if interval.moving_time is not None:
+                    interval_item["moving_time_seconds"] = interval.moving_time
 
                 # Performance metrics
                 performance: dict[str, Any] = {}
                 if interval.average_watts:
                     performance["average_watts"] = interval.average_watts
-                if interval.normalized_power:
-                    performance["normalized_power"] = interval.normalized_power
+                if interval.weighted_average_watts:
+                    performance["normalized_power"] = interval.weighted_average_watts
                 if interval.average_heartrate:
                     performance["average_heartrate"] = interval.average_heartrate
                 if interval.max_heartrate:
@@ -280,6 +282,8 @@ async def get_activity_intervals(
                     performance["average_speed_meters_per_sec"] = interval.average_speed
                 if interval.distance:
                     performance["distance_meters"] = interval.distance
+                if interval.total_elevation_gain:
+                    performance["elevation_gain_meters"] = round(interval.total_elevation_gain, 1)
 
                 if performance:
                     interval_item["performance"] = performance
@@ -307,7 +311,7 @@ async def get_activity_intervals(
 
             # Calculate total work time
             if work_intervals:
-                total_work_time = sum(i.duration for i in work_intervals if i.duration)
+                total_work_time = sum(i.elapsed_time for i in work_intervals if i.elapsed_time)
                 if total_work_time:
                     summary["total_work_time_seconds"] = total_work_time
 
