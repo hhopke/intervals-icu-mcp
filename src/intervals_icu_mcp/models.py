@@ -571,6 +571,9 @@ class CurveData(BaseModel):
     id: str | None = None
     label: str | None = None
     secs: list[int] = Field(default_factory=lambda: list[int]())
+    # Pace curves are distance-based: metres, with `values` the seconds to cover each one
+    # and no `secs` array. Power and HR curves are duration-based and leave this empty.
+    distance: list[float] = Field(default_factory=lambda: list[float]())
     values: list[int] = Field(default_factory=lambda: list[int]())
     activity_id: list[str] = Field(default_factory=lambda: list[str]())
     watts_per_kg: list[float] = Field(default_factory=lambda: list[float]())
