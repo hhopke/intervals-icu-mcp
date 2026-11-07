@@ -322,6 +322,22 @@ class Activity(ActivitySummary):
     analyzed: str | None = None
     # Chat that holds the activity's notes/comments; None until the first message.
     icu_chat_id: int | None = None
+    # Open-Meteo weather, present when has_weather is true (supporter feature)
+    has_weather: bool | None = None
+    average_weather_temp: float | None = None
+    min_weather_temp: float | None = None
+    max_weather_temp: float | None = None
+    average_feels_like: float | None = None
+    min_feels_like: float | None = None
+    max_feels_like: float | None = None
+    average_wind_speed: float | None = None
+    average_wind_gust: float | None = None
+    prevailing_wind_deg: int | None = None
+    headwind_percent: float | None = None
+    tailwind_percent: float | None = None
+    average_clouds: int | None = None
+    max_rain: float | None = None
+    max_snow: float | None = None
 
     @model_validator(mode="before")
     @classmethod

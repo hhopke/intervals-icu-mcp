@@ -577,3 +577,80 @@ class TestActivityTools:
 
         assert "subjective" not in response["data"]
         assert "subjective_scales" not in response.get("metadata", {})
+
+    async def test_get_activity_details_weather_block(self, mock_config, respx_mock):
+        """Open-Meteo weather is grouped under `weather` when has_weather is true.
+
+        Averages are from the example in #189; min/max are made up.
+        """
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.get("/activity/a123").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": "a123",
+                    "start_date_local": "2026-11-05T10:00:00",
+                    "name": "Morning Run",
+                    "type": "Run",
+                    "average_temp": 17.3,
+                    "has_weather": True,
+                    "average_weather_temp": 9.58,
+                    "min_weather_temp": 8.9,
+                    "max_weather_temp": 10.2,
+                    "average_feels_like": 8.36,
+                    "min_feels_like": 7.5,
+                    "max_feels_like": 9.1,
+                    "average_wind_speed": 1.42,
+                    "average_wind_gust": 3.03,
+                    "prevailing_wind_deg": 67,
+                    "headwind_percent": 17.7,
+                    "tailwind_percent": 17.7,
+                    "average_clouds": 99,
+                    "max_rain": 0.0,
+                    "max_snow": None,
+                },
+            )
+        )
+
+        result = await get_activity_details(activity_id="a123", ctx=mock_ctx)
+        weather = json.loads(result)["data"]["weather"]
+
+        assert weather["temperature_c"] == {"average": 9.6, "min": 8.9, "max": 10.2}
+        assert weather["feels_like_c"] == {"average": 8.4, "min": 7.5, "max": 9.1}
+        assert weather["wind"] == {
+            "average_speed_meters_per_sec": 1.4,
+            "average_gust_meters_per_sec": 3.0,
+            "prevailing_direction_deg": 67,
+            "headwind_percent": 17.7,
+            "tailwind_percent": 17.7,
+        }
+        assert weather["cloud_cover_percent"] == 99
+        # 0.0 is a real reading (no rain), not a missing one
+        assert weather["max_rain"] == 0.0
+        assert "max_snow" not in weather
+
+    async def test_get_activity_details_no_weather_block_without_flag(
+        self, mock_config, respx_mock
+    ):
+        """No `weather` block unless the API flags the activity with has_weather."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.get("/activity/a123").mock(
+            return_value=Response(
+                200,
+                json={
+                    "id": "a123",
+                    "start_date_local": "2026-11-05T10:00:00",
+                    "name": "Indoor Ride",
+                    "type": "VirtualRide",
+                    "has_weather": False,
+                    "average_weather_temp": None,
+                },
+            )
+        )
+
+        result = await get_activity_details(activity_id="a123", ctx=mock_ctx)
+        assert "weather" not in json.loads(result)["data"]
