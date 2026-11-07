@@ -37,7 +37,7 @@ class TestGetActivitiesByDate:
                         "moving_time": 2764,
                         "average_heartrate": 150,
                         "icu_training_load": 60,
-                        "icu_intensity": 0.97,
+                        "icu_intensity": 97.0,
                     },
                     {
                         "id": "a2",

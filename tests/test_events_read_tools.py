@@ -43,7 +43,7 @@ class TestGetCalendarEvents:
                         "type": "Ride",
                         "moving_time": 3600,
                         "icu_training_load": 80,
-                        "icu_intensity": 0.85,
+                        "icu_intensity": 55.136196,
                     },
                     {
                         "id": 2,
@@ -90,6 +90,7 @@ class TestGetCalendarEvents:
         by_date = data["events_by_date"]
         today_events = by_date[_date_offset(0)]
         assert today_events[0]["relative_timing"] == "today"
+        assert today_events[0]["intensity_factor"] == 0.551
 
         past_events = by_date[_date_offset(-2)]
         assert past_events[0]["relative_timing"] == "2_days_ago"
@@ -134,7 +135,7 @@ class TestGetUpcomingWorkouts:
                         "moving_time": 3600,
                         "distance": 30000,
                         "icu_training_load": 100,
-                        "icu_intensity": 0.85,
+                        "icu_intensity": 85.0,
                         "description": "  5x5min @ FTP  ",
                     },
                     {
@@ -184,6 +185,7 @@ class TestGetUpcomingWorkouts:
         # Description is stripped
         assert workouts[1]["description"] == "5x5min @ FTP"
         assert workouts[1]["distance_meters"] == 30000
+        assert workouts[1]["intensity_factor"] == 0.85
 
     async def test_limit_truncates_after_sort(self, mock_config, respx_mock):
         respx_mock.get("/athlete/i123456/events").mock(
@@ -275,7 +277,7 @@ class TestGetEvent:
                     "moving_time": 3600,
                     "distance_target": 30000,
                     "icu_training_load": 100,
-                    "icu_intensity": 0.95,
+                    "icu_intensity": 95.0,
                     "joules": 800000,
                     "joules_above_ftp": 200000,
                     "icu_ctl": 50.5,
@@ -292,6 +294,7 @@ class TestGetEvent:
         assert data["id"] == 42
         assert data["metrics"]["distance_meters"] == 30000
         assert data["metrics"]["joules_above_ftp"] == 200000
+        assert data["metrics"]["intensity_factor"] == 0.95
         assert data["fitness_context"] == {"ctl": 50.5, "atl": 40.2}
         assert data["color"] == "#ff0000"
         assert data["external_id"] == "ext_42"
