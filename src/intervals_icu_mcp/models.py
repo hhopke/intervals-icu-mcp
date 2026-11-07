@@ -676,12 +676,14 @@ class Interval(BaseModel):
 
     id: int | None = None
     type: str | None = None  # e.g., "WORK", "REST", "WARM_UP", "COOL_DOWN"
-    start: int | None = None  # Start time in seconds
-    end: int | None = None  # End time in seconds
-    duration: int | None = None  # Duration in seconds
+    start_time: int | None = None  # Seconds from the start of the activity
+    end_time: int | None = None  # Seconds from the start of the activity
+    elapsed_time: int | None = None  # Seconds, including stopped time
+    moving_time: int | None = None  # Seconds
     distance: float | None = None
+    total_elevation_gain: float | None = None  # Metres
     average_watts: int | None = None
-    normalized_power: int | None = None
+    weighted_average_watts: int | None = None  # Normalized power
     average_heartrate: int | None = None
     max_heartrate: int | None = None
     average_cadence: float | None = None
