@@ -310,6 +310,22 @@ class TestGetPaceCurves:
         assert response["data"]["pace_curve"] == []
         assert response["data"]["gap_enabled"] is False
 
+    async def test_null_curve_arrays(self, mock_config, respx_mock):
+        """When a period has no pace data, the API sends null arrays rather than []."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state = AsyncMock(return_value=mock_config)
+
+        respx_mock.get("/athlete/i123456/pace-curves").mock(
+            return_value=Response(
+                200, json={"list": [{"distance": None, "values": None, "activity_id": None}]}
+            )
+        )
+
+        result = await get_pace_curves(ctx=mock_ctx)
+        response = json.loads(result)
+        assert response["data"]["pace_curve"] == []
+        assert "No pace curve data available" in response["metadata"]["message"]
+
     async def test_api_error(self, mock_config, respx_mock):
         mock_ctx = MagicMock()
         mock_ctx.get_state = AsyncMock(return_value=mock_config)

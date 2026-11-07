@@ -590,6 +590,7 @@ class CurveData(BaseModel):
 
     @field_validator(
         "secs",
+        "distance",
         "values",
         "activity_id",
         "watts_per_kg",

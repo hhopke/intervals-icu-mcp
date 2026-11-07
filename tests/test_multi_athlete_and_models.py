@@ -681,9 +681,16 @@ class TestNullListDictFieldCoercion:
         from intervals_icu_mcp.models import CurveData
 
         curve = CurveData.model_validate(
-            {"secs": None, "values": None, "activity_id": None, "watts_per_kg": None}
+            {
+                "secs": None,
+                "distance": None,
+                "values": None,
+                "activity_id": None,
+                "watts_per_kg": None,
+            }
         )
         assert curve.secs == []
+        assert curve.distance == []
         assert curve.values == []
         assert curve.activity_id == []
         assert curve.watts_per_kg == []
