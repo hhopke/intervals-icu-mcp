@@ -40,7 +40,7 @@ Everything must be green before a PR can merge. Note that CI additionally enforc
 
 ## Versioning and release notes
 
-There is no changelog to edit. Release notes are generated from merged PR titles, and the [conventional-commit](https://www.conventionalcommits.org) type in each title sets the version bump. So the one thing to get right is the **PR title**. A CI check enforces the format, and the maintainer may tidy titles before merging.
+There is no changelog to edit. The maintainer writes the release notes when cutting a release, starting from the merged PR titles and descriptions, and the [conventional-commit](https://www.conventionalcommits.org) type in each title sets the version bump. So the one thing to get right is the **PR title** (and a description that says what changed for users). A CI check enforces the format, and the maintainer may tidy titles before merging.
 
 | Title | Bump | Example |
 |---|---|---|
@@ -48,7 +48,7 @@ There is no changelog to edit. Release notes are generated from merged PR titles
 | `feat` | **minor** | `feat(wellness): add sleep score to icu_get_wellness` |
 | anything else (`fix`, `docs`, `chore`, …) | **patch** | `fix(athlete): read icu_weight from the API` |
 
-Write the title for a user reading the release notes: say what changed for them, not how the code changed. Allowed types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `ci`, `build`, `perf`, `revert`.
+Write the title for a user: say what changed for them, not how the code changed. Allowed types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `ci`, `build`, `perf`, `revert`.
 
 **What counts as breaking (`!`).** Removing or renaming a tool or tool parameter, changing what a config env var means, changing which tools register by default, or removing information from a response. Response-shape changes that keep the information (key renames, restructuring, added fields) are **not** breaking: MCP responses are read by LLMs, not parsed by typed clients. Title those `feat` so they ship as a minor release. If you're unsure, say so in the PR description and the maintainer will pick the type.
 

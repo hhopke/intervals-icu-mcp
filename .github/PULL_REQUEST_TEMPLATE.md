@@ -18,7 +18,7 @@
 - [ ] No API keys, athlete IDs, or other credentials are committed
 
 > [!NOTE]
-> The PR title becomes your line in the release notes and sets the version bump (`feat` → minor, `!` → major, anything else → patch). Write it as a conventional commit, e.g. `feat(events): add tags`. `CHANGELOG.md` is frozen, so don't edit it. See [CONTRIBUTING.md](https://github.com/hhopke/intervals-icu-mcp/blob/main/CONTRIBUTING.md#versioning-and-release-notes).
+> The PR title is the starting point for your release-note entry and sets the version bump (`feat` → minor, `!` → major, anything else → patch). Write it as a conventional commit, e.g. `feat(events): add tags`. `CHANGELOG.md` is frozen, so don't edit it. See [CONTRIBUTING.md](https://github.com/hhopke/intervals-icu-mcp/blob/main/CONTRIBUTING.md#versioning-and-release-notes).
 
 ## Test plan
 
