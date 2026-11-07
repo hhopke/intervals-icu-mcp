@@ -108,7 +108,7 @@ resource takes no arguments and always reflects the configured default athlete.
 | Tool                     | Description                                                   |
 | ------------------------ | ------------------------------------------------------------- |
 | `icu_get_activity_streams`   | Get time-series data (power, HR, cadence, altitude, GPS), optionally a `start_s`/`end_s` window or names only; `left_right_balance` is the right pedal's % |
-| `icu_get_stream_stats`       | Per-window stats (every N min, N parts, explicit ranges): Intervals.icu interval stats (avg/NP watts, HR, decoupling, breath rate, ventilation, tidal volume) plus HR/VE/BR per watt and their drift; optional power filter, power smoothing and HR lag computed server-side. Breath rate prefers Tyme Wear, then an HRV-app custom stream (FIT field `RespirationRate`), then the recording device's estimate |
+| `icu_get_activity_window_stats`       | Per-window stats (every N min, N parts, explicit ranges): Intervals.icu interval stats (avg/NP watts, HR, decoupling, breath rate, ventilation, tidal volume) plus HR/VE/BR per watt and their drift; optional power filter, power smoothing and HR lag computed server-side. Breath rate prefers Tyme Wear, then an HRV-app custom stream (FIT field `RespirationRate`), then the recording device's estimate |
 | `icu_get_activity_intervals` | Get structured workout intervals with targets and performance |
 | `icu_get_best_efforts`       | Find peak performances across all durations in an activity    |
 | `icu_search_intervals`       | Find similar intervals across activity history                |
@@ -117,7 +117,7 @@ resource takes no arguments and always reflects the configured default athlete.
 | `icu_get_pace_histogram`     | Get pace distribution histogram for an activity               |
 | `icu_get_gap_histogram`      | Get grade-adjusted pace histogram for an activity             |
 
-#### `icu_get_stream_stats` in detail
+#### `icu_get_activity_window_stats` in detail
 
 Answers drift questions ("how did HR/power and ventilation/power develop over the ride?") with exact numbers instead of letting the model average thousands of raw samples.
 
@@ -138,11 +138,11 @@ Tyme Wear chest sensors write three FIT developer fields. Intervals.icu copies e
 | `tyme_tidal_volume` | Tidal volume (VT), **centiliters** (200 = 2.0 L) | `tidal_volume` | `VT` |
 | `tyme_minute_volume` | Minute ventilation (VE), L/min | `tidal_volume_min` | `VE`, `ventilation` |
 
-Custom streams that read these FIT fields (e.g. `TymeBreathRate`, `TymeVentilation`) hold the same values. `icu_get_stream_stats` reports VT as `avg_tidal_volume_l`, already converted to liters.
+Custom streams that read these FIT fields (e.g. `TymeBreathRate`, `TymeVentilation`) hold the same values. `icu_get_activity_window_stats` reports VT as `avg_tidal_volume_l`, already converted to liters.
 
 **Without Tyme Wear, `respiration` is not measured.** Intervals.icu then fills it from the recording device's estimate, i.e. the FIT field `enhanced_respiration_rate` written by the head unit or watch (e.g. a bike computer). The device computes it from the beat-to-beat intervals of the paired heart-rate sensor (respiratory sinus arrhythmia), typically a chest strap. HRV data fields such as the one that also records DFA α1 write their own HR-derived estimate to the FIT field `RespirationRate`. Intervals.icu does not import that field unless the athlete defines a custom activity stream for it.
 
-`icu_get_stream_stats` therefore picks the breath-rate source in this order and states it in `breath_rate_source` (`source`, `measured`, and a `note` for estimates):
+`icu_get_activity_window_stats` therefore picks the breath-rate source in this order and states it in `breath_rate_source` (`source`, `measured`, and a `note` for estimates):
 
 1. **Tyme Wear** (`source: "tyme"`, `measured: true`), detected by the presence of `tidal_volume_min`.
 2. **HRV app** (`source: "hrv_app"`): a custom activity stream whose `fit_record_field` is `RespirationRate`, whatever its code. The per-window `avg_breath_rate` is computed from it, and a `BR` alias in `streams` resolves to it.

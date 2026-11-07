@@ -52,12 +52,12 @@ from .tools.activities import (
 from .tools.activity_analysis import (
     get_activity_intervals,
     get_activity_streams,
+    get_activity_window_stats,
     get_best_efforts,
     get_gap_histogram,
     get_hr_histogram,
     get_pace_histogram,
     get_power_histogram,
-    get_stream_stats,
     search_intervals,
 )
 from .tools.activity_messages import (
@@ -251,14 +251,14 @@ mcp.tool(
     },
 )(get_activity_streams)
 mcp.tool(
-    name="icu_get_stream_stats",
+    name="icu_get_activity_window_stats",
     annotations={
         "readOnlyHint": True,
         "destructiveHint": False,
         "idempotentHint": True,
         "openWorldHint": True,
     },
-)(get_stream_stats)
+)(get_activity_window_stats)
 mcp.tool(
     name="icu_get_activity_intervals",
     annotations={

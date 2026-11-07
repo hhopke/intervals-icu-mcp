@@ -16,11 +16,20 @@ from ..sport_settings_format import (
 )
 
 
-async def _load_activity_field_names(client: ICUClient, athlete_id: str | None) -> dict[str, str]:
-    """Custom activity field code -> display name; empty if the lookup fails."""
+async def _load_activity_field_names(
+    client: ICUClient, athlete_id: str | None, *, strict: bool = False
+) -> dict[str, str]:
+    """Custom activity field code -> display name.
+
+    On lookup failure, returns empty (the read path falls back to bare codes) unless
+    ``strict``, where the API error propagates so a write never reports a misleading
+    "unknown field" for what was really a failed lookup.
+    """
     try:
         return activity_field_names(await client.get_custom_items(athlete_id=athlete_id))
     except ICUAPIError:
+        if strict:
+            raise
         return {}
 
 
@@ -116,7 +125,8 @@ async def update_sport_settings(
     custom_fields: Annotated[
         dict[str, Any] | None,
         "Default values for custom activity fields, keyed by field code or display name "
-        "(e.g. {'VT1': 245}). Merged by the API into the existing defaults; fields not listed are kept. null clears a value",
+        "(e.g. {'VT1': 245}). Merged by the API into the existing defaults; fields not "
+        "listed are kept. null clears a value",
     ] = None,
     athlete_id: Annotated[str | None, "Athlete ID (for coaches managing multiple athletes)"] = None,
     ctx: Context | None = None,
@@ -157,7 +167,7 @@ async def update_sport_settings(
 
             field_names: dict[str, str] = {}
             if custom_fields:
-                field_names = await _load_activity_field_names(client, athlete_id)
+                field_names = await _load_activity_field_names(client, athlete_id, strict=True)
                 resolved = resolve_custom_field_codes(custom_fields, field_names)
                 # Send only the keys being changed: the API merges them into the stored
                 # defaults. Echoing the stored ones back would be rejected with 422 if any is no

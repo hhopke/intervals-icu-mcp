@@ -29,7 +29,9 @@ async def get_activity_streams(
         "Thin every returned stream to at most this many samples by keeping every Nth one (the same N for all streams, so indices stay aligned). Omit for full resolution. ~500 is plenty to trace a route or see the shape of a ride. Samples are not always 1 s apart, so include 'time' to know when each kept sample was recorded.",
     ] = None,
     start_s: Annotated[
-        float | None, "Only return samples recorded at or after this elapsed second"
+        float | None,
+        "Only return samples recorded at or after this elapsed second. The `time` stream is "
+        "added to the output when start_s/end_s are used.",
     ] = None,
     end_s: Annotated[
         float | None, "Only return samples recorded before this elapsed second"
@@ -65,7 +67,7 @@ async def get_activity_streams(
     never raises the setting on its own. Request it explicitly; it is not in
     the default set.
 
-    For averages over time windows (HR/power drift etc.) use icu_get_stream_stats
+    For averages over time windows (HR/power drift etc.) use icu_get_activity_window_stats
     instead. Aliases: VE -> tidal_volume_min, VT -> tidal_volume (centiliters),
     BR -> respiration (Tyme Wear when present, else the recording device's HR-derived
     estimate).
@@ -923,10 +925,16 @@ def _build_windows(
     given = sum(x is not None for x in (block_minutes, parts, windows))
     if given > 1:
         return "Give only one of block_minutes, parts or windows"
+    too_many = (
+        f"More than {_MAX_WINDOWS} windows requested; the limit is {_MAX_WINDOWS}. "
+        "Use larger blocks or fewer parts."
+    )
     if block_minutes is not None:
         if block_minutes <= 0:
             return "block_minutes must be positive"
         size = block_minutes * 60
+        if math.ceil(total_s / size) > _MAX_WINDOWS:
+            return too_many
         result: list[tuple[float, float]] = []
         start = 0.0
         while start < total_s:
@@ -936,9 +944,13 @@ def _build_windows(
     if parts is not None:
         if parts < 1:
             return "parts must be at least 1"
+        if parts > _MAX_WINDOWS:
+            return too_many
         size = total_s / parts
         return [(i * size, total_s if i == parts - 1 else (i + 1) * size) for i in range(parts)]
     if windows is not None:
+        if len(windows) > _MAX_WINDOWS:
+            return too_many
         result = []
         for w in windows:
             if len(w) != 2 or w[0] < 0 or w[1] <= w[0]:
@@ -1043,7 +1055,7 @@ def _drift(values: list[float | None]) -> list[float | None] | None:
     return [None if v is None else _round((v / base - 1) * 100) for v in values]
 
 
-async def get_stream_stats(
+async def get_activity_window_stats(
     activity_id: Annotated[str, "Activity ID"],
     block_minutes: Annotated[
         float | None, "Split the activity into consecutive blocks of this many minutes"
@@ -1136,16 +1148,10 @@ async def get_stream_stats(
             time = [float(t) for t in time_raw]
             n = len(time)
 
-            missing_info: dict[str, list[str]] = {}
-            missing = [s for s in extra if s not in data]
-            if missing:
-                everything = await client.get_activity_streams(activity_id, None)
-                available = [s.type or s.name or "" for s in everything]
-                missing_info = {m: _stream_suggestions(m, available) for m in missing}
-
             # Breath rate: Tyme Wear (mirrored into `respiration`) when present, else the
             # HRV app's RespirationRate via a custom stream, else the recording device's estimate.
-            breath_source: str | None = "tyme" if "tidal_volume_min" in data else None
+            has_tyme = any(isinstance(v, int | float) for v in data.get("tidal_volume_min", []))
+            breath_source: str | None = "tyme" if has_tyme else None
             hrv_values: list[Any] | None = None
             hrv_code: str | None = None
             if breath_source is None:
@@ -1162,22 +1168,23 @@ async def get_stream_stats(
                             # A BR alias means "breath rate", so follow the chosen source
                             data.pop("respiration", None)
                             data[hrv_code] = hrv_values
+                            extra = [hrv_code if name == "respiration" else name for name in extra]
                             for k, v in aliases_applied.items():
                                 if v == "respiration":
                                     aliases_applied[k] = hrv_code
             if "tidal_volume_min" not in extra:
                 data.pop("tidal_volume_min", None)
 
+            missing_info: dict[str, list[str]] = {}
+            missing = [name for name in extra if name not in data]
+            if missing:
+                everything = await client.get_activity_streams(activity_id, None)
+                available = [s.type or s.name or "" for s in everything]
+                missing_info = {m: _stream_suggestions(m, available) for m in missing}
+
             built = _build_windows(time[-1] + 1, block_minutes, parts, windows)
             if isinstance(built, str):
                 return ResponseBuilder.build_error_response(built, error_type="validation_error")
-            if len(built) > _MAX_WINDOWS:
-                return ResponseBuilder.build_error_response(
-                    f"{len(built)} windows requested; the limit is {_MAX_WINDOWS}. "
-                    "Use larger blocks or fewer parts.",
-                    error_type="validation_error",
-                )
-
             index_ranges = [
                 (bisect.bisect_left(time, start), bisect.bisect_left(time, end))
                 for start, end in built
@@ -1185,11 +1192,14 @@ async def get_stream_stats(
 
             semaphore = asyncio.Semaphore(_ICU_CONCURRENCY)
 
-            async def icu_stats(i0: int, i1: int) -> dict[str, Any] | None:
+            async def icu_stats(i0: int, i1: int) -> dict[str, Any] | ICUAPIError | None:
                 if i1 <= i0:
                     return None
                 async with semaphore:
-                    return await client.get_interval_stats(activity_id, i0, i1)
+                    try:
+                        return await client.get_interval_stats(activity_id, i0, i1)
+                    except ICUAPIError as e:
+                        return e
 
             async def power_hr() -> dict[str, Any] | None:
                 try:
@@ -1201,6 +1211,10 @@ async def get_stream_stats(
                 asyncio.gather(*(icu_stats(i0, i1) for i0, i1 in index_ranges)),
                 power_hr(),
             )
+
+            failures = [r for r in icu_results if isinstance(r, ICUAPIError)]
+            if failures and len(failures) == sum(r is not None for r in icu_results):
+                raise failures[0]
 
             mask_power: list[float | None] = []
             if use_filtered and "watts" in data:
@@ -1216,6 +1230,16 @@ async def get_stream_stats(
                 window: dict[str, Any] = {"start_s": round(start), "end_s": round(end)}
                 if raw is None:
                     window["note"] = "No samples in this window"
+                    windows_out.append(window)
+                    continue
+                if isinstance(raw, ICUAPIError):
+                    window["note"] = (
+                        f"Intervals.icu stats unavailable for this window: {raw.message}"
+                    )
+                    if use_filtered:
+                        window["filtered"] = _filtered_window(
+                            i0, i1, time, data, mask_power, min_power, max_power, lag_s
+                        )
                     windows_out.append(window)
                     continue
                 icu = {
@@ -1263,16 +1287,26 @@ async def get_stream_stats(
                 if drift:
                     analysis_out["ratio_drift_pct_vs_first_window"] = drift
             if pvhr and pvhr.get("powerHr") is not None:
-                analysis_out["power_hr_whole_activity"] = {
+                # Absent values are left out, not zeroed: 0 would read as "no decoupling".
+                whole_activity: dict[str, Any] = {
                     "source": "Intervals.icu Pw:HR (watts per bpm, warm-up/cool-down excluded)",
                     "watts_per_bpm": _round(pvhr["powerHr"], 3),
-                    "first_half": _round(pvhr.get("powerHrFirst") or 0, 3),
-                    "second_half": _round(pvhr.get("powerHrSecond") or 0, 3),
-                    "decoupling_pct": _round(pvhr.get("decoupling") or 0),
-                    "hr_lag_s": pvhr.get("hrLag"),
-                    "excluded_warmup_s": pvhr.get("warmup"),
-                    "excluded_cooldown_s": pvhr.get("cooldown"),
                 }
+                for out_key, key, digits in (
+                    ("first_half", "powerHrFirst", 3),
+                    ("second_half", "powerHrSecond", 3),
+                    ("decoupling_pct", "decoupling", 1),
+                ):
+                    if isinstance(pvhr.get(key), int | float):
+                        whole_activity[out_key] = _round(pvhr[key], digits)
+                for out_key, key in (
+                    ("hr_lag_s", "hrLag"),
+                    ("excluded_warmup_s", "warmup"),
+                    ("excluded_cooldown_s", "cooldown"),
+                ):
+                    if pvhr.get(key) is not None:
+                        whole_activity[out_key] = pvhr[key]
+                analysis_out["power_hr_whole_activity"] = whole_activity
 
             result_data: dict[str, Any] = {
                 "activity_id": activity_id,
@@ -1315,7 +1349,7 @@ async def get_stream_stats(
                 data=result_data,
                 analysis=analysis_out if analysis_out else None,
                 metadata={"notes": notes},
-                query_type="stream_stats",
+                query_type="activity_window_stats",
             )
 
     except ICUAPIError as e:

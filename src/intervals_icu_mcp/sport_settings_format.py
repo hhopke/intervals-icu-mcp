@@ -51,8 +51,9 @@ def format_sport_settings_entry(
 ) -> dict[str, Any]:
     """Build an LLM-facing sport settings dict with consistent unit suffixes.
 
-    Custom field defaults are listed only in the full (include_zones) view. field_names maps custom activity field code -> display name; codes without an entry
-    are listed with the bare code.
+    Custom field defaults are listed only in the full (include_zones) view. field_names
+    maps custom activity field code -> display name; codes without an entry are listed
+    with the bare code.
     """
     sport_info: dict[str, Any] = {}
     if include_id:
@@ -100,13 +101,21 @@ def resolve_custom_field_codes(
     custom_fields: dict[str, Any], field_names: dict[str, str]
 ) -> dict[str, Any]:
     """Translate custom_fields keys (code or display name) into field codes."""
-    by_name = {name.lower(): code for code, name in field_names.items()}
+    by_name: dict[str, list[str]] = {}
+    for code, name in field_names.items():
+        by_name.setdefault(name.lower(), []).append(code)
     resolved: dict[str, Any] = {}
     for key, value in custom_fields.items():
         if key in field_names:
             code = key
         elif key.lower() in by_name:
-            code = by_name[key.lower()]
+            codes = by_name[key.lower()]
+            if len(codes) > 1:
+                raise ValueError(
+                    f"Ambiguous custom activity field name '{key}' matches codes "
+                    f"{', '.join(sorted(codes))}; use the code instead."
+                )
+            code = codes[0]
         else:
             raise ValueError(
                 f"Unknown custom activity field '{key}'. Known fields (code: name): "
