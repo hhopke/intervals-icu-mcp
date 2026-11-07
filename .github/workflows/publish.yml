@@ -18,6 +18,10 @@ name: Publish Release
 # If `pypi` or `mcp-registry` fails after publishing, re-run the failed jobs of that
 # `release` run: they reuse the tag, and `pypi` has `skip-existing: true`. Don't dispatch
 # again: with no commits past the new tag it reports "Nothing to release".
+#
+# After both publish jobs, `verify` polls PyPI and the MCP Registry for the new version
+# and smoke-tests a clean install of it. If it fails, the upload went through but the
+# release is not yet served or installable: re-run the failed jobs once that is resolved.
 on:
   workflow_dispatch:
     inputs:
@@ -167,3 +171,47 @@ jobs:
         run: |
           ./mcp-publisher login github-oidc
           ./mcp-publisher publish
+
+  # A green upload only means the call returned. Confirm the release is actually served
+  # and installable. PyPI and the registry are eventually consistent, so poll for a while.
+  verify:
+    needs: [pypi, mcp-registry]
+    if: needs.mcp-registry.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: astral-sh/setup-uv@v7
+
+      - name: Wait for PyPI and the MCP Registry to serve the version
+        run: |
+          set -euo pipefail
+          VERSION="${TAG#v}"
+          PYPI="https://pypi.org/pypi/intervals-icu-mcp/${VERSION}/json"
+          REGISTRY="https://registry.modelcontextprotocol.io/v0/servers/io.github.hhopke%2Fintervals-icu-mcp/versions/${VERSION}"
+          for attempt in $(seq 1 12); do
+            if curl -fsS -o /dev/null "$PYPI" && curl -fsS -o /dev/null "$REGISTRY"; then
+              echo "PyPI and MCP Registry both serve ${VERSION}"
+              exit 0
+            fi
+            echo "Attempt ${attempt}/12: not visible yet, retrying in 15s"
+            sleep 15
+          done
+          echo "::error::${VERSION} is not visible on PyPI and/or the MCP Registry after 3 minutes"
+          exit 1
+
+      - name: Smoke test a clean install of the published package
+        run: |
+          set -euo pipefail
+          VERSION="${TAG#v}"
+          cd "$RUNNER_TEMP"
+          # No credentials in the environment: the server must import without them.
+          uvx --no-cache --from "intervals-icu-mcp==${VERSION}" python -I -c "
+          import importlib.metadata as m
+          import intervals_icu_mcp.server as s
+          assert m.version('intervals-icu-mcp') == '${VERSION}', m.version('intervals-icu-mcp')
+          assert callable(s.main)
+          print('installed and imported', '${VERSION}')
+          "
