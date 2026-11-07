@@ -108,18 +108,22 @@ The following skills are available in `.claude/skills/`:
 
 ## Merging PRs
 
-PRs are **squash-merged only** (repo setting: commit title from `PR_TITLE`, body `BLANK`). The PR title becomes the single `main` commit subject with ` (#N)` appended — write PR titles as single-line conventional commits (≤ ~70 chars), and edit non-conforming community PR titles before merging. The title is also the release-note line and sets the version bump (see Releases), so check the type (`feat` vs `fix`) and the `!` marker before merging.
+PRs are **squash-merged only** (repo setting: commit title from `PR_TITLE`, body `BLANK`). The PR title becomes the single `main` commit subject with ` (#N)` appended — write PR titles as single-line conventional commits (≤ ~70 chars), and edit non-conforming community PR titles before merging. The title sets the version bump and is the raw input for the release notes (see Releases), so check the type (`feat` vs `fix`) and the `!` marker before merging.
 
 ## Releases
 
-Releases are **cut on demand** (no fixed schedule) and their notes are **generated from merged PR titles**. `CHANGELOG.md` is **frozen at 5.8.0** and kept for history — never add entries to it. Because squash merges make each PR title the `main` commit subject, the PR title is the release-note line *and* the version-bump input, so getting titles right at merge time is the maintainer's main release task. `pr-title.yml` fails PRs whose title isn't a conventional commit.
+Releases are **cut on demand** (no fixed schedule) as a **draft first**: the workflow creates a draft GitHub Release, the notes are written into it, and the maintainer publishes it. `CHANGELOG.md` is **frozen at 5.8.0** and kept for history — never add entries to it; release notes live only in GitHub Releases. Because squash merges make each PR title the `main` commit subject, the PR title is the version-bump input, so getting the type right at merge time matters. `pr-title.yml` fails PRs whose title isn't a conventional commit.
 
 Version bump, highest wins across everything merged since the last tag (`.github/scripts/next_version.py`):
 - `type!:` / `type(scope)!:` (or a `BREAKING CHANGE:` footer, which squash merges drop, so use `!`) → **major**
 - `feat` → **minor**
 - anything else → **patch**
 
-To cut a release: **Actions → Publish Release → Run workflow** on `main` (or `gh workflow run publish.yml --ref main`, optionally `-f version=X.Y.Z` to override the computed version). `publish.yml` then fails fast in a `preflight` job (requires `main`, checks the `server.json` description length, computes the version), runs the test suite, creates tag `vX.Y.Z` + the GitHub Release with `--generate-notes`, and publishes to PyPI and the MCP Registry in the same run. `/release-write` previews the bump and notes and dispatches it. Other release automation:
+To cut a release, use `/release-write`. It previews the bump, dispatches the workflow, writes the notes into the draft, and hands the draft over. The two steps:
+1. **Dispatch** — Actions → Publish Release → Run workflow on `main` (or `gh workflow run publish.yml --ref main`, optionally `-f version=X.Y.Z`). `publish.yml` fails fast in `preflight` (requires `main`, checks the `server.json` description length, computes the version), runs the test suite, then `draft-release` creates a **draft** Release `vX.Y.Z` pinned to the tested commit, with generated PR-title notes as a placeholder. It refuses if a draft already exists. No tag, nothing published.
+2. **Publish** — the maintainer edits the notes (user-facing, 5.8.0 CHANGELOG style: follow-up PRs folded in, chores left out, contributors credited) and publishes the draft. That creates the tag and fires `release: published`, which runs `pypi` and `mcp-registry`. It must be a person's publish (UI or `gh release edit --draft=false` under the maintainer's login); a `GITHUB_TOKEN` publish triggers nothing. Never publish a draft without the maintainer's explicit go-ahead.
+
+Other release automation:
 - Package version comes from the git tag via `hatch-vcs` (no `pyproject.toml` bump needed, no release commit)
 - `publish.yml` syncs `server.json` version from the tag; a Release created by hand in the GitHub UI still publishes via its `release: published` trigger
 - `release.yml` builds and pushes the Docker image on every push to `main`
@@ -142,5 +146,5 @@ Running list of deferred breaking cleanups (do together in the next major; keep 
 - `uv.lock` — Locked dependencies (commit this)
 - `.github/workflows/test.yml` — CI tests
 - `.github/workflows/release.yml` — Docker release automation
-- `.github/workflows/publish.yml` — Cut a release on demand (version + notes from PR titles), publish to PyPI + MCP Registry
+- `.github/workflows/publish.yml` — Cut a release on demand: dispatch creates a draft (version from PR titles); publishing it releases to PyPI + MCP Registry
 - `.github/workflows/pr-title.yml` — Enforces conventional-commit PR titles

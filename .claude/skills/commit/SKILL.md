@@ -41,7 +41,7 @@ No exceptions: trivial fixes, doc tweaks, one-liners — all go through a non-ma
 
 For `feat`, `fix`, or anything user-visible, check whether docs need updating in the same commit:
 
-- **`CHANGELOG.md`** — **don't touch it.** It is frozen at 5.8.0. Release notes are generated from merged PR titles, so the PR title is the changelog entry (see the PR title rules below).
+- **`CHANGELOG.md`** — **don't touch it.** It is frozen at 5.8.0. Release notes are written into a draft GitHub Release at release time, starting from merged PR titles and bodies (see the PR title rules below).
 - **Tool / resource / prompt counts** — if tools were added or removed, update the counts that appear in:
   - `README.md` (header/intro line and any tool tables)
   - `CLAUDE.md` (project overview line stating tool counts)
@@ -76,7 +76,7 @@ When opening a PR (`gh pr create` or user asks for one), put a closing keyword i
 
 Find the issue # in the user's prompt, branch name, or recent conversation. If unclear, ask — don't guess. After creating, verify with `gh pr view <n> --json closingIssuesReferences`; if empty, fix with `gh pr edit <n> --body-file -`.
 
-**The PR title becomes the `main` commit.** The repo is squash-only (settings: commit title from `PR_TITLE`, body `BLANK`): on merge, `main` gets exactly one commit whose subject is the PR title plus an appended ` (#N)`, and the branch's individual commits fold away. So write the PR title as you would a commit subject — single line, conventional format, ideally ≤ 70 chars to leave room for the ` (#N)` suffix — and edit non-conforming community PR titles *before* merging. The title is also the line users read in the generated release notes and it sets the version bump (`feat` → minor, `!` → major, anything else → patch): describe the user-visible change, not the code change. `pr-title.yml` rejects non-conventional titles. Body uses the existing `.github/PULL_REQUEST_TEMPLATE.md` structure (Summary / Changes / Checklist / Test plan).
+**The PR title becomes the `main` commit.** The repo is squash-only (settings: commit title from `PR_TITLE`, body `BLANK`): on merge, `main` gets exactly one commit whose subject is the PR title plus an appended ` (#N)`, and the branch's individual commits fold away. So write the PR title as you would a commit subject — single line, conventional format, ideally ≤ 70 chars to leave room for the ` (#N)` suffix — and edit non-conforming community PR titles *before* merging. The title is also the starting point for the release-note entry and it sets the version bump (`feat` → minor, `!` → major, anything else → patch): describe the user-visible change, not the code change. `pr-title.yml` rejects non-conventional titles. Body uses the existing `.github/PULL_REQUEST_TEMPLATE.md` structure (Summary / Changes / Checklist / Test plan).
 
 ## Instructions
 
