@@ -207,11 +207,20 @@ jobs:
           set -euo pipefail
           VERSION="${TAG#v}"
           cd "$RUNNER_TEMP"
+          # The simple index installers read can lag the JSON API polled above, so retry.
           # No credentials in the environment: the server must import without them.
-          uvx --no-cache --from "intervals-icu-mcp==${VERSION}" python -I -c "
+          for attempt in 1 2 3; do
+            if uvx --no-cache --from "intervals-icu-mcp==${VERSION}" python -I -c "
           import importlib.metadata as m
           import intervals_icu_mcp.server as s
           assert m.version('intervals-icu-mcp') == '${VERSION}', m.version('intervals-icu-mcp')
           assert callable(s.main)
           print('installed and imported', '${VERSION}')
-          "
+          "; then
+              exit 0
+            fi
+            echo "Attempt ${attempt}/3: install or import failed, retrying in 20s"
+            sleep 20
+          done
+          echo "::error::Clean install of intervals-icu-mcp==${VERSION} failed after 3 attempts"
+          exit 1
