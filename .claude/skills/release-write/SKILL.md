@@ -28,6 +28,7 @@ release notes live only in GitHub Releases.
 |---|---|
 | `pypi` | Builds at the new tag and publishes to PyPI |
 | `mcp-registry` | Syncs `server.json` to the tag version and publishes to the MCP Registry |
+| `verify` | Polls PyPI and the MCP Registry until both serve the version, then smoke-tests a clean `uvx` install and import of it |
 
 Version bump, highest wins across all commits since the last tag: `!` → major, `feat` → minor,
 anything else → patch. **Don't tag or create the release by hand**, and don't add a
@@ -135,18 +136,17 @@ gh release view vX.Y.Z --json url,isDraft
 Give the user the draft URL and tell them publishing it tags the commit and publishes to
 PyPI and the MCP Registry. Stop here unless they explicitly ask you to publish it (see Context).
 
-### 6. After publishing: watch both publish jobs
+### 6. After publishing: watch the release run
 
 ```bash
 gh run watch "$(gh run list --workflow=publish.yml --event=release --limit=1 --json databaseId --jq '.[0].databaseId')" --exit-status
 ```
 
-`mcp-registry` runs after `pypi` and can fail after PyPI has published, leaving a partial
-release — don't report success off the PyPI job alone. Confirm the registry entry:
-
-```bash
-curl -s "https://registry.modelcontextprotocol.io/v0/servers?search=intervals-icu-mcp" | jq '.servers[]?.version'
-```
+A green run is the success signal: `verify` only passes once PyPI and the MCP Registry both
+serve the version and a clean install imports. Don't re-check by hand. `mcp-registry` can fail
+after PyPI has published, leaving a partial release (then `verify` is skipped), so never report
+success off the `pypi` job alone. If only `verify` failed, the uploads went through but the
+release isn't served or installable yet: report which step failed.
 
 Recovery after publishing: re-run the failed jobs of the same `release` run
 (`gh run rerun <id> --failed`). They reuse the tag, and `pypi` has `skip-existing: true`.
