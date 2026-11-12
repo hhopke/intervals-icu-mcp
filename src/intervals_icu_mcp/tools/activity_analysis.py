@@ -915,8 +915,30 @@ _MAX_WINDOWS = 24
 _ICU_CONCURRENCY = 4
 
 
+# Decimals for filtered mean/median/min/max. 1 is right for watts, heart rate, cadence
+# and other large-range streams. Small-range streams need 3: rounding speed to 0.1 m/s
+# hides about 9 s/km at an easy pace, and DFA a1 thresholds sit between 0.50 and 0.75.
+# Custom streams whose name ends in "ratio" (for example GarminVerticalRatio) are
+# small-range too.
+_FILTERED_STREAM_DECIMALS: dict[str, int] = {
+    "velocity_smooth": 3,
+    "dfa_a1": 3,
+    "vertical_ratio": 3,
+}
+_DEFAULT_FILTERED_DECIMALS = 1
+
+
 def _round(value: float, digits: int = 1) -> float:
     return round(value, digits)
+
+
+def _filtered_decimals(stream: str) -> int:
+    """Decimal places for one stream's filtered mean/median/min/max."""
+    if stream in _FILTERED_STREAM_DECIMALS:
+        return _FILTERED_STREAM_DECIMALS[stream]
+    if stream.lower().endswith("ratio"):
+        return 3
+    return _DEFAULT_FILTERED_DECIMALS
 
 
 def _build_windows(
@@ -1022,11 +1044,12 @@ def _filtered_window(
         if not vals:
             streams_out[name] = {"valid_s": 0}
             continue
+        digits = _filtered_decimals(name)
         streams_out[name] = {
-            "mean": _round(statistics.fmean(vals)),
-            "median": _round(statistics.median(vals)),
-            "min": _round(min(vals)),
-            "max": _round(max(vals)),
+            "mean": _round(statistics.fmean(vals), digits),
+            "median": _round(statistics.median(vals), digits),
+            "min": _round(min(vals), digits),
+            "max": _round(max(vals), digits),
             "valid_s": len(vals),
         }
         if watts is not None and name != "watts":
@@ -1101,8 +1124,11 @@ async def get_activity_window_stats(
     HR, decoupling, breath rate, ventilation, tidal volume, DFA a1, plus hr/ve/br per watt)
     — and, when
     `streams` or a power filter is given, `filtered` — mean/median/min/max computed here on
-    samples passing the filter, plus <stream>_per_watt. `analysis` adds Intervals.icu's
-    whole-ride Pw:HR decoupling and each ratio's drift vs the first window.
+    samples passing the filter, plus <stream>_per_watt. Filtered mean/median/min/max use 1
+    decimal for watts, heart rate and similar streams, and 3 decimals for small-range
+    streams (velocity_smooth, dfa_a1, vertical_ratio, and stream names ending in "ratio").
+    `analysis` adds Intervals.icu's whole-ride Pw:HR decoupling and each ratio's drift vs
+    the first window.
 
     Breath rate comes from Tyme Wear (measured), else the HRV app (custom stream on FIT
     field RespirationRate), else the recording device (head unit/watch, `device` names
