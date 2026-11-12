@@ -527,9 +527,11 @@ async def update_event(
 ) -> str:
     """Update an existing calendar event.
 
-    Only fields you pass are sent — other fields remain unchanged. For category
-    and training_availability semantics, see intervals-icu://event-categories.
-    For WORKOUT `description` syntax, see intervals-icu://workout-syntax.
+    Only fields you pass are sent — other fields remain unchanged. If you
+    don't already have `event_id`, call icu_get_calendar_events first to find
+    it, then call this tool. For category and training_availability semantics,
+    see intervals-icu://event-categories. For WORKOUT `description` syntax,
+    see intervals-icu://workout-syntax.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
@@ -631,7 +633,9 @@ async def delete_event(
 
     In `safe` delete mode (default), past events are refused and reported
     in the `skipped` envelope with a hint about INTERVALS_ICU_DELETE_MODE=full.
-    Returns a `deleted` / `skipped` envelope either way.
+    Returns a `deleted` / `skipped` envelope either way. If you don't already
+    have `event_id`, call icu_get_calendar_events first to find it, then call
+    this tool.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
@@ -1041,7 +1045,9 @@ async def bulk_delete_events(
 
     In `safe` delete mode (default), the call partitions the input list
     into `deleted` (future) and `skipped` (past or undated) and returns
-    both. INTERVALS_ICU_DELETE_MODE=full disables the partition.
+    both. INTERVALS_ICU_DELETE_MODE=full disables the partition. If you
+    don't already have the event IDs, call icu_get_calendar_events first
+    to find them, then call this tool.
 
     Args:
         event_ids: JSON array of event IDs (integers)
@@ -1136,7 +1142,9 @@ async def duplicate_events(
     Use when the user says "repeat this workout for the next 4 weeks",
     "duplicate Monday's run on the next 3 Mondays". Reuses the existing
     events' payloads — different from icu_create_event / icu_bulk_create_events,
-    which both build NEW events from scratch.
+    which both build NEW events from scratch. If you don't already have the
+    event IDs, call icu_get_calendar_events first to find them, then call
+    this tool.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
