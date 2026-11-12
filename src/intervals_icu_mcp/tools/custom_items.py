@@ -242,10 +242,10 @@ async def update_custom_item(
     """Modify an existing custom chart/field/zones/panel.
 
     Use when the user wants to change one of their existing customizations:
-    "rename my custom field", "make this chart public". Usually need
-    icu_get_custom_items first to find the right `item_id`. Only fields you
-    pass are sent — others are left unchanged. For `content` schema, see
-    intervals-icu://custom-item-schemas.
+    "rename my custom field", "make this chart public". If you don't already
+    have `item_id`, call icu_get_custom_items first to look it up by name,
+    then call this tool. Only fields you pass are sent — others are left
+    unchanged. For `content` schema, see intervals-icu://custom-item-schemas.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
@@ -298,8 +298,9 @@ async def delete_custom_item(
     """Permanently remove one of the user's custom additions. Destructive — cannot be undone.
 
     Use when the user says "delete my custom field for X", "remove that
-    chart". Usually need icu_get_custom_items first to find the right
-    `item_id`. Confirm with the user before calling if unsure.
+    chart". If you don't already have `item_id`, call icu_get_custom_items
+    first to look it up by name, then call this tool. Confirm with the user
+    before calling if unsure.
     """
     assert ctx is not None
     config: ICUConfig = await ctx.get_state("config")
