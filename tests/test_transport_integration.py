@@ -214,6 +214,8 @@ class TestHTTPTransport:
                 server_info = init_payload["result"]["serverInfo"]
                 assert server_info["name"] == "intervals_icu_mcp"
                 assert server_info["version"] == importlib.metadata.version("intervals-icu-mcp")
+                instructions = init_payload["result"]["instructions"]
+                assert "https://www.intervals.icu/connector/" in instructions
                 session_id = init_resp.headers.get("mcp-session-id")
                 assert session_id, "Server did not issue a session id"
 

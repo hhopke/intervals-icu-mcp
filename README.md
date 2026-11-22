@@ -2,6 +2,14 @@
 
 # Intervals.icu MCP Server
 
+> ⚠️ **This project is retired.** v5.10.0 is the final release, and the repository is archived.
+>
+> Intervals.icu now runs an official hosted MCP connector: [intervals.icu/connector](https://www.intervals.icu/connector/). It needs an Intervals.icu Supporter subscription.
+>
+> This server keeps working with a free account and an API key. It gets no further updates, bug fixes or security patches. That includes the Docker image: `:latest` is no longer rebuilt, so it stops receiving base-image security fixes.
+>
+> The code stays MIT-licensed, and forks are welcome.
+
 ![intervals-icu-mcp demo](https://raw.githubusercontent.com/hhopke/intervals-icu-mcp/main/docs/demo.gif)
 
 A Model Context Protocol (MCP) server for Intervals.icu integration. Access your training data, wellness metrics, and performance analysis through Claude, ChatGPT, and other LLMs.
@@ -12,7 +20,6 @@ A Model Context Protocol (MCP) server for Intervals.icu integration. Access your
 [![intervals-icu-mcp MCP server](https://glama.ai/mcp/servers/hhopke/intervals-icu-mcp/badges/score.svg)](https://glama.ai/mcp/servers/hhopke/intervals-icu-mcp)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/hhopke/intervals-icu-mcp/blob/main/LICENSE)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-blue?logo=docker)](https://github.com/hhopke/intervals-icu-mcp/pkgs/container/intervals-icu-mcp)
-[![Sponsor](https://img.shields.io/badge/sponsor-%E2%9D%A4-ff69b4?logo=githubsponsors)](https://github.com/sponsors/hhopke)
 
 ## Overview
 
@@ -250,21 +257,10 @@ See [docs/remote-deployment.md](https://github.com/hhopke/intervals-icu-mcp/blob
 - [Remote deployment (HTTP/SSE)](https://github.com/hhopke/intervals-icu-mcp/blob/main/docs/remote-deployment.md) — transports, flags, and the security model for hosted/remote setups
 - [Testing guide](https://github.com/hhopke/intervals-icu-mcp/blob/main/docs/testing.md) — conventions for pytest + respx, fixtures, and running the suite
 - [Releases](https://github.com/hhopke/intervals-icu-mcp/releases) — release notes ([CHANGELOG.md](CHANGELOG.md) covers releases up to 5.8.0)
-- [Adding a new tool](https://github.com/hhopke/intervals-icu-mcp/blob/main/.claude/skills/add-tool/SKILL.md) — step-by-step workflow for contributors
-
-## Feedback
-
-**How are you using this?** Which tools you lean on, what your prompts look like, where it gets in your way — that shapes the roadmap more than my own guesses do.
-
-[Show and tell](https://github.com/hhopke/intervals-icu-mcp/discussions/categories/show-and-tell) · [Q&A](https://github.com/hhopke/intervals-icu-mcp/discussions/categories/q-a) · [Ideas](https://github.com/hhopke/intervals-icu-mcp/discussions/categories/ideas) · [General](https://github.com/hhopke/intervals-icu-mcp/discussions/categories/general) — or [open an issue](https://github.com/hhopke/intervals-icu-mcp/issues/new/choose) for a reproducible bug.
 
 ## Contributing
 
-**Contributions are very welcome, and none is too small** — a typo, a clearer parameter description, an extra test, a whole new tool. No Python or MCP expertise assumed. See [CONTRIBUTING.md](https://github.com/hhopke/intervals-icu-mcp/blob/main/CONTRIBUTING.md); in short, run `make can-release` before opening a PR. [Good first issues](https://github.com/hhopke/intervals-icu-mcp/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) are a gentle place to start.
-
-## Sponsor
-
-Free under the MIT License, maintained in my spare time. If it's useful to you, [GitHub Sponsors](https://github.com/sponsors/hhopke) supports continued development — entirely optional, and feedback or a PR helps just as much.
+This project no longer accepts issues or pull requests. You are welcome to fork it under the MIT License.
 
 ## License
 

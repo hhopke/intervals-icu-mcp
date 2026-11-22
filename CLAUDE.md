@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code when working with this repository.
 
+> **Project status: retired.** v5.10.0 is the final release; no new features are planned. The release and automation sections below are kept for history.
+
 ## Project Overview
 
 MCP (Model Context Protocol) server for Intervals.icu — provides up to 73 tools, 4 resources, and 9 prompts for accessing training data, wellness metrics, and performance analysis through Claude and other LLMs. The default `INTERVALS_ICU_DELETE_MODE=safe` registers 70 tools; `full` registers all 73, `none` registers 64.
@@ -142,7 +144,7 @@ Running list of deferred breaking cleanups (do together in the next major; keep 
 
 - `.env` — Local credentials (not in git)
 - `.env.example` — Template for credentials
-- `openapi-spec.json` — Intervals.icu API specification. Kept up to date automatically via `.github/workflows/update-openapi.yml` (or run `curl -s https://intervals.icu/api/v1/docs > openapi-spec.json` to update locally).
+- `openapi-spec.json` — Intervals.icu API specification, frozen (no longer refreshed automatically). To update it manually: `curl -s https://intervals.icu/api/v1/docs > openapi-spec.json`
 - `uv.lock` — Locked dependencies (commit this)
 - `.github/workflows/test.yml` — CI tests
 - `.github/workflows/release.yml` — Docker release automation

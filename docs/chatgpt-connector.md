@@ -1,5 +1,7 @@
 # ChatGPT Custom Connector Setup
 
+> The official Intervals.icu connector supports ChatGPT directly: https://www.intervals.icu/connector/. This walkthrough is kept for existing self-hosted setups.
+
 > ⚠️ **Unverified.** The steps below are derived from OpenAI's and FastMCP's docs but have not been confirmed end-to-end against this server. Plan-tier eligibility for custom MCP connectors changes frequently — always check OpenAI's [current connector docs](https://help.openai.com/en/articles/12584461-developer-mode-apps-and-full-mcp-connectors-in-chatgpt-beta) before assuming your plan supports it. PRs from anyone who has confirmed the flow are welcome.
 
 ## Requirements (as of writing)

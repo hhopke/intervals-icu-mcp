@@ -1,5 +1,7 @@
 # Contributing
 
+> **This project is retired.** v5.10.0 is the final release and the repository is archived, so contributions are no longer accepted. Forks are welcome under the MIT License. The guide below is kept for history and for anyone maintaining a fork.
+
 Thanks for your interest in improving the Intervals.icu MCP server. **Contributions are heavily welcomed, and none is too small** — a typo, a clearer parameter description, one extra test case, a good bug report. No Python or MCP expertise assumed, and a draft PR is a fine way to ask for help.
 
 ## Ways to help

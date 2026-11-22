@@ -1,7 +1,7 @@
 [project]
 name = "intervals-icu-mcp"
 dynamic = ["version"]
-description = "Model Context Protocol server for Intervals.icu — access training data, wellness metrics, and performance analysis from Claude, ChatGPT, and other LLMs."
+description = "Retired community MCP server for Intervals.icu — see the official connector at https://www.intervals.icu/connector/."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -21,7 +21,7 @@ keywords = [
     "sports-analytics",
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 7 - Inactive",
     "Intended Audience :: Developers",
     "Intended Audience :: End Users/Desktop",
     "Operating System :: OS Independent",
