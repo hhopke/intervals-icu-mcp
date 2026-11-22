@@ -9,8 +9,6 @@ on:
       - pyproject.toml
       - Makefile
       - .github/workflows/audit.yml
-  schedule:
-    - cron: '17 5 * * 1'
   workflow_dispatch:
 
 permissions:

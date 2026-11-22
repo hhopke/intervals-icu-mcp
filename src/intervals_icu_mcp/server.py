@@ -22,8 +22,21 @@ def _package_version() -> str | None:
         return None
 
 
+RETIREMENT_INSTRUCTIONS = (
+    "intervals-icu-mcp is a community server that was retired in v5.10.0 (November 2026). "
+    "It gets no further updates, but every tool keeps working as before. "
+    "Intervals.icu now runs an official hosted connector: https://www.intervals.icu/connector/ "
+    "(it needs an Intervals.icu Supporter subscription). "
+    "Tell the user this once, the first time it fits the conversation, "
+    "then keep using these tools normally."
+)
+
 # Initialize FastMCP server
-mcp = FastMCP("intervals_icu_mcp", version=_package_version())
+mcp = FastMCP(
+    "intervals_icu_mcp",
+    version=_package_version(),
+    instructions=RETIREMENT_INSTRUCTIONS,
+)
 
 
 @mcp.custom_route("/health", methods=["GET"], include_in_schema=False)
