@@ -6,6 +6,7 @@ actually serves MCP requests correctly over both the in-memory transport and
 the HTTP (streamable-http) transport exposed by `--transport http`.
 """
 
+import importlib.metadata
 import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -210,7 +211,9 @@ class TestHTTPTransport:
                 assert init_resp.status_code == 200
                 init_body_text = (await init_resp.aread()).decode()
                 init_payload = self._parse_sse_response(init_body_text)
-                assert init_payload["result"]["serverInfo"]["name"] == "intervals_icu_mcp"
+                server_info = init_payload["result"]["serverInfo"]
+                assert server_info["name"] == "intervals_icu_mcp"
+                assert server_info["version"] == importlib.metadata.version("intervals-icu-mcp")
                 session_id = init_resp.headers.get("mcp-session-id")
                 assert session_id, "Server did not issue a session id"
 

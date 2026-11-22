@@ -1,6 +1,7 @@
 """Intervals.icu MCP Server - FastMCP entry point."""
 
 import argparse
+import importlib.metadata
 import sys
 from typing import Any
 
@@ -12,8 +13,17 @@ from starlette.responses import JSONResponse
 # Load environment variables
 load_dotenv()
 
+
+def _package_version() -> str | None:
+    """Return the installed package version, or None so FastMCP keeps its default."""
+    try:
+        return importlib.metadata.version("intervals-icu-mcp")
+    except importlib.metadata.PackageNotFoundError:
+        return None
+
+
 # Initialize FastMCP server
-mcp = FastMCP("intervals_icu_mcp")
+mcp = FastMCP("intervals_icu_mcp", version=_package_version())
 
 
 @mcp.custom_route("/health", methods=["GET"], include_in_schema=False)
