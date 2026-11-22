@@ -704,6 +704,84 @@ class TestGetActivityWindowStats:
         assert filtered["ratios"]["heartrate_per_watt"] == round(127.5 / 225, 3)
         assert data["aliases_applied"] == {"VE": "tidal_volume_min"}
 
+    async def test_filtered_precision_follows_stream_range(self, mock_config, respx_mock):
+        """Small-range streams keep 3 decimals; watts and HR stay at 1."""
+        ride = {
+            "time": [0, 1, 2],
+            "watts": [200.14, 200.26, 200.19],
+            "heartrate": [127.14, 127.26, 127.19],
+            "cadence": [84.14, 84.26, 84.19],
+            "velocity_smooth": [2.9564, 2.9712, 3.0048],
+            "dfa_a1": [0.492, 0.488, 0.501],
+            "vertical_ratio": [6.8424, 6.8512, 6.8476],
+            "GarminVerticalRatio": [6.8424, 6.8512, 6.8476],
+            "tidal_volume_min": [40.0, 41.0, 42.0],
+        }
+        respx_mock.get("/activity/a1/streams.json").mock(side_effect=_streams_route(ride))
+        respx_mock.get("/activity/a1/interval-stats").mock(
+            return_value=Response(200, json={"average_watts": 200.2, "average_heartrate": 127.2})
+        )
+        respx_mock.get("/activity/a1/power-vs-hr.json").mock(return_value=Response(404))
+
+        result = await get_activity_window_stats(
+            activity_id="a1",
+            streams=[
+                "velocity_smooth",
+                "dfa_a1",
+                "vertical_ratio",
+                "GarminVerticalRatio",
+                "cadence",
+            ],
+            ctx=_make_ctx(mock_config),
+        )
+        streams = json.loads(result)["data"]["windows"][0]["filtered"]["streams"]
+
+        # 1 decimal would collapse dfa_a1 to 0.5 and velocity_smooth to 3.0.
+        assert streams["dfa_a1"] == {
+            "mean": 0.494,
+            "median": 0.492,
+            "min": 0.488,
+            "max": 0.501,
+            "valid_s": 3,
+        }
+        assert streams["velocity_smooth"] == {
+            "mean": 2.977,
+            "median": 2.971,
+            "min": 2.956,
+            "max": 3.005,
+            "valid_s": 3,
+        }
+        ratio_stats = {
+            "mean": 6.847,
+            "median": 6.848,
+            "min": 6.842,
+            "max": 6.851,
+            "valid_s": 3,
+        }
+        assert streams["vertical_ratio"] == ratio_stats
+        assert streams["GarminVerticalRatio"] == ratio_stats
+        assert streams["watts"] == {
+            "mean": 200.2,
+            "median": 200.2,
+            "min": 200.1,
+            "max": 200.3,
+            "valid_s": 3,
+        }
+        assert streams["heartrate"] == {
+            "mean": 127.2,
+            "median": 127.2,
+            "min": 127.1,
+            "max": 127.3,
+            "valid_s": 3,
+        }
+        assert streams["cadence"] == {
+            "mean": 84.2,
+            "median": 84.2,
+            "min": 84.1,
+            "max": 84.3,
+            "valid_s": 3,
+        }
+
     async def test_power_smoothing_applies_to_filter(self, mock_config, respx_mock):
         self._mock(respx_mock)
 
